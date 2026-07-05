@@ -695,7 +695,7 @@ public class OrchestratorService : IOrchestratorService
 
     #region Helpers
 
-    private static bool IsFatalEnvironmentalError(Exception ex)
+    internal static bool IsFatalEnvironmentalError(Exception ex)
     {
         if (ex is IOException ioEx)
         {
@@ -790,7 +790,7 @@ public class OrchestratorService : IOrchestratorService
     /// </summary>
     /// <param name="cuePath">Path to the CUE file</param>
     /// <returns>List of full paths to referenced BIN files</returns>
-    private static List<string> GetReferencedBinFilesFromCue(string cuePath)
+    internal static List<string> GetReferencedBinFilesFromCue(string cuePath)
     {
         var binFiles = new List<string>();
         var cueFolder = Path.GetDirectoryName(cuePath);

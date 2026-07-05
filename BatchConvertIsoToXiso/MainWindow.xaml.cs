@@ -20,6 +20,7 @@ public partial class MainWindow
     private readonly IBugReportService _bugReportService;
     private readonly IMessageBoxService _messageBoxService;
     private readonly IUrlOpener _urlOpener;
+    private readonly IScreenshotService _screenshotService;
 
     // Summary Stats
     private readonly Stopwatch _operationStopwatch = new();
@@ -44,7 +45,7 @@ public partial class MainWindow
     private FileEntry? _currentDirectoryEntry;
 
     public MainWindow(IUpdateChecker updateChecker, ILogger logger, IBugReportService bugReportService,
-        IMessageBoxService messageBoxService, IUrlOpener urlOpener,
+        IMessageBoxService messageBoxService, IUrlOpener urlOpener, IScreenshotService screenshotService,
         IOrchestratorService orchestratorService, IDiskMonitorService diskMonitorService, INativeIsoIntegrityService nativeIsoTester)
     {
         InitializeComponent();
@@ -54,6 +55,7 @@ public partial class MainWindow
         _bugReportService = bugReportService;
         _messageBoxService = messageBoxService;
         _urlOpener = urlOpener;
+        _screenshotService = screenshotService;
         _orchestratorService = orchestratorService;
         _diskMonitorService = diskMonitorService;
         _nativeIsoTester = nativeIsoTester;
@@ -187,5 +189,25 @@ public partial class MainWindow
     private void ExitMenuItem_Click(object sender, RoutedEventArgs e)
     {
         Application.Current.Shutdown();
+    }
+
+    private async void Window_KeyDownAsync(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        try
+        {
+            if (e.Key == System.Windows.Input.Key.F8)
+            {
+                e.Handled = true;
+                var filePath = await _screenshotService.CaptureActiveWindowAsync();
+                if (filePath is not null)
+                {
+                    _logger.LogMessage($"Screenshot captured: {filePath}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _ = _bugReportService.SendBugReportAsync("Error in method Window_KeyDownAsync", ex);
+        }
     }
 }

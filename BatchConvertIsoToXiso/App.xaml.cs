@@ -163,6 +163,7 @@ public partial class App
         services.AddSingleton<IDiskMonitorService, DiskMonitorService>();
         services.AddSingleton<IMessageBoxService, MessageBoxService>();
         services.AddSingleton<IUrlOpener, UrlOpenerService>();
+        services.AddSingleton<IScreenshotService, ScreenshotService>();
         services.AddTransient<IFileExtractor, FileExtractorService>(static provider => new FileExtractorService(provider.GetRequiredService<ILogger>(), provider.GetRequiredService<IBugReportService>()));
         services.AddTransient<IFileMover, FileMoverService>(static provider => new FileMoverService(provider.GetRequiredService<ILogger>(), provider.GetRequiredService<IBugReportService>(), provider.GetRequiredService<IDiskMonitorService>()));
         services.AddTransient<AboutWindow>();

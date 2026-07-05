@@ -113,8 +113,7 @@ public class XdvdfsService : IXdvdfsService
                 return false;
             }
 
-            _logger.LogMessage($"[ERROR] xdvdfs.exe exited with code {process.ExitCode} for '{fileName}'.");
-            _ = _bugReportService.SendBugReportAsync($"xdvdfs.exe exited with code {process.ExitCode} for '{fileName}'");
+            _logger.LogMessage($"[ERROR] xdvdfs.exe exited with code {process.ExitCode} for '{fileName}'. The ISO file may be invalid, corrupt, or not a supported Xbox ISO format.");
             return false;
         }
         catch (OperationCanceledException)

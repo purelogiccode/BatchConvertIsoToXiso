@@ -25,7 +25,7 @@
         <!-- ==================== TERMINAL COLORS (PRESERVED) ==================== -->
         <SolidColorBrush x:Key="TerminalBackgroundBrush" Color="#0a0a0a"/>
         <SolidColorBrush x:Key="TerminalBorderBrush" Color="#1a1a1a"/>
-        <SolidColorBrush x:Key="TerminalForegroundBrush" Color="#39FF14"/>
+        <SolidColorBrush x:Key="TerminalForegroundBrush" Color="#ffffff"/>
         <SolidColorBrush x:Key="TerminalSelectedBrush" Color="#2a2a2a"/>
 
         <!-- ==================== WINDOW & BACKGROUND COLORS ==================== -->
@@ -70,9 +70,9 @@
         <SolidColorBrush x:Key="ActionButtonPressedBrush" Color="#008ba3"/>
 
         <!-- Start/Success Button (Green - harmonizes with terminal) -->
-        <SolidColorBrush x:Key="StartButtonBrush" Color="#4caf50"/>
-        <SolidColorBrush x:Key="StartButtonHoverBrush" Color="#66bb6a"/>
-        <SolidColorBrush x:Key="StartButtonPressedBrush" Color="#388e3c"/>
+        <SolidColorBrush x:Key="StartButtonBrush" Color="#00bcd4"/>
+        <SolidColorBrush x:Key="StartButtonHoverBrush" Color="#00e5ff"/>
+        <SolidColorBrush x:Key="StartButtonPressedBrush" Color="#008ba3"/>
 
         <!-- Cancel/Error Button (Soft Red) -->
         <SolidColorBrush x:Key="CancelButtonBrush" Color="#f85149"/>
@@ -85,9 +85,9 @@
         <SolidColorBrush x:Key="AboutButtonPressedBrush" Color="#5e35b1"/>
 
         <!-- Exit Button (Slate Gray) -->
-        <SolidColorBrush x:Key="ExitButtonBrush" Color="#607d8b"/>
-        <SolidColorBrush x:Key="ExitButtonHoverBrush" Color="#78909c"/>
-        <SolidColorBrush x:Key="ExitButtonPressedBrush" Color="#455a64"/>
+        <SolidColorBrush x:Key="ExitButtonBrush" Color="#7c4dff"/>
+        <SolidColorBrush x:Key="ExitButtonHoverBrush" Color="#9e7bff"/>
+        <SolidColorBrush x:Key="ExitButtonPressedBrush" Color="#5e35b1"/>
 
         <!-- Disabled State -->
         <SolidColorBrush x:Key="DisabledButtonBrush" Color="#3d454f"/>

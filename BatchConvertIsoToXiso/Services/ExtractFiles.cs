@@ -582,11 +582,9 @@ public class FileExtractorService : IFileExtractor
             // Cloud file errors are environmental, do not report as bugs
             throw new IOException(userMessage, ex);
         }
-        catch (CryptographicException cryptoEx)
+        catch (CryptographicException)
         {
             _logger.LogMessage($"ERROR: {archiveFileName} is encrypted/password-protected. This application cannot extract password-protected archives. Please extract the archive manually using a tool that supports passwords (e.g., WinRAR, 7-Zip) and re-package it without encryption.");
-
-            _ = _bugReportService.SendBugReportAsync($"Error extracting {archiveFileName}: Encrypted archive detected (password-protected).", cryptoEx);
 
             return false;
         }
@@ -597,7 +595,9 @@ public class FileExtractorService : IFileExtractor
             {
                 _logger.LogMessage($"ERROR: The file '{archiveFileName}' is currently in use by another process. Close any programs that may have the file open (file explorer preview, zip tools, antivirus, download manager, etc.) and try again.");
             }
-            else if (ex.Message.Contains("End of stream reached", StringComparison.OrdinalIgnoreCase))
+            else if (ex is EndOfStreamException ||
+                     ex.Message.Contains("End of stream reached", StringComparison.OrdinalIgnoreCase) ||
+                     ex.Message.Contains("Unable to read beyond the end of the stream", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogMessage($"ERROR: {archiveFileName} appears to be corrupt or incomplete. The file may have been damaged during download or transfer. Please re-download the archive and try again.");
             }
@@ -644,10 +644,13 @@ public class FileExtractorService : IFileExtractor
             if (!isEnvironmentalError &&
                 ex is not ArchiveException &&
                 ex is not ArchiveOperationException &&
+                ex is not EndOfStreamException &&
+                ex is not CryptographicException &&
                 !ex.Message.Contains("Data error", StringComparison.OrdinalIgnoreCase) &&
                 !ex.Message.Contains("Invalid archive", StringComparison.OrdinalIgnoreCase) &&
                 !ex.Message.Contains("Unsupported archive", StringComparison.OrdinalIgnoreCase) &&
                 !ex.Message.Contains("End of stream reached", StringComparison.OrdinalIgnoreCase) &&
+                !ex.Message.Contains("Unable to read beyond the end of the stream", StringComparison.OrdinalIgnoreCase) &&
                 !ex.Message.Contains("Bad state", StringComparison.OrdinalIgnoreCase) &&
                 !ex.Message.Contains("being used by another process", StringComparison.OrdinalIgnoreCase))
             {
