@@ -13,6 +13,7 @@ A high-performance Windows WPF utility for the Xbox preservation and emulation c
 ## 📋 Table of Contents
 
 - [Overview](#overview)
+- [Screenshots](#screenshots)
 - [Key Features](#key-features)
 - [Installation](#installation)
 - [Usage](#usage)
@@ -20,7 +21,6 @@ A high-performance Windows WPF utility for the Xbox preservation and emulation c
 - [Architecture](#architecture)
 - [System Requirements](#system-requirements)
 - [Safety & Reliability](#safety--reliability)
-- [Screenshots](#screenshots)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
 
@@ -31,6 +31,19 @@ A high-performance Windows WPF utility for the Xbox preservation and emulation c
 **Batch ISO to XISO Converter** streamlines the process of converting standard Xbox and Xbox 360 ISOs into the optimized, trimmed **XISO** format. Built with a flexible multi-engine architecture, the tool combines a **native C# XDVDFS engine** with robust **external tool integration** (extract-xiso and xdvdfs), delivering superior performance and modern features like real-time disk write monitoring.
 
 Whether you're managing a large collection of Xbox game backups or verifying the integrity of your dumps, this application provides a user-friendly interface with powerful batch processing capabilities.
+
+---
+
+## Screenshots
+
+![Convert Tab](screenshot.png)
+*Batch conversion interface with real-time progress monitoring*
+
+![Test Tab](screenshot2.png)
+*ISO integrity testing with batch organization*
+
+![Explorer Tab](screenshot3.png)
+*XISO file browser*
 
 ---
 
@@ -248,19 +261,6 @@ For a deep dive into the XDVDFS format, binary file structures, and the internal
 - **Cloud-Aware Retry**: Automatic retries with exponential backoff for cloud-synced files (OneDrive, etc.)
 - **Encrypted Archive Handling**: Gracefully detects password-protected and encrypted archives, providing clear user guidance instead of cryptic errors
 - **Process Isolation**: External tools run in isolated processes with cancellation support
-
----
-
-## Screenshots
-
-![Convert Tab](screenshot.png)
-*Batch conversion interface with real-time progress monitoring*
-
-![Test Tab](screenshot2.png)
-*ISO integrity testing with batch organization*
-
-![Explorer Tab](screenshot3.png)
-*XISO file browser*
 
 ---
 
