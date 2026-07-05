@@ -22,7 +22,6 @@ public class OrchestratorServiceTests : IDisposable
             {
                 // ignored
             }
-            GC.SuppressFinalize(this);
         }
 
         try { if (Directory.Exists(_tempDir)) Directory.Delete(_tempDir, true); }
@@ -30,6 +29,7 @@ public class OrchestratorServiceTests : IDisposable
         {
             // ignored
         }
+        GC.SuppressFinalize(this);
     }
 
     private string CreateTempFile(string name, string content = "")

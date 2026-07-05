@@ -213,7 +213,7 @@ public class OrchestratorService : IOrchestratorService
         }
         finally
         {
-            await CleanupTempFoldersAsync(tempFoldersToCleanUp, progress);
+            await CleanupTempFoldersAsync(tempFoldersToCleanUp, progress, token);
         }
     }
 
@@ -769,14 +769,14 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
-    private static async Task CleanupTempFoldersAsync(List<string> folders, IProgress<BatchOperationProgress> progress)
+    private static async Task CleanupTempFoldersAsync(List<string> folders, IProgress<BatchOperationProgress> progress, CancellationToken token)
     {
         if (folders.Count == 0) return;
 
         progress.Report(new BatchOperationProgress { LogMessage = "Cleaning up temporary folders..." });
         foreach (var folder in folders.ToList())
         {
-            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(folder, 5, 1000, null);
+            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(folder, 5, 1000, null, token);
         }
     }
 

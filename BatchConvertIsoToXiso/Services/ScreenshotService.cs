@@ -114,34 +114,39 @@ public class ScreenshotService : IScreenshotService
         var hBitmap = CreateCompatibleBitmap(screenDc, width, height);
         var oldBitmap = SelectObject(memDc, hBitmap);
 
-        BitBlt(memDc, 0, 0, width, height, screenDc, rect.Left, rect.Top, Srccopy);
-
-        SelectObject(memDc, oldBitmap);
-
-        var bitmapSource = Imaging.CreateBitmapSourceFromHBitmap(
-            hBitmap,
-            IntPtr.Zero,
-            Int32Rect.Empty,
-            BitmapSizeOptions.FromEmptyOptions());
-
-        DeleteObject(hBitmap);
-        DeleteDC(memDc);
-        _ = ReleaseDC(IntPtr.Zero, screenDc);
-
-        var screenshotsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Screenshots");
-        Directory.CreateDirectory(screenshotsDir);
-
-        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
-        var filePath = Path.Combine(screenshotsDir, $"Screenshot_{timestamp}.png");
-
-        using (var fileStream = new FileStream(filePath, FileMode.Create))
+        try
         {
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
-            encoder.Save(fileStream);
-        }
+            BitBlt(memDc, 0, 0, width, height, screenDc, rect.Left, rect.Top, Srccopy);
 
-        _logger.LogMessage($"Screenshot saved: {filePath}");
-        return filePath;
+            SelectObject(memDc, oldBitmap);
+
+            var bitmapSource = Imaging.CreateBitmapSourceFromHBitmap(
+                hBitmap,
+                IntPtr.Zero,
+                Int32Rect.Empty,
+                BitmapSizeOptions.FromEmptyOptions());
+
+            var screenshotsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Screenshots");
+            Directory.CreateDirectory(screenshotsDir);
+
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+            var filePath = Path.Combine(screenshotsDir, $"Screenshot_{timestamp}.png");
+
+            using (var fileStream = new FileStream(filePath, FileMode.Create))
+            {
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
+                encoder.Save(fileStream);
+            }
+
+            _logger.LogMessage($"Screenshot saved: {filePath}");
+            return filePath;
+        }
+        finally
+        {
+            DeleteObject(hBitmap);
+            DeleteDC(memDc);
+            _ = ReleaseDC(IntPtr.Zero, screenDc);
+        }
     }
 }
