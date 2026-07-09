@@ -131,7 +131,7 @@ public class ExtractXisoService : IExtractXisoService
                     {
                         // Move the converted file to the final destination
                         _logger.LogMessage("  Moving converted file to output folder...");
-                        File.Move(tempInputFile, outputPath, true);
+                        await MoveFileWithFallbackAsync(tempInputFile, outputPath, token);
                         _logger.LogMessage($"Successfully converted '{fileName}' to XISO format.");
                         return true;
                     }
@@ -159,7 +159,7 @@ public class ExtractXisoService : IExtractXisoService
                     {
                         // Move the converted file to the final destination
                         _logger.LogMessage("  Moving converted file to output folder...");
-                        File.Move(possibleOutputs[0], outputPath, true);
+                        await MoveFileWithFallbackAsync(possibleOutputs[0], outputPath, token);
                         _logger.LogMessage($"Successfully converted '{fileName}' to XISO format (found: {Path.GetFileName(possibleOutputs[0])}).");
                         return true;
                     }
@@ -265,6 +265,41 @@ public class ExtractXisoService : IExtractXisoService
 
                 await Task.Delay(attempt * 2000, token);
             }
+        }
+    }
+
+    /// <summary>
+    /// Moves a file to the destination, falling back to copy+delete when a direct move fails.
+    /// A direct File.Move across different volumes (or when overwriting an existing file on some
+    /// file systems) can throw IOException "The parameter is incorrect", so we retry by copying
+    /// the bytes and deleting the source.
+    /// </summary>
+    private static async Task MoveFileWithFallbackAsync(string sourcePath, string destPath, CancellationToken token)
+    {
+        try
+        {
+            if (File.Exists(destPath)) File.Delete(destPath);
+            File.Move(sourcePath, destPath);
+            return;
+        }
+        catch (IOException)
+        {
+            // Fall back to copy + delete (handles cross-volume moves and overwrite quirks)
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Fall back to copy + delete
+        }
+
+        await CopyFileWithProgressAsync(sourcePath, destPath, token);
+
+        try
+        {
+            File.Delete(sourcePath);
+        }
+        catch
+        {
+            // Source cleanup failure is non-fatal; temp directory is deleted afterwards anyway
         }
     }
 
