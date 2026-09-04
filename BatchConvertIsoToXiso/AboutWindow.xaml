@@ -183,7 +183,7 @@
                         </Hyperlink>
                     </TextBlock>
                     <TextBlock Margin="0,4,0,0" ToolTip="Visit the project's GitHub repository">
-                        <Hyperlink NavigateUri="https://github.com/drpetersonfernandes/BatchConvertIsoToXiso"
+                        <Hyperlink NavigateUri="https://github.com/purelogiccode/BatchConvertIsoToXiso"
                                    RequestNavigate="Hyperlink_RequestNavigate"
                                    Foreground="{StaticResource LinkTextBrush}"
                                    TextDecorations="Underline">

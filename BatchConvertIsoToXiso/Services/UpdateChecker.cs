@@ -9,7 +9,7 @@ namespace BatchConvertIsoToXiso.Services;
 
 public partial class UpdateChecker : IUpdateChecker
 {
-    private const string GitHubApiUrl = "https://api.github.com/repos/drpetersonfernandes/BatchConvertIsoToXiso/releases/latest";
+    private const string GitHubApiUrl = "https://api.github.com/repos/purelogiccode/BatchConvertIsoToXiso/releases/latest";
     private readonly HttpClient _httpClient;
     private readonly string _currentVersion;
 
