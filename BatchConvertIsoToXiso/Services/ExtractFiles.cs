@@ -241,6 +241,35 @@ public class FileExtractorService : IFileExtractor
         }
     }
 
+    /// <summary>
+    /// Waits until the archive file is no longer locked by another process, using
+    /// exponential backoff. Locks are typically transient (antivirus scans, downloads
+    /// finishing, zip tools flushing) and resolve on their own within a few seconds.
+    /// </summary>
+    private async Task WaitForFileUnlockedAsync(string archivePath, string archiveFileName, CancellationToken token)
+    {
+        const int maxAttempts = 6;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            if (!IsFileLocked(archivePath)) return;
+
+            if (attempt < maxAttempts)
+            {
+                var delayMs = 1000 * (1 << (attempt - 1)); // 1s, 2s, 4s, 8s, 16s
+                _logger.LogMessage($"  {archiveFileName} is in use by another process. Waiting {delayMs / 1000}s before retrying... (attempt {attempt}/{maxAttempts - 1})");
+                await Task.Delay(delayMs, token);
+            }
+        }
+
+        if (IsFileLocked(archivePath))
+        {
+            throw new IOException(
+                $"The file '{archiveFileName}' is currently in use by another process. " +
+                "Please close any programs that may have the file open (file explorer, zip tools, antivirus, download manager, etc.) and try again.");
+        }
+    }
+
     private async Task<bool> TryExtractWithSevenZipCliAsync(string archivePath, string extractionPath, CancellationToken token)
     {
         var archiveFileName = Path.GetFileName(archivePath);
@@ -346,12 +375,9 @@ public class FileExtractorService : IFileExtractor
 
             VerifyDriveReady(archivePath);
 
-            if (IsFileLocked(archivePath))
-            {
-                throw new IOException(
-                    $"The file '{archiveFileName}' is currently in use by another process. " +
-                    "Please close any programs that may have the file open (file explorer, zip tools, antivirus, download manager, etc.) and try again.");
-            }
+            // A locked archive is often transient (antivirus scanning the file right after
+            // download, a zip tool still flushing, etc.) — wait and retry before giving up.
+            await WaitForFileUnlockedAsync(archivePath, archiveFileName, token);
 
             await ExecuteWithRetryAsync(() =>
                 {
@@ -637,7 +663,8 @@ public class FileExtractorService : IFileExtractor
                                         ioEx.Message.Contains("nicht mehr verfügbar", StringComparison.OrdinalIgnoreCase) ||
                                         ioEx.Message.Contains("n'est plus disponible", StringComparison.OrdinalIgnoreCase) ||
                                         ioEx.Message.Contains("not enough space", StringComparison.OrdinalIgnoreCase) ||
-                                        ioEx.Message.Contains("being used by another process", StringComparison.OrdinalIgnoreCase));
+                                        ioEx.Message.Contains("being used by another process", StringComparison.OrdinalIgnoreCase) ||
+                                        ioEx.Message.Contains("in use by another process", StringComparison.OrdinalIgnoreCase));
 
             // Filter out common archive errors (corruption, wrong password, etc.) from bug reports
             // Note: Cloud file errors are now reported as they indicate potential app compatibility issues
@@ -649,10 +676,11 @@ public class FileExtractorService : IFileExtractor
                 !ex.Message.Contains("Data error", StringComparison.OrdinalIgnoreCase) &&
                 !ex.Message.Contains("Invalid archive", StringComparison.OrdinalIgnoreCase) &&
                 !ex.Message.Contains("Unsupported archive", StringComparison.OrdinalIgnoreCase) &&
-                !ex.Message.Contains("End of stream reached", StringComparison.OrdinalIgnoreCase) &&
-                !ex.Message.Contains("Unable to read beyond the end of the stream", StringComparison.OrdinalIgnoreCase) &&
-                !ex.Message.Contains("Bad state", StringComparison.OrdinalIgnoreCase) &&
-                !ex.Message.Contains("being used by another process", StringComparison.OrdinalIgnoreCase))
+                 !ex.Message.Contains("End of stream reached", StringComparison.OrdinalIgnoreCase) &&
+                 !ex.Message.Contains("Unable to read beyond the end of the stream", StringComparison.OrdinalIgnoreCase) &&
+                 !ex.Message.Contains("Bad state", StringComparison.OrdinalIgnoreCase) &&
+                 !ex.Message.Contains("being used by another process", StringComparison.OrdinalIgnoreCase) &&
+                 !ex.Message.Contains("in use by another process", StringComparison.OrdinalIgnoreCase))
             {
                 _ = _bugReportService.SendBugReportAsync($"Error extracting {archiveFileName}", ex);
             }

@@ -172,7 +172,7 @@ public partial class App
         services.AddSingleton<IXdvdfsService, XdvdfsService>();
         services.AddSingleton<IOrchestratorService, OrchestratorService>();
         services.AddSingleton<INativeIsoIntegrityService>(static provider => new NativeIsoIntegrityService(provider.GetRequiredService<ILogger>(), provider.GetRequiredService<IBugReportService>()));
-        services.AddSingleton(static provider => new XisoWriter(provider.GetRequiredService<ILogger>(), provider.GetRequiredService<INativeIsoIntegrityService>(), provider.GetRequiredService<IBugReportService>()));
+        services.AddSingleton(static provider => new XisoWriter(provider.GetRequiredService<ILogger>(), provider.GetRequiredService<INativeIsoIntegrityService>(), provider.GetRequiredService<IBugReportService>(), provider.GetRequiredService<IDiskMonitorService>()));
         services.AddTransient<MainWindow>();
     }
 

@@ -9,11 +9,11 @@ public class FileMoverService : IFileMover
     private readonly IBugReportService _bugReportService;
     private readonly IDiskMonitorService _diskMonitorService;
 
-    // Maximum retry attempts for network operations
-    private const int MaxRetryAttempts = 5;
+    // Maximum retry attempts for file move operations
+    private const int MaxRetryAttempts = 6;
 
     // Initial delay in milliseconds (will be used for exponential backoff)
-    private const int InitialRetryDelayMs = 500;
+    private const int InitialRetryDelayMs = 1000;
 
     public FileMoverService(ILogger logger, IBugReportService bugReportService, IDiskMonitorService diskMonitorService)
     {
@@ -66,16 +66,9 @@ public class FileMoverService : IFileMover
             // Check if either source or destination is a network path
             var isNetworkOperation = PathHelper.IsNetworkPath(sourceFile) || PathHelper.IsNetworkPath(destinationFolder);
 
-            if (isNetworkOperation)
-            {
-                // Use retry logic for network operations
-                await MoveFileWithNetworkRetryAsync(sourceFile, destinationFile, fileName, token);
-            }
-            else
-            {
-                // Local operation - no retry needed
-                await Task.Run(() => File.Move(sourceFile, destinationFile), token);
-            }
+            // Both local and network moves can fail transiently (antivirus scanning a
+            // newly created file, network glitches, etc.) — always use retry logic.
+            await MoveFileWithRetryAsync(sourceFile, destinationFile, fileName, isNetworkOperation, token);
 
             _logger.LogMessage($"  Moved {fileName} ({moveReason}) to {destinationFolder}");
         }
@@ -92,9 +85,10 @@ public class FileMoverService : IFileMover
     }
 
     /// <summary>
-    /// Moves a file with retry logic and exponential backoff for network transient errors.
+    /// Moves a file with retry logic and exponential backoff for transient errors
+    /// (file locked by another process, network issues, etc.).
     /// </summary>
-    private async Task MoveFileWithNetworkRetryAsync(string source, string dest, string fileName, CancellationToken token)
+    private async Task MoveFileWithRetryAsync(string source, string dest, string fileName, bool isNetworkOperation, CancellationToken token)
     {
         Exception? lastException = null;
 
@@ -105,24 +99,22 @@ public class FileMoverService : IFileMover
                 await Task.Run(() => File.Move(source, dest), token);
                 return; // Success
             }
-            catch (IOException ex) when (PathHelper.IsNetworkError(ex))
+            catch (IOException ex) when (attempt < MaxRetryAttempts - 1)
             {
                 lastException = ex;
 
-                if (attempt < MaxRetryAttempts - 1)
-                {
-                    // Exponential backoff: 500ms, 1000ms, 2000ms, 4000ms, etc.
-                    var delayMs = InitialRetryDelayMs * (int)Math.Pow(2, attempt);
-                    _logger.LogMessage($"  Network error moving {fileName}, retrying in {delayMs}ms... (attempt {attempt + 1}/{MaxRetryAttempts})");
-                    await Task.Delay(delayMs, token);
-                }
+                // Exponential backoff: 1000ms, 2000ms, 4000ms, 8000ms, 16000ms, etc.
+                var delayMs = InitialRetryDelayMs * (int)Math.Pow(2, attempt);
+                var reason = isNetworkOperation ? "Network error" : "File is locked or in use";
+                _logger.LogMessage($"  {reason} moving {fileName}, retrying in {delayMs}ms... (attempt {attempt + 1}/{MaxRetryAttempts})");
+                await Task.Delay(delayMs, token);
             }
         }
 
         // All retries exhausted
         if (lastException != null)
         {
-            throw new IOException($"Failed to move file after {MaxRetryAttempts} attempts due to network errors. Last error: {lastException.Message}", lastException);
+            throw new IOException($"Failed to move file after {MaxRetryAttempts} attempts. Last error: {lastException.Message}", lastException);
         }
     }
 }

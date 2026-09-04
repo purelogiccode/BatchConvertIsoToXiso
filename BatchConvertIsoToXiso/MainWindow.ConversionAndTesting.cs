@@ -182,7 +182,13 @@ public partial class MainWindow
         catch (Exception ex)
         {
             _logger.LogMessage($"Critical Error: {ex.Message}");
-            _ = _bugReportService.SendBugReportAsync("Critical error during batch conversion", ex);
+
+            // Environmental errors (disk space, network, disconnected drives) are not
+            // application bugs — the user already gets a clear message from the orchestrator.
+            if (!PathHelper.IsDiskSpaceError(ex) && !PathHelper.IsNetworkError(ex))
+            {
+                _ = _bugReportService.SendBugReportAsync("Critical error during batch conversion", ex);
+            }
         }
         finally
         {
@@ -295,7 +301,13 @@ public partial class MainWindow
         catch (Exception ex)
         {
             _logger.LogMessage($"Critical Error: {ex.Message}");
-            _ = _bugReportService.SendBugReportAsync("Critical error during batch test", ex);
+
+            // Environmental errors (disk space, network, disconnected drives) are not
+            // application bugs — the user already gets a clear message from the orchestrator.
+            if (!PathHelper.IsDiskSpaceError(ex) && !PathHelper.IsNetworkError(ex))
+            {
+                _ = _bugReportService.SendBugReportAsync("Critical error during batch test", ex);
+            }
         }
         finally
         {

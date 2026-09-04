@@ -17,6 +17,7 @@ public class XisoWriter
     private readonly ILogger _logger;
     private readonly INativeIsoIntegrityService _integrityService;
     private readonly IBugReportService _bugReportService;
+    private readonly IDiskMonitorService _diskMonitorService;
     private static readonly long[] XisoOffset = [0x18300000, 0xFD90000, 0x89D80000, 0x2080000];
     private static readonly long[] XisoLength = [0x1A2DB0000, 0x1B3880000, 0xBF8A0000, 0x204510000];
     private static readonly long[] RedumpIsoLength = [0x1D26A8000, 0x1D3301800, 0x1D2FEF800, 0x1D3082000, 0x1D3390000, 0x1D31A0000, 0x208E05800, 0x208E03800];
@@ -55,11 +56,12 @@ public class XisoWriter
         }
     }
 
-    public XisoWriter(ILogger logger, INativeIsoIntegrityService integrityService, IBugReportService bugReportService)
+    public XisoWriter(ILogger logger, INativeIsoIntegrityService integrityService, IBugReportService bugReportService, IDiskMonitorService diskMonitorService)
     {
         _logger = logger;
         _integrityService = integrityService;
         _bugReportService = bugReportService;
+        _diskMonitorService = diskMonitorService;
     }
 
     public Task<FileProcessingStatus> RewriteIsoAsync(string sourcePath, string destPath, bool skipSystemUpdate, bool checkIntegrity, IProgress<BatchOperationProgress> progress, CancellationToken token)
@@ -168,6 +170,19 @@ public class XisoWriter
                 else
                 {
                     _logger.LogMessage("Detected Redump ISO. Extracting...");
+                }
+
+                // Pre-check free space on the output drive. Running out of space mid-write
+                // leaves a corrupt partial file and a confusing "disk full" exception.
+                var expectedOutputSizeBytes = (lastValidSector + 1) * Utils.SectorSize - inputOffset;
+                var availableSpace = _diskMonitorService.GetAvailableFreeSpace(destPath);
+                var requiredSpace = expectedOutputSizeBytes + Math.Max(expectedOutputSizeBytes / 10, 200L * 1024 * 1024);
+                if (availableSpace > 0 && availableSpace < requiredSpace)
+                {
+                    _logger.LogMessage($"[ERROR] Not enough disk space to create '{Path.GetFileName(destPath)}'. " +
+                                       $"Required: {Formatter.FormatBytes(expectedOutputSizeBytes)}, Available: {Formatter.FormatBytes(availableSpace)}. " +
+                                       "Please free up disk space or select a different output folder.");
+                    return FileProcessingStatus.Failed;
                 }
 
                 try
@@ -338,6 +353,21 @@ public class XisoWriter
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (Exception ex) when (PathHelper.IsDiskSpaceError(ex))
+            {
+                // Clean up the partial output file left behind by the failed write
+                try
+                {
+                    if (File.Exists(destPath)) File.Delete(destPath);
+                }
+                catch
+                {
+                    /* ignore cleanup errors */
+                }
+
+                _logger.LogMessage($"[ERROR] Not enough disk space to create '{Path.GetFileName(destPath)}'. Please free up disk space or select a different output folder. ({ex.Message})");
+                return FileProcessingStatus.Failed;
             }
             catch (Exception ex)
             {

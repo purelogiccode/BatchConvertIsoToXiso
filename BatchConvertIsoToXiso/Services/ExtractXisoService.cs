@@ -38,6 +38,17 @@ public class ExtractXisoService : IExtractXisoService
         // Create a temporary working directory for simplified filenames
         // extract-xiso has issues with spaces and special characters in paths
         var inputFileSize = new FileInfo(inputFile).Length;
+
+        // Pre-check the output drive before doing any work. A direct File.Move of the
+        // converted file to a full output drive fails late with a confusing error after
+        // minutes of conversion work.
+        var outputCheck = CheckOutputDriveAsync(inputFile, inputFileSize, outputFolder);
+        if (outputCheck != null)
+        {
+            _logger.LogMessage($"[ERROR] {outputCheck}");
+            return false;
+        }
+
         var tempWorkDir = ResolveTempDirectory(inputFileSize, "BatchConvertIsoToXiso_Work");
 
         try
@@ -106,7 +117,7 @@ public class ExtractXisoService : IExtractXisoService
                 };
 
                 process.Start();
-                process.PriorityClass = ProcessPriorityClass.BelowNormal;
+                SetProcessPrioritySafe(process);
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
 
@@ -203,6 +214,20 @@ public class ExtractXisoService : IExtractXisoService
                 "Please check that the drive is connected and the path exists.");
             throw;
         }
+        catch (UnauthorizedAccessException)
+        {
+            _logger.LogMessage($"[ERROR] Access denied while converting '{fileName}'.\n\n" +
+                "The output folder may be write-protected or require administrator rights.\n" +
+                "Please choose a different output folder or run the application as administrator.");
+            return false;
+        }
+        catch (IOException ex) when (ex.Message.Contains("parameter is incorrect", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogMessage($"[ERROR] Failed to move the converted file for '{fileName}': {ex.Message}\n\n" +
+                "The output drive may not support files of this size or format (e.g. FAT32 is limited to 4 GB per file).\n" +
+                "Please use an NTFS or exFAT formatted output drive.");
+            return false;
+        }
         catch (Exception ex)
         {
             _logger.LogMessage($"[ERROR] Failed to convert '{fileName}': {ex.Message}");
@@ -224,6 +249,73 @@ public class ExtractXisoService : IExtractXisoService
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Safely sets the process priority. The process may exit between Start() and the
+    /// priority assignment, which throws InvalidOperationException ("Cannot process
+    /// request because the process has exited"). This race is benign and can be ignored.
+    /// </summary>
+    private static void SetProcessPrioritySafe(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.PriorityClass = ProcessPriorityClass.BelowNormal;
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Process exited before the priority could be set; nothing to do
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // Not allowed to change priority (e.g. restricted token); non-fatal
+        }
+    }
+
+    /// <summary>
+    /// Validates that the output drive can hold the converted file before the conversion
+    /// starts. Returns an error message when the output drive is full or uses a file system
+    /// that cannot store files of this size (FAT32 4 GB limit); otherwise returns null.
+    /// </summary>
+    private string? CheckOutputDriveAsync(string inputFile, long inputFileSize, string outputFolder)
+    {
+        try
+        {
+            var availableSpace = _diskMonitorService.GetAvailableFreeSpace(outputFolder);
+            var requiredWithBuffer = inputFileSize + Math.Max(inputFileSize / 10, 200L * 1024 * 1024);
+
+            if (availableSpace > 0 && availableSpace < requiredWithBuffer)
+            {
+                return $"Not enough disk space on the output drive for '{Path.GetFileName(inputFile)}'. " +
+                       $"Required: {Formatter.FormatBytes(inputFileSize)}, Available: {Formatter.FormatBytes(availableSpace)}. " +
+                       "Please free up disk space or select a different output folder.";
+            }
+
+            var fullPath = Path.GetFullPath(outputFolder);
+            if (PathHelper.IsUncPath(fullPath)) return null;
+
+            var root = Path.GetPathRoot(fullPath);
+            if (string.IsNullOrEmpty(root)) return null;
+
+            var drive = new DriveInfo(root);
+            if (drive.IsReady &&
+                drive.DriveFormat.Equals("FAT32", StringComparison.OrdinalIgnoreCase) &&
+                inputFileSize > 4L * 1024 * 1024 * 1024 - 1)
+            {
+                return $"The output drive '{drive.Name}' uses FAT32, which cannot store files larger than 4 GB. " +
+                       $"'{Path.GetFileName(inputFile)}' is {Formatter.FormatBytes(inputFileSize)}. " +
+                       "Please use an NTFS or exFAT formatted output drive.";
+            }
+        }
+        catch
+        {
+            // Pre-check failures are non-fatal; the conversion will surface real errors if they occur
+        }
+
+        return null;
     }
 
     /// <summary>
