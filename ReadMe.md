@@ -2,9 +2,9 @@
 
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/drpetersonfernandes/BatchConvertIsoToXiso/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
-[![GitHub release](https://img.shields.io/github/v/release/drpetersonfernandes/BatchConvertIsoToXiso)](https://github.com/drpetersonfernandes/BatchConvertIsoToXiso/releases)
+[![GitHub release](https://img.shields.io/github/v/release/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases)
 
 A high-performance Windows WPF utility for the Xbox preservation and emulation community. Convert, verify, and explore Xbox and Xbox 360 ISO files with dual-engine support: a native C# XDVDFS engine and external tool integration.
 
@@ -88,7 +88,7 @@ Whether you're managing a large collection of Xbox game backups or verifying the
     - **ARM64**: The built-in modified "Deterous Logic" is supported; the other two logics may also work.
 
 ### Steps
-1. Download the latest release from the [Releases](https://github.com/drpetersonfernandes/BatchConvertIsoToXiso/releases) page
+1. Download the latest release from the [Releases](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases) page
 2. Extract the ZIP file to your desired location
 3. Run `BatchConvertIsoToXiso.exe`
 
@@ -235,7 +235,7 @@ Utilizes `Microsoft.Extensions.DependencyInjection` for comprehensive service ma
 A comprehensive [xUnit](https://xunit.net/) test suite (`BatchConvertIsoToXiso.Tests`) covers models, services, and XISO services with over 25 test files, using [Moq](https://github.com/devlooped/moq) for mocking.
 
 ### Technical Documentation
-For a deep dive into the XDVDFS format, binary file structures, and the internal conversion algorithm, see the [XDVDFS Technical Documentation](wiki.md).
+For a deep dive into the XDVDFS format, binary file structures, and the internal conversion algorithm, see the [XDVDFS Technical Documentation](docs/XDVDFS-Technical-Documentation.md). The full documentation (including installation, usage, troubleshooting, and architecture) lives in the [docs folder](docs/index.md) and doubles as the repository wiki.
 
 ---
 

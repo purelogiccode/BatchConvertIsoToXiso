@@ -1,30 +1,31 @@
 # XDVDFS Technical Documentation
 
+| Getting Started | Using the App | Technical Reference | Project |
+|---|---|---|---|
+| [Home](index.md) | [Usage Guide](Usage-Guide.md) | [Architecture](Architecture.md) | [Repository](Repository.md) |
+| [Installation](Installation.md) | [Conversion Methods](Conversion-Methods.md) | [**XDVDFS Technical Docs**](XDVDFS-Technical-Documentation.md) | [Building from Source](Building-from-Source.md) |
+| | [XISO Explorer](XISO-Explorer.md) | [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) | |
+
+---
+
 ## Table of Contents
 
 1. [Introduction](#introduction)
 2. [What is XDVDFS?](#what-is-xdvdfs)
 3. [XISO File Structure](#xiso-file-structure)
 4. [The XDVDFS.cs Class](#the-xdvdfs-class)
-   - [Core Responsibilities](#core-responsibilities)
-   - [Key Constants](#key-constants)
-   - [Internal Structures](#internal-structures)
 5. [Algorithm Deep Dive](#algorithm-deep-dive)
-   - [Directory Traversal](#directory-traversal)
-   - [Sector Collection](#sector-collection)
-   - [Range Consolidation](#range-consolidation)
 6. [File Entry Structure](#file-entry-structure)
 7. [Volume Descriptor](#volume-descriptor)
 8. [Process Flow Diagrams](#process-flow-diagrams)
 9. [Integration with XisoWriter](#integration-with-xisowriter)
+10. [Summary](#summary)
 
 ---
 
 ## Introduction
 
 The `XDVDFS.cs` class is the heart of the native C# XISO processing engine in the Batch ISO to XISO Converter. It implements the Xbox Disc Volume Descriptor File System (XDVDFS) traversal logic to identify, validate, and extract meaningful data from Xbox and Xbox 360 ISO images.
-
----
 
 ## What is XDVDFS?
 
@@ -39,13 +40,11 @@ The `XDVDFS.cs` class is the heart of the native C# XISO processing engine in th
 | Magic String | `MICROSOFT*XBOX*MEDIA` | Volume descriptor identifier |
 | Tree Structure | Binary Search Tree | Directory entries organized as BST |
 
----
-
 ## XISO File Structure
 
 An XISO file has a specific layout that differs from standard ISO 9660:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           XISO FILE LAYOUT                                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -62,38 +61,34 @@ An XISO file has a specific layout that differs from standard ISO 9660:
 │  ┌─────────────────────┐                                                     │
 │  │  Root Directory     │  Contains file entries as binary tree nodes        │
 │  │  Table              │  Each entry: 14 bytes header + filename            │
-│  │                     │                                                     │
 │  └──────────┬──────────┘                                                     │
 │             │                                                                │
 │             ▼                                                                │
 │  ┌─────────────────────┐                                                     │
 │  │  Subdirectories &   │  More directory tables or file data                │
 │  │  File Data          │  organized throughout the image                    │
-│  │                     │                                                     │
 │  └─────────────────────┘                                                     │
 │                                                                              │
 │  Note: Standard Xbox ISOs (Redump format) have the game partition at        │
 │        offset 0x18300000 (XGD1), 0xFD90000 (XGD2), etc.                      │
-│                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
-
----
 
 ## The XDVDFS.cs Class
 
 ### Location
-```
+
+```text
 BatchConvertIsoToXiso/Services/XisoServices/XDVDFS/XDVDFS.cs
 ```
 
 ### Core Responsibilities
 
-The [`Xdvdfs`](BatchConvertIsoToXiso/Services/XisoServices/XDVDFS/XDVDFS.cs) static class performs three critical functions:
+The `Xdvdfs` static class performs three critical functions:
 
-1. **Filesystem Traversal**: Navigates the binary tree structure of directory entries
-2. **Sector Collection**: Identifies all sectors containing valid data (files + metadata)
-3. **Range Optimization**: Consolidates contiguous sectors into ranges for efficient copying
+1. **Filesystem Traversal** — navigates the binary tree structure of directory entries
+2. **Sector Collection** — identifies all sectors containing valid data (files + metadata)
+3. **Range Optimization** — consolidates contiguous sectors into ranges for efficient copying
 
 ### Key Constants
 
@@ -105,7 +100,7 @@ public static readonly byte[] Magic = "XBOX_DVD_LAYOUT_TOOL_SIG"u8.ToArray();
 | Constant | Value | Purpose |
 |----------|-------|---------|
 | `XisoHeaderOffset` | 0x10000 (65536) | Offset to XISO header from partition start |
-| `SectorSize` | 2048 | Bytes per sector (from Utils) |
+| `SectorSize` | 2048 | Bytes per sector (from `Utils`) |
 
 ### Internal Structures
 
@@ -122,15 +117,13 @@ private struct DirectoryWorkItem
 }
 ```
 
----
-
 ## Algorithm Deep Dive
 
 ### Directory Traversal
 
 The XDVDFS uses an **iterative depth-first traversal** using a stack, avoiding recursion limits for deep directory structures:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    BINARY TREE TRAVERSAL VISUALIZATION                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -154,10 +147,10 @@ The XDVDFS uses an **iterative depth-first traversal** using a stack, avoiding r
 │           ┌─────────────┼─────────────┐                                     │
 │           ▼             ▼             ▼                                     │
 │      ┌─────────┐   ┌─────────┐   ┌─────────┐                               │
-│      │  Left   │   │ Current│   │  Right  │                               │
-│      │ Child   │   │ Entry  │   │ Child   │                               │
-│      │ (0x0002)│   │        │   │ (0x0005)│                               │
-│      └────┬────┘   └────────┘   └────┬────┘                               │
+│      │  Left   │   │ Current │   │  Right  │                               │
+│      │  Child  │   │ Entry   │   │  Child  │                               │
+│      │ (0x0002)│   │         │   │ (0x0005)│                               │
+│      └────┬────┘   └─────────┘   └────┬────┘                               │
 │           │                          │                                     │
 │           ▼                          ▼                                     │
 │      ┌─────────┐               ┌─────────┐                                 │
@@ -166,25 +159,24 @@ The XDVDFS uses an **iterative depth-first traversal** using a stack, avoiding r
 │      └─────────┘               └─────────┘                                 │
 │                                                                              │
 │  Traversal Order: Right → Current → Left (stack-based DFS)                  │
-│                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 #### Traversal Algorithm Steps
 
-1. **Initialize Stack**: Push root directory onto stack with `ChildOffset = 0`
-2. **Pop Entry**: Get next work item from stack
-3. **Cycle Detection**: Check if we've visited this position before (prevents infinite loops)
-4. **Read Entry**: Parse the binary entry structure from the file stream
-5. **Process Children**: Push right child, then after processing current, push left child
-6. **Collect Sectors**: Add file/directory sectors to the valid sectors list
+1. **Initialize Stack** — push root directory onto the stack with `ChildOffset = 0`
+2. **Pop Entry** — get the next work item from the stack
+3. **Cycle Detection** — check if this position was visited before (prevents infinite loops)
+4. **Read Entry** — parse the binary entry structure from the file stream
+5. **Process Children** — push the right child, then after processing the current entry, push the left child
+6. **Collect Sectors** — add file/directory sectors to the valid sectors list
 
 ```csharp
 // The stack-based iterative approach (simplified)
 while (stack.Count > 0)
 {
     var item = stack.Pop();
-    
+
     // Read entry at current position
     var leftChildOffset = Utils.ReadUShort(isoFs);   // 0xFFFF = no child
     var rightChildOffset = Utils.ReadUShort(isoFs);
@@ -192,17 +184,17 @@ while (stack.Count > 0)
     var entrySize = Utils.ReadUInt(isoFs);
     var attributes = (byte)isoFs.ReadByte();
     var nameLength = (byte)isoFs.ReadByte();
-    
+
     // Push right child to stack (processed later)
     if (rightChildOffset != 0xFFFF)
         stack.Push(item with { ChildOffset = rightChildOffset * 4 });
-    
+
     // Process current entry (file or directory)
     if (isDirectory)
         ProcessDirectory(entrySector, entrySize);
     else
         ProcessFile(entrySector, entrySize);
-    
+
     // Push left child to stack
     if (leftChildOffset != 0xFFFF)
         stack.Push(item with { ChildOffset = leftChildOffset * 4 });
@@ -213,7 +205,7 @@ while (stack.Count > 0)
 
 As the tree is traversed, the algorithm collects sectors containing valid data:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         SECTOR COLLECTION LOGIC                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -249,7 +241,6 @@ As the tree is traversed, the algorithm collects sectors containing valid data:
 │     │  - Sector Count: 3  (ceil(5000/2048))                            │    │
 │     │  - Sectors: 500, 501, 502                                        │    │
 │     └──────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -257,7 +248,7 @@ As the tree is traversed, the algorithm collects sectors containing valid data:
 
 After collecting all valid sectors, they are sorted and consolidated into contiguous ranges:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                      RANGE CONSOLIDATION ALGORITHM                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -268,10 +259,10 @@ After collecting all valid sectors, they are sorted and consolidated into contig
 │                                                                              │
 │  Step 2: Group contiguous sequences                                         │
 │                                                                              │
-│          [8, 9, 10] → Range (8, 10)                                         │
-│          [50, 51, 52, 53] → Range (50, 53)                                  │
-│          [100] → Range (100, 100)                                           │
-│          [200, 201, 202] → Range (200, 202)                                 │
+│          [8, 9, 10]        → Range (8, 10)                                  │
+│          [50, 51, 52, 53]  → Range (50, 53)                                 │
+│          [100]             → Range (100, 100)                               │
+│          [200, 201, 202]   → Range (200, 202)                               │
 │                                                                              │
 │  Output: [(8, 10), (50, 53), (100, 100), (200, 202)]                        │
 │                                                                              │
@@ -289,17 +280,14 @@ After collecting all valid sectors, they are sorted and consolidated into contig
 │  - Range 4: Large File                                                      │
 │                                                                              │
 │  Result: Only 4 copy operations instead of 11 individual sector copies!     │
-│                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
-
----
 
 ## File Entry Structure
 
 Each file/directory entry in XDVDFS follows this binary format:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                      FILE ENTRY BINARY STRUCTURE                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -338,17 +326,14 @@ Each file/directory entry in XDVDFS follows this binary format:
 │  - Attributes:   0x00 (regular file)                                        │
 │  - NameLength:   0x0A (10 characters)                                       │
 │  - FileName:     "default.xbe"                                              │
-│                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
----
-
 ## Volume Descriptor
 
-The [`VolumeDescriptor`](BatchConvertIsoToXiso/Services/XisoServices/XDVDFS/VolumeDescriptor.cs) class handles the XISO header validation:
+The `VolumeDescriptor` class (`BatchConvertIsoToXiso/Services/XisoServices/XDVDFS/VolumeDescriptor.cs`) handles the XISO header validation:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                      VOLUME DESCRIPTOR STRUCTURE                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -370,35 +355,32 @@ The [`VolumeDescriptor`](BatchConvertIsoToXiso/Services/XisoServices/XDVDFS/Volu
 │  Validation Strategy (tried in order):                                      │
 │                                                                              │
 │  ┌──────────┐     ┌──────────┐     ┌──────────┐                            │
-│  │  Try 1   │──┐  │  Try 2   │──┐  │  Try 3   │                            │
-│  │ Sector   │  │  │ Game     │  │  │ Sector   │                            │
-│  │ 32 @ 0   │  │  │ Partition│  │  │ 0 @ 0    │                            │
-│  │ (Standard│  │  │ Offset   │  │  │ (Rebuilt │                            │
-│  │  XISO)   │  │  │ (Redump) │  │  │  XISO)   │                            │
-│  └──────────┘  │  └──────────┘  │  └──────────┘                            │
-│       │        │       │        │       │                                   │
-│       ▼        │       ▼        │       ▼                                   │
-│    Success?    │    Success?    │    Success?                               │
-│    ┌──────┐    │    ┌──────┐    │    ┌──────┐                               │
-│    │ Yes  │────┘    │ Yes  │────┘    │ Yes  │                               │
-│    └──┬───┘         └──┬───┘         └──┬───┘                               │
+│  │  Try 1   │     │  Try 2   │     │  Try 3   │                            │
+│  │ Sector   │     │ Game     │     │ Sector   │                            │
+│  │ 32 @ 0   │     │ Partition│     │ 0 @ 0    │                            │
+│  │ (Standard│     │ Offset   │     │ (Rebuilt │                            │
+│  │  XISO)   │     │ (Redump) │     │  XISO)   │                            │
+│  └──────────┘     └──────────┘     └──────────┘                            │
 │       │                │                │                                   │
 │       ▼                ▼                ▼                                   │
-│    Return Volume   Return Volume   Return Volume                            │
-│    Descriptor      Descriptor      Descriptor                               │
+│    Success?          Success?         Success?                              │
+│    ┌──────┐          ┌──────┐         ┌──────┐                              │
+│    │ Yes  │          │ Yes  │         │ Yes  │                              │
+│    └──┬───┘          └──┬───┘         └──┬───┘                              │
+│       │                 │                │                                  │
+│       ▼                 ▼                ▼                                  │
+│    Return Volume     Return Volume    Return Volume                         │
+│    Descriptor        Descriptor       Descriptor                           │
 │                                                                              │
 │    If all fail → Throw InvalidDataException                                 │
-│                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
-
----
 
 ## Process Flow Diagrams
 
 ### Complete XISO Processing Flow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    COMPLETE XISO CONVERSION FLOW                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -425,10 +407,8 @@ The [`VolumeDescriptor`](BatchConvertIsoToXiso/Services/XisoServices/XDVDFS/Volu
 │  │                                 │                             │          │
 │  │  1. Read Volume Descriptor      │                             │          │
 │  │     └─ Validate magic IDs       │                             │          │
-│  │                                 │                             │          │
 │  │  2. Add Header Sectors          │                             │          │
 │  │     └─ Sectors at 0x10000       │                             │          │
-│  │                                 │                             │          │
 │  │  3. Traverse File Tree ────────►│                             │          │
 │  │     (iterative DFS)             │                             │          │
 │  │     ├─ For each directory:      │                             │          │
@@ -436,18 +416,15 @@ The [`VolumeDescriptor`](BatchConvertIsoToXiso/Services/XisoServices/XDVDFS/Volu
 │  │     │  Recurse into subdirs     │                             │          │
 │  │     └─ For each file:           │                             │          │
 │  │        Add file data sectors    │                             │          │
-│  │                                 │                             │          │
 │  │  4. Sort & Consolidate          │                             │          │
 │  │     └─ Create ranges from       │                             │          │
 │  │        contiguous sectors       │                             │          │
-│  │                                 │                             │          │
 │  └────────┬────────────────────────┘                             │          │
 │           │                                                      │          │
 │           │ Returns List<(Start, End)>                           │          │
 │           ▼                                                      │          │
 │  ┌─────────────────────────────────┐                             │          │
 │  │  Copy Valid Ranges to Output    │                             │          │
-│  │                                 │                             │          │
 │  │  For each range (start, end):   │                             │          │
 │  │  ┌───────────────────────────┐  │                             │          │
 │  │  │ Seek to start * 2048      │  │                             │          │
@@ -456,7 +433,6 @@ The [`VolumeDescriptor`](BatchConvertIsoToXiso/Services/XisoServices/XDVDFS/Volu
 │  │  │ Write to output file      │  │                             │          │
 │  │  │ Report progress           │  │                             │          │
 │  │  └───────────────────────────┘  │                             │          │
-│  │                                 │                             │          │
 │  └────────┬────────────────────────┘                             │          │
 │           │                                                      │          │
 │           ▼                                                      │          │
@@ -464,21 +440,18 @@ The [`VolumeDescriptor`](BatchConvertIsoToXiso/Services/XisoServices/XDVDFS/Volu
 │  │  Optional: Verify Output        │                             │          │
 │  │  └─ Run XDVDFS validation on    │─────────────────────────────┘          │
 │  │     the newly created XISO      │   (Recursive call for verification)    │
-│  └─────────────────────────────────┘                                        │
-│                                                                              │
+│  └────────┬────────────────────────┘                                         │
+│           ▼                                                                  │
 │  ┌──────────────┐                                                            │
 │  │  Optimized   │                                                            │
 │  │  XISO File   │                                                            │
 │  └──────────────┘                                                            │
-│                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
----
-
 ## Integration with XisoWriter
 
-The [`XisoWriter`](BatchConvertIsoToXiso/Services/XisoServices/XisoWriter.cs) class uses XDVDFS to perform the actual ISO conversion:
+The `XisoWriter` class (`BatchConvertIsoToXiso/Services/XisoServices/XisoWriter.cs`) uses XDVDFS to perform the actual ISO conversion:
 
 ```csharp
 // From XisoWriter.cs - how GetXisoRanges is used:
@@ -505,22 +478,22 @@ foreach (var (startSector, endSector) in validRanges)
 {
     var startPos = startSector * Utils.SectorSize;
     var length = (endSector - startSector + 1) * Utils.SectorSize;
-    
+
     isoFs.Seek(inputOffset + startPos, SeekOrigin.Begin);
     Utils.FillBuffer(isoFs, xisoFs, -1, length, buffer);
 }
 ```
 
----
+Before writing, `XisoWriter` also verifies that the destination drive has enough free space for the expected output size (plus a safety margin) and cleans up partial files if a disk-full condition occurs mid-write.
 
 ## Summary
 
 The `XDVDFS.cs` class is a sophisticated implementation of Xbox filesystem traversal that:
 
-1. **Parses binary structures** - Decodes the proprietary XDVDFS format
-2. **Traverses efficiently** - Uses iterative DFS to avoid stack overflow
-3. **Validates thoroughly** - Detects cycles and validates magic signatures
-4. **Optimizes storage** - Consolidates sectors into minimal copy ranges
-5. **Supports variants** - Handles standard XISOs, Redump ISOs, and rebuilt images
+1. **Parses binary structures** — decodes the proprietary XDVDFS format
+2. **Traverses efficiently** — uses iterative DFS to avoid stack overflow
+3. **Validates thoroughly** — detects cycles and validates magic signatures
+4. **Optimizes storage** — consolidates sectors into minimal copy ranges
+5. **Supports variants** — handles standard XISOs, Redump ISOs, and rebuilt images
 
 This class enables the application to strip away padding and system update data, producing optimized XISO files that are smaller but fully functional for emulation and preservation purposes.
