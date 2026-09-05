@@ -10,5 +10,6 @@ public interface IExtractXisoService
     /// <param name="skipSystemUpdate">Whether to skip the $SystemUpdate folder</param>
     /// <param name="token">Cancellation token</param>
     /// <returns>True if conversion was successful, false otherwise</returns>
-    Task<bool> ConvertIsoToXisoAsync(string inputFile, string outputFolder, bool skipSystemUpdate, CancellationToken token);
+    Task<bool> ConvertIsoToXisoAsync(string inputFile, string outputFolder, bool skipSystemUpdate,
+        CancellationToken token);
 }

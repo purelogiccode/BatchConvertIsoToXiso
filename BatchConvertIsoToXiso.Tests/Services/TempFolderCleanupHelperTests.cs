@@ -17,7 +17,9 @@ public class TempFolderCleanupHelperTests
             TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(nonExistentPath, 3, 100, mockLogger.Object));
 
         Assert.Null(exception);
-        mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("WARNING") || s.Contains("Failed"))), Times.Never);
+        mockLogger.Verify(
+            static x => x.LogMessage(It.Is<string>(static s => s.Contains("WARNING") || s.Contains("Failed"))),
+            Times.Never);
     }
 
     [Fact]
@@ -34,7 +36,8 @@ public class TempFolderCleanupHelperTests
             await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempDir, 3, 100, mockLogger.Object);
 
             Assert.False(Directory.Exists(tempDir));
-            mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("Successfully deleted"))), Times.Once);
+            mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("Successfully deleted"))),
+                Times.Once);
         }
         finally
         {
@@ -65,7 +68,9 @@ public class TempFolderCleanupHelperTests
         {
             await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempDir, 3, 100, mockLogger.Object);
 
-            mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("Successfully deleted temp folder:"))), Times.Once);
+            mockLogger.Verify(
+                static x => x.LogMessage(It.Is<string>(static s => s.Contains("Successfully deleted temp folder:"))),
+                Times.Once);
         }
         finally
         {

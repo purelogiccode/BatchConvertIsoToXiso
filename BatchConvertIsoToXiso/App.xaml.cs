@@ -66,8 +66,10 @@ public partial class App
                 // Handle font/WPF rendering issues gracefully
                 await HandleFontRenderingErrorAsync(sehEx);
             }
-            catch (InvalidOperationException opEx) when (opEx.Message.Contains("font", StringComparison.OrdinalIgnoreCase) ||
-                                                         opEx.Message.Contains("FontFamily", StringComparison.OrdinalIgnoreCase))
+            catch (InvalidOperationException opEx) when (opEx.Message.Contains("font",
+                                                             StringComparison.OrdinalIgnoreCase) ||
+                                                         opEx.Message.Contains("FontFamily",
+                                                             StringComparison.OrdinalIgnoreCase))
             {
                 // Handle font-related InvalidOperationException
                 await HandleFontRenderingErrorAsync(opEx);
@@ -82,11 +84,25 @@ public partial class App
         catch (SEHException sehEx)
         {
             // Handle SEH exceptions during service setup
-            try { await HandleFontRenderingErrorAsync(sehEx); } catch { /* prevent async void crash */ }
+            try
+            {
+                await HandleFontRenderingErrorAsync(sehEx);
+            }
+            catch
+            {
+                /* prevent async void crash */
+            }
         }
         catch (Exception ex)
         {
-            try { _ = ReportExceptionAsync(ex, "Bug OnStartup"); } catch { /* prevent async void crash */ }
+            try
+            {
+                _ = ReportExceptionAsync(ex, "Bug OnStartup");
+            }
+            catch
+            {
+                /* prevent async void crash */
+            }
         }
     }
 
@@ -138,21 +154,26 @@ public partial class App
     private static void ConfigureServices(IServiceCollection services)
     {
         services.AddHttpClient("BugReport", static client => { client.BaseAddress = new Uri(BugReportApiUrl); })
-            .ConfigurePrimaryHttpMessageHandler(static () => new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10) });
+            .ConfigurePrimaryHttpMessageHandler(static () => new SocketsHttpHandler
+                { PooledConnectionLifetime = TimeSpan.FromMinutes(10) });
         services.AddHttpClient("Stats", static client => { client.BaseAddress = new Uri(StatsApiUrl); })
-            .ConfigurePrimaryHttpMessageHandler(static () => new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10) });
+            .ConfigurePrimaryHttpMessageHandler(static () => new SocketsHttpHandler
+                { PooledConnectionLifetime = TimeSpan.FromMinutes(10) });
         services.AddHttpClient("UpdateChecker")
-            .ConfigurePrimaryHttpMessageHandler(static () => new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10) });
+            .ConfigurePrimaryHttpMessageHandler(static () => new SocketsHttpHandler
+                { PooledConnectionLifetime = TimeSpan.FromMinutes(10) });
 
         services.AddSingleton<IBugReportService>(static provider =>
         {
             var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
-            return new BugReportService(httpClientFactory.CreateClient("BugReport"), BugReportApiUrl, BugReportApiKey, ApplicationName);
+            return new BugReportService(httpClientFactory.CreateClient("BugReport"), BugReportApiUrl, BugReportApiKey,
+                ApplicationName);
         });
         services.AddSingleton<IStatsService>(static provider =>
         {
             var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
-            return new StatsService(httpClientFactory.CreateClient("Stats"), StatsApiUrl, BugReportApiKey, ApplicationName);
+            return new StatsService(httpClientFactory.CreateClient("Stats"), StatsApiUrl, BugReportApiKey,
+                ApplicationName);
         });
         services.AddSingleton<IUpdateChecker>(static provider =>
         {
@@ -164,15 +185,27 @@ public partial class App
         services.AddSingleton<IMessageBoxService, MessageBoxService>();
         services.AddSingleton<IUrlOpener, UrlOpenerService>();
         services.AddSingleton<IScreenshotService, ScreenshotService>();
-        services.AddTransient<IFileExtractor, FileExtractorService>(static provider => new FileExtractorService(provider.GetRequiredService<ILogger>(), provider.GetRequiredService<IBugReportService>()));
-        services.AddTransient<IFileMover, FileMoverService>(static provider => new FileMoverService(provider.GetRequiredService<ILogger>(), provider.GetRequiredService<IBugReportService>(), provider.GetRequiredService<IDiskMonitorService>()));
+        services.AddTransient<IFileExtractor, FileExtractorService>(static provider =>
+            new FileExtractorService(provider.GetRequiredService<ILogger>(),
+                provider.GetRequiredService<IBugReportService>()));
+        services.AddTransient<IFileMover, FileMoverService>(static provider =>
+            new FileMoverService(provider.GetRequiredService<ILogger>(),
+                provider.GetRequiredService<IBugReportService>(), provider.GetRequiredService<IDiskMonitorService>()));
         services.AddTransient<AboutWindow>();
-        services.AddSingleton<IExternalToolService>(static provider => new ExternalToolService(provider.GetRequiredService<ILogger>(), provider.GetRequiredService<IBugReportService>()));
-        services.AddSingleton<IExtractXisoService>(static provider => new ExtractXisoService(provider.GetRequiredService<ILogger>(), provider.GetRequiredService<IBugReportService>(), provider.GetRequiredService<IDiskMonitorService>()));
+        services.AddSingleton<IExternalToolService>(static provider =>
+            new ExternalToolService(provider.GetRequiredService<ILogger>(),
+                provider.GetRequiredService<IBugReportService>()));
+        services.AddSingleton<IExtractXisoService>(static provider =>
+            new ExtractXisoService(provider.GetRequiredService<ILogger>(),
+                provider.GetRequiredService<IBugReportService>(), provider.GetRequiredService<IDiskMonitorService>()));
         services.AddSingleton<IXdvdfsService, XdvdfsService>();
         services.AddSingleton<IOrchestratorService, OrchestratorService>();
-        services.AddSingleton<INativeIsoIntegrityService>(static provider => new NativeIsoIntegrityService(provider.GetRequiredService<ILogger>(), provider.GetRequiredService<IBugReportService>()));
-        services.AddSingleton(static provider => new XisoWriter(provider.GetRequiredService<ILogger>(), provider.GetRequiredService<INativeIsoIntegrityService>(), provider.GetRequiredService<IBugReportService>(), provider.GetRequiredService<IDiskMonitorService>()));
+        services.AddSingleton<INativeIsoIntegrityService>(static provider =>
+            new NativeIsoIntegrityService(provider.GetRequiredService<ILogger>(),
+                provider.GetRequiredService<IBugReportService>()));
+        services.AddSingleton(static provider => new XisoWriter(provider.GetRequiredService<ILogger>(),
+            provider.GetRequiredService<INativeIsoIntegrityService>(), provider.GetRequiredService<IBugReportService>(),
+            provider.GetRequiredService<IDiskMonitorService>()));
         services.AddTransient<MainWindow>();
     }
 
@@ -203,7 +236,9 @@ public partial class App
             if (_bugReportService != null)
                 await _bugReportService.SendBugReportAsync(source, exception);
 
-            await Current.Dispatcher.InvokeAsync(() => _messageBoxService?.ShowError("A critical error occurred and has been reported. The application may need to close."));
+            await Current.Dispatcher.InvokeAsync(() =>
+                _messageBoxService?.ShowError(
+                    "A critical error occurred and has been reported. The application may need to close."));
         }
         catch
         {

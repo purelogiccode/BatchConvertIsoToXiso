@@ -27,18 +27,18 @@ public class BugReportServiceTests
         const string message = "Test bug report message";
         var result = BugReportService.BuildFullMessage(message);
 
-        Assert.Contains("=== Environment Details ===", result);
-        Assert.Contains("Date:", result);
-        Assert.Contains("Application Name:", result);
-        Assert.Contains("Application Version:", result);
-        Assert.Contains("OS Version:", result);
-        Assert.Contains("Architecture:", result);
-        Assert.Contains("Bitness:", result);
-        Assert.Contains("Windows Version:", result);
-        Assert.Contains("Processor Count:", result);
-        Assert.Contains("Base Directory:", result);
-        Assert.Contains("Temp Path:", result);
-        Assert.Contains(message, result);
+        Assert.Contains("=== Environment Details ===", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Date:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Application Name:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Application Version:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("OS Version:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Architecture:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Bitness:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Windows Version:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Processor Count:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Base Directory:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Temp Path:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(message, result, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class BugReportServiceTests
         const string message = "Something broke!";
         var result = BugReportService.BuildFullMessage(message);
 
-        Assert.StartsWith("=== Environment Details ===", result);
+        Assert.StartsWith("=== Environment Details ===", result, StringComparison.OrdinalIgnoreCase);
         Assert.NotEmpty(result);
     }
 

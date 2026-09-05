@@ -20,7 +20,9 @@ public partial class ExternalToolServiceCueRegexTests
     {
         var match = CueRegex.Match(line.Trim());
         Assert.True(match.Success);
-        var fileName = !string.IsNullOrEmpty(match.Groups[1].Value) ? match.Groups[1].Value : match.Groups[2].Value;
+        var quoted = match.Groups["Quoted"].Value;
+        var unquoted = match.Groups["Unquoted"].Value;
+        var fileName = !string.IsNullOrEmpty(quoted) ? quoted : unquoted;
         Assert.Equal(expectedFile, fileName);
     }
 
@@ -43,6 +45,7 @@ public partial class ExternalToolServiceCueRegexTests
         Assert.True(match.Success);
     }
 
-    [GeneratedRegex("""^FILE\s+(?:\"(.+)\"|(\S+))\s+\S+""", RegexOptions.IgnoreCase, "pt-BR")]
+    [GeneratedRegex("""^FILE\s+(?:"(?<Quoted>.+)"|(?<Unquoted>\S+))\s+\S+""", RegexOptions.IgnoreCase,
+        matchTimeoutMilliseconds: 1000)]
     private static partial Regex MyRegex();
 }

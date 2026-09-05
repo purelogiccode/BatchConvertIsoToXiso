@@ -22,7 +22,8 @@ public class FileMoverService : IFileMover
         _diskMonitorService = diskMonitorService;
     }
 
-    public async Task MoveTestedFileAsync(string sourceFile, string destinationFolder, string moveReason, CancellationToken token)
+    public async Task MoveTestedFileAsync(string sourceFile, string destinationFolder, string moveReason,
+        CancellationToken token)
     {
         var fileName = Path.GetFileName(sourceFile);
         var destinationFile = Path.Combine(destinationFolder, fileName);
@@ -40,13 +41,15 @@ public class FileMoverService : IFileMover
 
             if (await Task.Run(() => File.Exists(destinationFile), token))
             {
-                _logger.LogMessage($"  Cannot move {fileName}: Destination file already exists at {destinationFile}. Skipping move.");
+                _logger.LogMessage(
+                    $"  Cannot move {fileName}: Destination file already exists at {destinationFile}. Skipping move.");
                 return;
             }
 
             if (!await Task.Run(() => File.Exists(sourceFile), token))
             {
-                _logger.LogMessage($"  Cannot move {fileName}: Source file no longer exists. It may have already been moved.");
+                _logger.LogMessage(
+                    $"  Cannot move {fileName}: Source file no longer exists. It may have already been moved.");
                 return;
             }
 
@@ -57,14 +60,16 @@ public class FileMoverService : IFileMover
             {
                 var requiredSpace = Formatter.FormatBytes(sourceFileInfo.Length);
                 var availableSpaceFormatted = Formatter.FormatBytes(availableSpace);
-                _logger.LogMessage($"  Cannot move {fileName}: Insufficient disk space. Required: {requiredSpace}, Available: {availableSpaceFormatted}");
+                _logger.LogMessage(
+                    $"  Cannot move {fileName}: Insufficient disk space. Required: {requiredSpace}, Available: {availableSpaceFormatted}");
                 return;
             }
 
             token.ThrowIfCancellationRequested();
 
             // Check if either source or destination is a network path
-            var isNetworkOperation = PathHelper.IsNetworkPath(sourceFile) || PathHelper.IsNetworkPath(destinationFolder);
+            var isNetworkOperation =
+                PathHelper.IsNetworkPath(sourceFile) || PathHelper.IsNetworkPath(destinationFolder);
 
             // Both local and network moves can fail transiently (antivirus scanning a
             // newly created file, network glitches, etc.) — always use retry logic.
@@ -88,7 +93,8 @@ public class FileMoverService : IFileMover
     /// Moves a file with retry logic and exponential backoff for transient errors
     /// (file locked by another process, network issues, etc.).
     /// </summary>
-    private async Task MoveFileWithRetryAsync(string source, string dest, string fileName, bool isNetworkOperation, CancellationToken token)
+    private async Task MoveFileWithRetryAsync(string source, string dest, string fileName, bool isNetworkOperation,
+        CancellationToken token)
     {
         Exception? lastException = null;
 
@@ -106,7 +112,8 @@ public class FileMoverService : IFileMover
                 // Exponential backoff: 1000ms, 2000ms, 4000ms, 8000ms, 16000ms, etc.
                 var delayMs = InitialRetryDelayMs * (int)Math.Pow(2, attempt);
                 var reason = isNetworkOperation ? "Network error" : "File is locked or in use";
-                _logger.LogMessage($"  {reason} moving {fileName}, retrying in {delayMs}ms... (attempt {attempt + 1}/{MaxRetryAttempts})");
+                _logger.LogMessage(
+                    $"  {reason} moving {fileName}, retrying in {delayMs}ms... (attempt {attempt + 1}/{MaxRetryAttempts})");
                 await Task.Delay(delayMs, token);
             }
         }
@@ -114,7 +121,9 @@ public class FileMoverService : IFileMover
         // All retries exhausted
         if (lastException != null)
         {
-            throw new IOException($"Failed to move file after {MaxRetryAttempts} attempts. Last error: {lastException.Message}", lastException);
+            throw new IOException(
+                $"Failed to move file after {MaxRetryAttempts} attempts. Last error: {lastException.Message}",
+                lastException);
         }
     }
 }

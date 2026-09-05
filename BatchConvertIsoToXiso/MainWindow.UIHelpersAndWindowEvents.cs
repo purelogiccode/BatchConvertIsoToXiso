@@ -81,8 +81,10 @@ public partial class MainWindow
 
     private bool ValidateInputOutputFolders(string inputFolder, string outputFolder)
     {
-        var normalizedInput = Path.GetFullPath(inputFolder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var normalizedOutput = Path.GetFullPath(outputFolder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var normalizedInput = Path.GetFullPath(inputFolder)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var normalizedOutput = Path.GetFullPath(outputFolder)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
         if (normalizedInput.Equals(normalizedOutput, StringComparison.OrdinalIgnoreCase))
         {
@@ -91,9 +93,11 @@ public partial class MainWindow
         }
 
         // Check if output folder is a subfolder of input folder
-        if (normalizedOutput.StartsWith(normalizedInput + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        if (normalizedOutput.StartsWith(normalizedInput + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase))
         {
-            _messageBoxService.ShowError("Output folder cannot be a subfolder of the input folder. This would cause recursive processing issues.");
+            _messageBoxService.ShowError(
+                "Output folder cannot be a subfolder of the input folder. This would cause recursive processing issues.");
             return false;
         }
 
@@ -149,8 +153,10 @@ public partial class MainWindow
 
             if (_totalProcessedFiles > 5 && (double)_invalidIsoErrorCount / _totalProcessedFiles > 0.5)
             {
-                _messageBoxService.ShowWarning($"Many files ({_invalidIsoErrorCount} out of {_totalProcessedFiles}) were not valid Xbox ISOs. " +
-                                               "Please ensure you are selecting the correct ISO files from Xbox or Xbox 360 games.", "High Rate of Invalid ISOs Detected");
+                _messageBoxService.ShowWarning(
+                    $"Many files ({_invalidIsoErrorCount} out of {_totalProcessedFiles}) were not valid Xbox ISOs. " +
+                    "Please ensure you are selecting the correct ISO files from Xbox or Xbox 360 games.",
+                    "High Rate of Invalid ISOs Detected");
             }
 
             _messageBoxService.Show($"Batch {operationType.ToLowerInvariant()} completed.\n\n" +
@@ -175,16 +181,21 @@ public partial class MainWindow
         // Update read speed
         ReadSpeedValue?.Text = _diskMonitorService.GetCurrentReadSpeedFormatted();
 
-        ReadSpeedDriveIndicator?.Text = _diskMonitorService.CurrentDriveLetter != null ? $"({_diskMonitorService.CurrentDriveLetter})" : "";
+        ReadSpeedDriveIndicator?.Text = _diskMonitorService.CurrentDriveLetter != null
+            ? $"({_diskMonitorService.CurrentDriveLetter})"
+            : "";
 
         // Update write speed
         WriteSpeedValue?.Text = _diskMonitorService.GetCurrentWriteSpeedFormatted();
 
-        WriteSpeedDriveIndicator?.Text = _diskMonitorService.CurrentDriveLetter != null ? $"({_diskMonitorService.CurrentDriveLetter})" : "";
+        WriteSpeedDriveIndicator?.Text = _diskMonitorService.CurrentDriveLetter != null
+            ? $"({_diskMonitorService.CurrentDriveLetter})"
+            : "";
 
         // Show status message in status bar if disk speed is unavailable
         var statusMessage = _diskMonitorService.StatusMessage;
-        if (!string.IsNullOrEmpty(statusMessage) && StatusTextBlock != null && !statusMessage.Equals(StatusTextBlock.Text, StringComparison.Ordinal))
+        if (!string.IsNullOrEmpty(statusMessage) && StatusTextBlock != null &&
+            !statusMessage.Equals(StatusTextBlock.Text, StringComparison.Ordinal))
         {
             StatusTextBlock.Text = statusMessage;
         }
@@ -286,7 +297,7 @@ public partial class MainWindow
         _isPerformanceCounterStopped = true;
 
         _diskMonitorService.StopMonitoring();
-        Application.Current?.Dispatcher.InvokeAsync(() =>
+        _ = Application.Current?.Dispatcher.InvokeAsync(() =>
         {
             ReadSpeedValue?.Text = "N/A";
 

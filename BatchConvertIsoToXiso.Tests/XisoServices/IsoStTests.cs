@@ -73,7 +73,7 @@ public class IsoStTests
 
         using var isoSt = new IsoSt(path);
         var executed = false;
-        isoSt.ExecuteLocked(_ => { executed = true; });
+        isoSt.ExecuteLocked(_ => executed = true);
 
         Assert.True(executed);
     }

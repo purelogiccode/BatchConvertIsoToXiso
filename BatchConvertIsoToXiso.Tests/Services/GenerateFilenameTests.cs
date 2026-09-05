@@ -34,13 +34,13 @@ public class GenerateFilenameTests
     public void GenerateSimpleFilenameEndsWithIsoExtension()
     {
         var result = GenerateFilename.GenerateSimpleFilename(42);
-        Assert.EndsWith(".iso", result);
+        Assert.EndsWith(".iso", result, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public void GenerateSimpleFilenameStartsWithIsoPrefix()
     {
         var result = GenerateFilename.GenerateSimpleFilename(42);
-        Assert.StartsWith("iso_", result);
+        Assert.StartsWith("iso_", result, StringComparison.OrdinalIgnoreCase);
     }
 }

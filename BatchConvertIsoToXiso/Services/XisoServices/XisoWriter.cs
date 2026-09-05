@@ -20,7 +20,9 @@ public class XisoWriter
     private readonly IDiskMonitorService _diskMonitorService;
     private static readonly long[] XisoOffset = [0x18300000, 0xFD90000, 0x89D80000, 0x2080000];
     private static readonly long[] XisoLength = [0x1A2DB0000, 0x1B3880000, 0xBF8A0000, 0x204510000];
-    private static readonly long[] RedumpIsoLength = [0x1D26A8000, 0x1D3301800, 0x1D2FEF800, 0x1D3082000, 0x1D3390000, 0x1D31A0000, 0x208E05800, 0x208E03800];
+
+    private static readonly long[] RedumpIsoLength =
+        [0x1D26A8000, 0x1D3301800, 0x1D2FEF800, 0x1D3082000, 0x1D3390000, 0x1D31A0000, 0x208E05800, 0x208E03800];
 
     internal static int GetXgdType(int redumpIsoType)
     {
@@ -52,11 +54,13 @@ public class XisoWriter
     {
         if (OperatingSystem.IsWindows())
         {
-            DeviceIoControl(fileStream.SafeFileHandle, FsctlSetSparse, IntPtr.Zero, 0, IntPtr.Zero, 0, out _, IntPtr.Zero);
+            DeviceIoControl(fileStream.SafeFileHandle, FsctlSetSparse, IntPtr.Zero, 0, IntPtr.Zero, 0, out _,
+                IntPtr.Zero);
         }
     }
 
-    public XisoWriter(ILogger logger, INativeIsoIntegrityService integrityService, IBugReportService bugReportService, IDiskMonitorService diskMonitorService)
+    public XisoWriter(ILogger logger, INativeIsoIntegrityService integrityService, IBugReportService bugReportService,
+        IDiskMonitorService diskMonitorService)
     {
         _logger = logger;
         _integrityService = integrityService;
@@ -64,7 +68,8 @@ public class XisoWriter
         _diskMonitorService = diskMonitorService;
     }
 
-    public Task<FileProcessingStatus> RewriteIsoAsync(string sourcePath, string destPath, bool skipSystemUpdate, bool checkIntegrity, IProgress<BatchOperationProgress> progress, CancellationToken token)
+    public Task<FileProcessingStatus> RewriteIsoAsync(string sourcePath, string destPath, bool skipSystemUpdate,
+        bool checkIntegrity, IProgress<BatchOperationProgress> progress, CancellationToken token)
     {
         return Task.Run(async () =>
         {
@@ -98,7 +103,8 @@ public class XisoWriter
                 // If signature not found at expected offset, scan for it
                 if (!Xdvdfs.ValidateXisoSignatureAtOffset(isoFs, inputOffset))
                 {
-                    _logger.LogMessage($"XISO signature not found at expected offset 0x{inputOffset:X}. Scanning for game partition...");
+                    _logger.LogMessage(
+                        $"XISO signature not found at expected offset 0x{inputOffset:X}. Scanning for game partition...");
                     var detectedOffset = Xdvdfs.FindXisoSignatureOffset(isoFs);
                     switch (detectedOffset)
                     {
@@ -106,16 +112,19 @@ public class XisoWriter
                             inputOffset = detectedOffset.Value;
                             targetXisoLength = isoSize - inputOffset;
                             signatureScanned = true;
-                            _logger.LogMessage($"Found game partition at offset 0x{inputOffset:X} ({inputOffset / (1024 * 1024)} MB). Extracting...");
+                            _logger.LogMessage(
+                                $"Found game partition at offset 0x{inputOffset:X} ({inputOffset / (1024 * 1024)} MB). Extracting...");
                             break;
                         case 0 when redumpIsoType < 0:
-                            _logger.LogMessage("XISO signature found at start of file (already trimmed or standard XISO).");
+                            _logger.LogMessage(
+                                "XISO signature found at start of file (already trimmed or standard XISO).");
                             break;
                         default:
                             if (redumpIsoType >= 0)
                             {
                                 // Was detected as Redump but signature not found - try using the offset anyway
-                                _logger.LogMessage($"Warning: XISO signature not found, but file size matches known Redump format. Attempting extraction at offset 0x{inputOffset:X}...");
+                                _logger.LogMessage(
+                                    $"Warning: XISO signature not found, but file size matches known Redump format. Attempting extraction at offset 0x{inputOffset:X}...");
                             }
                             else
                             {
@@ -134,8 +143,10 @@ public class XisoWriter
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogMessage($"[ERROR] '{Path.GetFileName(sourcePath)}' is not a valid Xbox ISO image. Details: {ex.Message}");
-                    _ = _bugReportService.SendBugReportAsync($"'{Path.GetFileName(sourcePath)}' is not a valid Xbox ISO image", ex);
+                    _logger.LogMessage(
+                        $"[ERROR] '{Path.GetFileName(sourcePath)}' is not a valid Xbox ISO image. Details: {ex.Message}");
+                    _ = _bugReportService.SendBugReportAsync(
+                        $"'{Path.GetFileName(sourcePath)}' is not a valid Xbox ISO image", ex);
                     return FileProcessingStatus.Failed;
                 }
 
@@ -176,7 +187,8 @@ public class XisoWriter
                 // leaves a corrupt partial file and a confusing "disk full" exception.
                 var expectedOutputSizeBytes = (lastValidSector + 1) * Utils.SectorSize - inputOffset;
                 var availableSpace = _diskMonitorService.GetAvailableFreeSpace(destPath);
-                var requiredSpace = expectedOutputSizeBytes + Math.Max(expectedOutputSizeBytes / 10, 200L * 1024 * 1024);
+                var requiredSpace =
+                    expectedOutputSizeBytes + Math.Max(expectedOutputSizeBytes / 10, 200L * 1024 * 1024);
                 if (availableSpace > 0 && availableSpace < requiredSpace)
                 {
                     _logger.LogMessage($"[ERROR] Not enough disk space to create '{Path.GetFileName(destPath)}'. " +
@@ -248,10 +260,12 @@ public class XisoWriter
                             {
                                 if (currentSector >= validRanges[i].Start && currentSector <= validRanges[i].End)
                                 {
-                                    bytesUntilEndOfExtent = (validRanges[i].End + 1) * Utils.SectorSize - currentPhysicalByte;
+                                    bytesUntilEndOfExtent = (validRanges[i].End + 1) * Utils.SectorSize -
+                                                            currentPhysicalByte;
                                     break;
                                 }
-                                else if (currentSector < validRanges[i].Start && (i == 0 || currentSector > validRanges[i - 1].End))
+                                else if (currentSector < validRanges[i].Start &&
+                                         (i == 0 || currentSector > validRanges[i - 1].End))
                                 {
                                     bytesToWipe = validRanges[i].Start * Utils.SectorSize - currentPhysicalByte;
                                     break;
@@ -276,7 +290,9 @@ public class XisoWriter
                             else
                             {
                                 // Data logic: Copy valid sectors
-                                var bytesToRead = bytesUntilEndOfExtent > 0 ? bytesUntilEndOfExtent : targetXisoLength - numBytesProcessed;
+                                var bytesToRead = bytesUntilEndOfExtent > 0
+                                    ? bytesUntilEndOfExtent
+                                    : targetXisoLength - numBytesProcessed;
 
                                 if (!Utils.FillBuffer(isoFs, xisoFs, -1, bytesToRead, buffer))
                                 {
@@ -290,7 +306,8 @@ public class XisoWriter
                             // Improvement #3: Time-based progress reporting (every 500ms max)
                             if (progressTimer.ElapsedMilliseconds > 500)
                             {
-                                progress.Report(new BatchOperationProgress { StatusText = $"Processing: {numBytesProcessed / (1024 * 1024)} MB" });
+                                progress.Report(new BatchOperationProgress
+                                    { StatusText = $"Processing: {numBytesProcessed / (1024 * 1024)} MB" });
                                 progressTimer.Restart();
                             }
                         }
@@ -304,14 +321,17 @@ public class XisoWriter
                     var expectedOutputSize = (lastValidSector + 1) * Utils.SectorSize - inputOffset;
                     if (xisoFs.Length != expectedOutputSize)
                     {
-                        _logger.LogMessage($"[WARNING] Output size mismatch. Expected: {expectedOutputSize / (1024 * 1024)} MB, Got: {xisoFs.Length / (1024 * 1024)} MB");
+                        _logger.LogMessage(
+                            $"[WARNING] Output size mismatch. Expected: {expectedOutputSize / (1024 * 1024)} MB, Got: {xisoFs.Length / (1024 * 1024)} MB");
                     }
 
-                    _logger.LogMessage($"Successfully created trimmed XISO. Final size: {xisoFs.Length / (1024 * 1024)} MB");
+                    _logger.LogMessage(
+                        $"Successfully created trimmed XISO. Final size: {xisoFs.Length / (1024 * 1024)} MB");
                 }
                 catch (OperationCanceledException)
                 {
-                    _logger.LogMessage($"Conversion to '{Path.GetFileName(destPath)}' was canceled. Cleaning up partially saved file...");
+                    _logger.LogMessage(
+                        $"Conversion to '{Path.GetFileName(destPath)}' was canceled. Cleaning up partially saved file...");
                     try
                     {
                         if (File.Exists(destPath)) File.Delete(destPath);
@@ -332,7 +352,8 @@ public class XisoWriter
 
                     if (!isValid)
                     {
-                        _logger.LogMessage("[ERROR] Rewritten XISO failed structural validation! Deleting corrupt output.");
+                        _logger.LogMessage(
+                            "[ERROR] Rewritten XISO failed structural validation! Deleting corrupt output.");
                         try
                         {
                             if (File.Exists(destPath)) File.Delete(destPath);
@@ -366,7 +387,8 @@ public class XisoWriter
                     /* ignore cleanup errors */
                 }
 
-                _logger.LogMessage($"[ERROR] Not enough disk space to create '{Path.GetFileName(destPath)}'. Please free up disk space or select a different output folder. ({ex.Message})");
+                _logger.LogMessage(
+                    $"[ERROR] Not enough disk space to create '{Path.GetFileName(destPath)}'. Please free up disk space or select a different output folder. ({ex.Message})");
                 return FileProcessingStatus.Failed;
             }
             catch (Exception ex)

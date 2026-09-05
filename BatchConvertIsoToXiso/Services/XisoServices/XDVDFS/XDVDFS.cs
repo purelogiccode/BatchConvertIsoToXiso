@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using BatchConvertIsoToXiso.Services.XisoServices.BinaryOperations;
 
@@ -89,7 +90,7 @@ internal static class Xdvdfs
                 return false;
 
             var signature = Encoding.ASCII.GetString(sigBuffer);
-            if (signature != XdvdfsSignature)
+            if (!string.Equals(signature, XdvdfsSignature, StringComparison.OrdinalIgnoreCase))
                 return false;
 
             // Check secondary signature at offset + 0x7EC (matching xdvdfs and extract-xiso references)
@@ -98,7 +99,8 @@ internal static class Xdvdfs
             if (isoFs.Read(secondaryBuffer, 0, 20) != 20)
                 return false;
 
-            if (Encoding.ASCII.GetString(secondaryBuffer) != XdvdfsSignature)
+            if (!string.Equals(Encoding.ASCII.GetString(secondaryBuffer), XdvdfsSignature,
+                    StringComparison.OrdinalIgnoreCase))
                 return false;
 
             // Validate root directory exists and has valid parameters
@@ -141,7 +143,8 @@ internal static class Xdvdfs
             if (isoFs.Read(sigBuffer, 0, 20) != 20)
                 return false;
 
-            if (Encoding.ASCII.GetString(sigBuffer) != XdvdfsSignature)
+            if (!string.Equals(Encoding.ASCII.GetString(sigBuffer), XdvdfsSignature,
+                    StringComparison.OrdinalIgnoreCase))
                 return false;
 
             // Check secondary signature at byte offset 0x7EC
@@ -150,7 +153,8 @@ internal static class Xdvdfs
             if (isoFs.Read(secondaryBuffer, 0, 20) != 20)
                 return false;
 
-            if (Encoding.ASCII.GetString(secondaryBuffer) != XdvdfsSignature)
+            if (!string.Equals(Encoding.ASCII.GetString(secondaryBuffer), XdvdfsSignature,
+                    StringComparison.OrdinalIgnoreCase))
                 return false;
 
             return true;
@@ -289,6 +293,7 @@ internal static class Xdvdfs
         }
     }
 
+    [StructLayout(LayoutKind.Auto)]
     private struct DirectoryWorkItem
     {
         public long RootOffset;
@@ -412,7 +417,8 @@ internal static class Xdvdfs
         }
     }
 
-    public static List<(uint Start, uint End)> GetXisoRanges(FileStream isoFs, long offset, bool quiet, bool skipSystemUpdate)
+    public static List<(uint Start, uint End)> GetXisoRanges(FileStream isoFs, long offset, bool quiet,
+        bool skipSystemUpdate)
     {
         var validSectors = new List<uint>();
         var headerOffset = offset + XisoHeaderOffset;
@@ -427,7 +433,7 @@ internal static class Xdvdfs
         }
 
         var signature = Encoding.ASCII.GetString(signatureBuffer);
-        if (signature != XdvdfsSignature)
+        if (!string.Equals(signature, XdvdfsSignature, StringComparison.OrdinalIgnoreCase))
         {
             return ranges;
         }
@@ -446,7 +452,8 @@ internal static class Xdvdfs
         if (rootSize == 0) return ranges;
 
         var visited = new HashSet<long>();
-        GetValidSectors(isoFs, offset, validSectors, rootOffset * Utils.SectorSize, rootSize, quiet, skipSystemUpdate, visited);
+        GetValidSectors(isoFs, offset, validSectors, rootOffset * Utils.SectorSize, rootSize, quiet, skipSystemUpdate,
+            visited);
 
         if (validSectors.Count == 0) return ranges;
 

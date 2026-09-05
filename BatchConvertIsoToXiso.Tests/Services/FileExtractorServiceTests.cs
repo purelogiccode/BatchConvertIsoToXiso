@@ -19,11 +19,15 @@ public class FileExtractorServiceTests : IDisposable
 
     public void Dispose()
     {
-        try { if (Directory.Exists(_tempDir)) Directory.Delete(_tempDir, true); }
+        try
+        {
+            if (Directory.Exists(_tempDir)) Directory.Delete(_tempDir, true);
+        }
         catch
         {
             // ignored
         }
+
         GC.SuppressFinalize(this);
     }
 
@@ -53,19 +57,12 @@ public class FileExtractorServiceTests : IDisposable
         return zipPath;
     }
 
-    private string CreateEmptyFile(string fileName)
-    {
-        var path = Path.Combine(_tempDir, fileName);
-        File.WriteAllText(path, "");
-        return path;
-    }
-
     #region GetArchiveInfoAsync Tests
 
     [Fact]
     public async Task GetArchiveInfoAsyncValidZipReturnsCorrectCount()
     {
-        var zipPath = CreateTestZip("test.zip", new Dictionary<string, string>
+        var zipPath = CreateTestZip("test.zip", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "file1.txt", "content1" },
             { "file2.txt", "content2" },
@@ -84,7 +81,7 @@ public class FileExtractorServiceTests : IDisposable
     {
         const string content1 = "Hello, World!"; // 13 bytes
         const string content2 = "Test content for size calculation"; // 33 bytes
-        var zipPath = CreateTestZip("sized.zip", new Dictionary<string, string>
+        var zipPath = CreateTestZip("sized.zip", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "a.txt", content1 },
             { "b.txt", content2 }
@@ -99,7 +96,7 @@ public class FileExtractorServiceTests : IDisposable
     [Fact]
     public async Task GetArchiveInfoAsyncSingleFileZipReturnsOne()
     {
-        var zipPath = CreateTestZip("single.zip", new Dictionary<string, string>
+        var zipPath = CreateTestZip("single.zip", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "only.txt", "data" }
         });
@@ -113,7 +110,7 @@ public class FileExtractorServiceTests : IDisposable
     [Fact]
     public async Task GetArchiveInfoAsyncZipWithSubdirectoriesOnlyCountsFiles()
     {
-        var zipPath = CreateTestZip("nested.zip", new Dictionary<string, string>
+        var zipPath = CreateTestZip("nested.zip", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "root.txt", "root content" },
             { "sub/deep/file.txt", "deep content" }
@@ -144,7 +141,8 @@ public class FileExtractorServiceTests : IDisposable
     [Fact]
     public async Task GetArchiveInfoAsyncCancellationThrowsOperationCanceled()
     {
-        var zipPath = CreateTestZip("cancel.zip", new Dictionary<string, string> { { "f.txt", "d" } });
+        var zipPath = CreateTestZip("cancel.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "f.txt", "d" } });
         var service = CreateService();
         using var cts = new CancellationTokenSource();
         cts.Cancel();
@@ -193,7 +191,7 @@ public class FileExtractorServiceTests : IDisposable
     [Fact]
     public async Task ExtractArchiveAsyncValidZipExtractsSuccessfully()
     {
-        var zipPath = CreateTestZip("valid.zip", new Dictionary<string, string>
+        var zipPath = CreateTestZip("valid.zip", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "test.txt", "hello world" }
         });
@@ -260,7 +258,8 @@ public class FileExtractorServiceTests : IDisposable
     [Fact]
     public async Task ExtractArchiveAsyncLogsExtractionStart()
     {
-        var zipPath = CreateTestZip("logtest.zip", new Dictionary<string, string> { { "f.txt", "d" } });
+        var zipPath = CreateTestZip("logtest.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "f.txt", "d" } });
         var service = CreateService();
         var outDir = Path.Combine(_tempDir, "extract_log");
 
@@ -274,7 +273,8 @@ public class FileExtractorServiceTests : IDisposable
     [Fact]
     public async Task ExtractArchiveAsyncLogsSuccess()
     {
-        var zipPath = CreateTestZip("success.zip", new Dictionary<string, string> { { "f.txt", "d" } });
+        var zipPath = CreateTestZip("success.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "f.txt", "d" } });
         var service = CreateService();
         var outDir = Path.Combine(_tempDir, "extract_success");
 
@@ -288,7 +288,8 @@ public class FileExtractorServiceTests : IDisposable
     [Fact]
     public async Task ExtractArchiveAsyncCancellationLogsCancellation()
     {
-        var zipPath = CreateTestZip("cancellog.zip", new Dictionary<string, string> { { "f.txt", "d" } });
+        var zipPath = CreateTestZip("cancellog.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "f.txt", "d" } });
         var service = CreateService();
         var outDir = Path.Combine(_tempDir, "extract_cancel");
         using var cts = new CancellationTokenSource();
@@ -346,15 +347,15 @@ public class FileExtractorServiceTests : IDisposable
         // Local file header
         bw.Write(0x04034B50); // signature
         bw.Write((ushort)20); // version needed
-        bw.Write((ushort)1);  // general purpose bit flag (bit 0 = encrypted)
-        bw.Write((ushort)0);  // compression method (stored)
-        bw.Write((ushort)0);  // last mod time
-        bw.Write((ushort)0);  // last mod date
-        bw.Write((uint)0);    // crc32
+        bw.Write((ushort)1); // general purpose bit flag (bit 0 = encrypted)
+        bw.Write((ushort)0); // compression method (stored)
+        bw.Write((ushort)0); // last mod time
+        bw.Write((ushort)0); // last mod date
+        bw.Write((uint)0); // crc32
         bw.Write((uint)(content.Length + 12)); // compressed size (content + encryption header)
         bw.Write((uint)(content.Length + 12)); // uncompressed size
         bw.Write((ushort)entryName.Length);
-        bw.Write((ushort)0);  // extra field length
+        bw.Write((ushort)0); // extra field length
 
         var nameBytes = System.Text.Encoding.UTF8.GetBytes(entryName);
         bw.Write(nameBytes);
@@ -373,33 +374,33 @@ public class FileExtractorServiceTests : IDisposable
         bw.Write(0x02014B50); // central directory signature
         bw.Write((ushort)20); // version made by
         bw.Write((ushort)20); // version needed
-        bw.Write((ushort)1);  // general purpose bit flag (encrypted)
-        bw.Write((ushort)0);  // compression method
-        bw.Write((ushort)0);  // last mod time
-        bw.Write((ushort)0);  // last mod date
-        bw.Write((uint)0);    // crc32
+        bw.Write((ushort)1); // general purpose bit flag (encrypted)
+        bw.Write((ushort)0); // compression method
+        bw.Write((ushort)0); // last mod time
+        bw.Write((ushort)0); // last mod date
+        bw.Write((uint)0); // crc32
         bw.Write((uint)(content.Length + 12)); // compressed size
         bw.Write((uint)(content.Length + 12)); // uncompressed size
         bw.Write((ushort)nameBytes.Length);
-        bw.Write((ushort)0);  // extra field length
-        bw.Write((ushort)0);  // file comment length
-        bw.Write((ushort)0);  // disk number start
-        bw.Write((ushort)0);  // internal file attributes
-        bw.Write((uint)0);    // external file attributes
-        bw.Write((uint)0);    // relative offset of local header
+        bw.Write((ushort)0); // extra field length
+        bw.Write((ushort)0); // file comment length
+        bw.Write((ushort)0); // disk number start
+        bw.Write((ushort)0); // internal file attributes
+        bw.Write((uint)0); // external file attributes
+        bw.Write((uint)0); // relative offset of local header
         bw.Write(nameBytes);
 
         var cdSize = (uint)(fs.Position - cdOffset);
 
         // End of central directory
         bw.Write(0x06054B50); // end of central directory signature
-        bw.Write((ushort)0);  // disk number
-        bw.Write((ushort)0);  // disk number with central directory
-        bw.Write((ushort)1);  // total entries on disk
-        bw.Write((ushort)1);  // total entries
-        bw.Write(cdSize);     // central directory size
-        bw.Write(cdOffset);   // central directory offset
-        bw.Write((ushort)0);  // comment length
+        bw.Write((ushort)0); // disk number
+        bw.Write((ushort)0); // disk number with central directory
+        bw.Write((ushort)1); // total entries on disk
+        bw.Write((ushort)1); // total entries
+        bw.Write(cdSize); // central directory size
+        bw.Write(cdOffset); // central directory offset
+        bw.Write((ushort)0); // comment length
     }
 
     #endregion

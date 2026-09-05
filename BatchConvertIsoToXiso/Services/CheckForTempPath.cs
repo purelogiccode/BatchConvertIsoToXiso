@@ -16,11 +16,14 @@ public static class CheckForTempPath
         var systemTempPath = Path.GetTempPath();
 
         // Normalize both paths to ensure consistent comparison (e.g., handle trailing slashes)
-        var normalizedSystemTempPath = Path.GetFullPath(systemTempPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var normalizedSelectedPath = Path.GetFullPath(selectedPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var normalizedSystemTempPath = Path.GetFullPath(systemTempPath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var normalizedSelectedPath = Path.GetFullPath(selectedPath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
         // Check if the selected path is exactly the system temp path or starts with it (indicating a subfolder)
         return normalizedSelectedPath.Equals(normalizedSystemTempPath, StringComparison.OrdinalIgnoreCase) ||
-               normalizedSelectedPath.StartsWith(normalizedSystemTempPath + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+               normalizedSelectedPath.StartsWith(normalizedSystemTempPath + Path.DirectorySeparatorChar,
+                   StringComparison.OrdinalIgnoreCase);
     }
 }

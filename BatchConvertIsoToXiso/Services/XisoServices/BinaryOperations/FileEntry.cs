@@ -4,6 +4,7 @@ using BatchConvertIsoToXiso.Models.XisoDefinitions;
 
 namespace BatchConvertIsoToXiso.Services.XisoServices.BinaryOperations;
 
+/// <summary>
 /// Represents a file entry in the Xbox ISO (XISO) filesystem, including its metadata and structure.
 /// A file entry can represent either a file or a directory within the ISO image.
 /// It provides methods to navigate the filesystem hierarchy and retrieve child nodes.
@@ -26,6 +27,7 @@ namespace BatchConvertIsoToXiso.Services.XisoServices.BinaryOperations;
 /// - GetLeftChild(IsoSt isoSt): Retrieves the left child of this entry in the directory tree.
 /// - GetRightChild(IsoSt isoSt): Retrieves the right child of this entry in the directory tree.
 /// - GetFirstChild(IsoSt isoSt): Retrieves the first child entry if this entry represents a directory.
+/// </summary>
 public class FileEntry
 {
     private static readonly Encoding Win1252 = Encoding.GetEncoding(1252);
@@ -45,7 +47,7 @@ public class FileEntry
     public XisoFsFileAttributes Attributes { get; internal set; }
     public string FileName { get; internal set; } = string.Empty;
     public long EntryOffset { get; internal set; }
-    public bool IsDirectory => (Attributes & XisoFsFileAttributes.Directory) != 0;
+    public bool IsDirectory => (Attributes & XisoFsFileAttributes.Directory) != (BatchConvertIsoToXiso.Models.XisoDefinitions.XisoFsFileAttributes)0;
     public bool HasLeftChild => LeftSubTree != 0xFFFF;
     public bool HasRightChild => RightSubTree != 0xFFFF;
 

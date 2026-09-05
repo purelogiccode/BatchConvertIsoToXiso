@@ -123,7 +123,11 @@ public class OrchestratorService : IOrchestratorService
                 var fileExists = await Task.Run(() => File.Exists(entryPath), token);
                 if (!fileExists)
                 {
-                    progress.Report(new BatchOperationProgress { LogMessage = $"Error: Source file not found: {entryPath}. Skipping.", FailedCount = 1, FailedPathToAdd = entryPath });
+                    progress.Report(new BatchOperationProgress
+                    {
+                        LogMessage = $"Error: Source file not found: {entryPath}. Skipping.", FailedCount = 1,
+                        FailedPathToAdd = entryPath
+                    });
                     topLevelProcessed++;
                     progress.Report(new BatchOperationProgress { ProcessedCount = topLevelProcessed });
                     continue;
@@ -131,23 +135,30 @@ public class OrchestratorService : IOrchestratorService
 
                 var fileName = Path.GetFileName(entryPath);
                 var extension = Path.GetExtension(entryPath).ToLowerInvariant();
-                progress.Report(new BatchOperationProgress { StatusText = $"Processing: {fileName}", CurrentDrive = PathHelper.GetDriveLetter(entryPath) });
+                progress.Report(new BatchOperationProgress
+                    { StatusText = $"Processing: {fileName}", CurrentDrive = PathHelper.GetDriveLetter(entryPath) });
 
                 try
                 {
                     switch (extension)
                     {
                         case ".iso":
-                            var isoStatus = await ConvertFileInternalAsync(entryPath, outputFolder, deleteOriginals, context.GlobalFileIndex++, skipSystemUpdate, checkIntegrity, useExtractXiso, useXdvdfs, progress, onCloudRetryRequired, token);
+                            var isoStatus = await ConvertFileInternalAsync(entryPath, outputFolder, deleteOriginals,
+                                context.GlobalFileIndex++, skipSystemUpdate, checkIntegrity, useExtractXiso, useXdvdfs,
+                                progress, onCloudRetryRequired, token);
                             ReportStatus(isoStatus, entryPath, progress);
                             break;
 
                         case ".zip" or ".7z" or ".rar":
-                            await ProcessArchiveAsync(entryPath, outputFolder, deleteOriginals, skipSystemUpdate, checkIntegrity, useExtractXiso, useXdvdfs, context, tempFoldersToCleanUp, progress, onCloudRetryRequired, token);
+                            await ProcessArchiveAsync(entryPath, outputFolder, deleteOriginals, skipSystemUpdate,
+                                checkIntegrity, useExtractXiso, useXdvdfs, context, tempFoldersToCleanUp, progress,
+                                onCloudRetryRequired, token);
                             break;
 
                         case ".cue":
-                            await ProcessCueAsync(entryPath, outputFolder, deleteOriginals, skipSystemUpdate, checkIntegrity, useExtractXiso, useXdvdfs, context, tempFoldersToCleanUp, progress, onCloudRetryRequired, token);
+                            await ProcessCueAsync(entryPath, outputFolder, deleteOriginals, skipSystemUpdate,
+                                checkIntegrity, useExtractXiso, useXdvdfs, context, tempFoldersToCleanUp, progress,
+                                onCloudRetryRequired, token);
                             break;
                     }
                 }
@@ -160,7 +171,8 @@ public class OrchestratorService : IOrchestratorService
                     // Stop the batch — no point continuing without disk space
                     progress.Report(new BatchOperationProgress
                     {
-                        LogMessage = "ERROR: Not enough disk space on the output drive. Batch operation stopped. Please free up disk space and try again.",
+                        LogMessage =
+                            "ERROR: Not enough disk space on the output drive. Batch operation stopped. Please free up disk space and try again.",
                         FailedCount = 1,
                         FailedPathToAdd = entryPath
                     });
@@ -171,7 +183,8 @@ public class OrchestratorService : IOrchestratorService
                     // Stop the batch — no point continuing if the output drive or network is disconnected
                     progress.Report(new BatchOperationProgress
                     {
-                        LogMessage = $"FATAL ERROR: The output device or path is not available: {ex.Message}. Batch operation stopped.",
+                        LogMessage =
+                            $"FATAL ERROR: The output device or path is not available: {ex.Message}. Batch operation stopped.",
                         FailedCount = 1,
                         FailedPathToAdd = entryPath
                     });
@@ -183,14 +196,16 @@ public class OrchestratorService : IOrchestratorService
                     string logMessage;
                     if (ex.Message.Contains("End of stream reached", StringComparison.OrdinalIgnoreCase))
                     {
-                        logMessage = $"ERROR: {fileName} appears to be corrupt or incomplete. The file may have been damaged during download or transfer. Please re-download the archive and try again.";
+                        logMessage =
+                            $"ERROR: {fileName} appears to be corrupt or incomplete. The file may have been damaged during download or transfer. Please re-download the archive and try again.";
                     }
                     else
                     {
                         logMessage = $"Critical error processing {fileName}: {ex.Message}";
                     }
 
-                    progress.Report(new BatchOperationProgress { LogMessage = logMessage, FailedCount = 1, FailedPathToAdd = entryPath });
+                    progress.Report(new BatchOperationProgress
+                        { LogMessage = logMessage, FailedCount = 1, FailedPathToAdd = entryPath });
 
                     // Filter environmental errors (disconnected drives, network issues, etc.)
                     var isEnvironmentalError = IsFatalEnvironmentalError(ex) || PathHelper.IsNetworkError(ex);
@@ -198,8 +213,10 @@ public class OrchestratorService : IOrchestratorService
                     // Filter common archive errors (corruption, incomplete downloads, etc.)
                     var isArchiveError = ex.Message.Contains("Data error", StringComparison.OrdinalIgnoreCase) ||
                                          ex.Message.Contains("Invalid archive", StringComparison.OrdinalIgnoreCase) ||
-                                         ex.Message.Contains("Unsupported archive", StringComparison.OrdinalIgnoreCase) ||
-                                         ex.Message.Contains("End of stream reached", StringComparison.OrdinalIgnoreCase);
+                                         ex.Message.Contains("Unsupported archive",
+                                             StringComparison.OrdinalIgnoreCase) ||
+                                         ex.Message.Contains("End of stream reached",
+                                             StringComparison.OrdinalIgnoreCase);
 
                     if (!isEnvironmentalError && !isArchiveError)
                     {
@@ -222,7 +239,10 @@ public class OrchestratorService : IOrchestratorService
         return PathHelper.ResolveTempDirectory(requiredSize, tempSubfolder, _diskMonitorService);
     }
 
-    private async Task ProcessArchiveAsync(string archivePath, string outputFolder, bool deleteOriginal, bool skipUpdate, bool checkIntegrity, bool useExtractXiso, bool useXdvdfs, ProcessingContext context, List<string> tempFolders, IProgress<BatchOperationProgress> progress, Func<string, Task<CloudRetryResult>> cloudRetry, CancellationToken token)
+    private async Task ProcessArchiveAsync(string archivePath, string outputFolder, bool deleteOriginal,
+        bool skipUpdate, bool checkIntegrity, bool useExtractXiso, bool useXdvdfs, ProcessingContext context,
+        List<string> tempFolders, IProgress<BatchOperationProgress> progress,
+        Func<string, Task<CloudRetryResult>> cloudRetry, CancellationToken token)
     {
         string tempDir;
         try
@@ -230,7 +250,11 @@ public class OrchestratorService : IOrchestratorService
             progress.Report(new BatchOperationProgress { LogMessage = "Analyzing archive for required space..." });
             var (totalSize, fileCount) = await _fileExtractor.GetArchiveInfoAsync(archivePath, token);
             tempDir = ResolveTempDirectory(totalSize, "BatchConvertIsoToXiso_Extract");
-            progress.Report(new BatchOperationProgress { LogMessage = $"Archive contains {fileCount} files ({Formatter.FormatBytes(totalSize)} uncompressed). Extracting to: {Path.GetDirectoryName(tempDir)}" });
+            progress.Report(new BatchOperationProgress
+            {
+                LogMessage =
+                    $"Archive contains {fileCount} files ({Formatter.FormatBytes(totalSize)} uncompressed). Extracting to: {Path.GetDirectoryName(tempDir)}"
+            });
         }
         catch (OperationCanceledException)
         {
@@ -244,7 +268,8 @@ public class OrchestratorService : IOrchestratorService
         catch (Exception ex)
         {
             // If we can't analyze the archive, fall back to default temp and let ExtractArchiveAsync handle it
-            progress.Report(new BatchOperationProgress { LogMessage = $"Could not analyze archive: {ex.Message}. Using default temp path." });
+            progress.Report(new BatchOperationProgress
+                { LogMessage = $"Could not analyze archive: {ex.Message}. Using default temp path." });
             tempDir = Path.Combine(Path.GetTempPath(), "BatchConvertIsoToXiso_Extract", Guid.NewGuid().ToString());
         }
 
@@ -271,11 +296,13 @@ public class OrchestratorService : IOrchestratorService
                     FileProcessingStatus status;
                     if (Path.GetExtension(file).Equals(".iso", StringComparison.OrdinalIgnoreCase))
                     {
-                        status = await ConvertFileInternalAsync(file, outputFolder, false, context.GlobalFileIndex++, skipUpdate, checkIntegrity, useExtractXiso, useXdvdfs, progress, cloudRetry, token);
+                        status = await ConvertFileInternalAsync(file, outputFolder, false, context.GlobalFileIndex++,
+                            skipUpdate, checkIntegrity, useExtractXiso, useXdvdfs, progress, cloudRetry, token);
                     }
                     else
                     {
-                        status = await ProcessCueInternalAsync(file, outputFolder, false, skipUpdate, checkIntegrity, useExtractXiso, useXdvdfs, context, tempFolders, progress, cloudRetry, token);
+                        status = await ProcessCueInternalAsync(file, outputFolder, false, skipUpdate, checkIntegrity,
+                            useExtractXiso, useXdvdfs, context, tempFolders, progress, cloudRetry, token);
                     }
 
                     switch (status)
@@ -322,7 +349,8 @@ public class OrchestratorService : IOrchestratorService
             tempFolders.Remove(tempDir);
         }
 
-        if (internalFail || !extracted) progress.Report(new BatchOperationProgress { FailedCount = 1, FailedPathToAdd = archivePath });
+        if (internalFail || !extracted)
+            progress.Report(new BatchOperationProgress { FailedCount = 1, FailedPathToAdd = archivePath });
         else if (internalSuccess) progress.Report(new BatchOperationProgress { SuccessCount = 1 });
         else progress.Report(new BatchOperationProgress { SkippedCount = 1 });
 
@@ -339,13 +367,20 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
-    private async Task ProcessCueAsync(string cuePath, string outputFolder, bool deleteOriginal, bool skipUpdate, bool checkIntegrity, bool useExtractXiso, bool useXdvdfs, ProcessingContext context, List<string> tempFolders, IProgress<BatchOperationProgress> progress, Func<string, Task<CloudRetryResult>> cloudRetry, CancellationToken token)
+    private async Task ProcessCueAsync(string cuePath, string outputFolder, bool deleteOriginal, bool skipUpdate,
+        bool checkIntegrity, bool useExtractXiso, bool useXdvdfs, ProcessingContext context, List<string> tempFolders,
+        IProgress<BatchOperationProgress> progress, Func<string, Task<CloudRetryResult>> cloudRetry,
+        CancellationToken token)
     {
-        var status = await ProcessCueInternalAsync(cuePath, outputFolder, deleteOriginal, skipUpdate, checkIntegrity, useExtractXiso, useXdvdfs, context, tempFolders, progress, cloudRetry, token);
+        var status = await ProcessCueInternalAsync(cuePath, outputFolder, deleteOriginal, skipUpdate, checkIntegrity,
+            useExtractXiso, useXdvdfs, context, tempFolders, progress, cloudRetry, token);
         ReportStatus(status, cuePath, progress);
     }
 
-    private async Task<FileProcessingStatus> ProcessCueInternalAsync(string cuePath, string outputFolder, bool deleteOriginal, bool skipUpdate, bool checkIntegrity, bool useExtractXiso, bool useXdvdfs, ProcessingContext context, List<string> tempFolders, IProgress<BatchOperationProgress> progress, Func<string, Task<CloudRetryResult>> cloudRetry, CancellationToken token)
+    private async Task<FileProcessingStatus> ProcessCueInternalAsync(string cuePath, string outputFolder,
+        bool deleteOriginal, bool skipUpdate, bool checkIntegrity, bool useExtractXiso, bool useXdvdfs,
+        ProcessingContext context, List<string> tempFolders, IProgress<BatchOperationProgress> progress,
+        Func<string, Task<CloudRetryResult>> cloudRetry, CancellationToken token)
     {
         long estimatedCueSize = 0;
         try
@@ -377,7 +412,8 @@ public class OrchestratorService : IOrchestratorService
         }
         catch (Exception ex)
         {
-            progress.Report(new BatchOperationProgress { LogMessage = $"Could not resolve temp directory for CUE: {ex.Message}. Using default temp path." });
+            progress.Report(new BatchOperationProgress
+                { LogMessage = $"Could not resolve temp directory for CUE: {ex.Message}. Using default temp path." });
             tempCueDir = Path.Combine(Path.GetTempPath(), "BatchConvertIsoToXiso_CueBin", Guid.NewGuid().ToString());
         }
 
@@ -388,7 +424,8 @@ public class OrchestratorService : IOrchestratorService
             var tempIso = await _externalToolService.ConvertCueBinToIsoAsync(cuePath, tempCueDir, token);
             if (tempIso != null && File.Exists(tempIso))
             {
-                var status = await ConvertFileInternalAsync(tempIso, outputFolder, false, context.GlobalFileIndex++, skipUpdate, checkIntegrity, useExtractXiso, useXdvdfs, progress, cloudRetry, token);
+                var status = await ConvertFileInternalAsync(tempIso, outputFolder, false, context.GlobalFileIndex++,
+                    skipUpdate, checkIntegrity, useExtractXiso, useXdvdfs, progress, cloudRetry, token);
                 if (deleteOriginal && status != FileProcessingStatus.Failed)
                 {
                     try
@@ -426,7 +463,10 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
-    private async Task<FileProcessingStatus> ConvertFileInternalAsync(string inputFile, string outputFolder, bool deleteOriginal, int fileIndex, bool skipSystemUpdate, bool checkIntegrity, bool useExtractXiso, bool useXdvdfs, IProgress<BatchOperationProgress> progress, Func<string, Task<CloudRetryResult>> onCloudRetryRequired, CancellationToken token)
+    private async Task<FileProcessingStatus> ConvertFileInternalAsync(string inputFile, string outputFolder,
+        bool deleteOriginal, int fileIndex, bool skipSystemUpdate, bool checkIntegrity, bool useExtractXiso,
+        bool useXdvdfs, IProgress<BatchOperationProgress> progress,
+        Func<string, Task<CloudRetryResult>> onCloudRetryRequired, CancellationToken token)
     {
         var originalFileName = Path.GetFileName(inputFile);
         string? localTempWorkingDir = null;
@@ -460,17 +500,27 @@ public class OrchestratorService : IOrchestratorService
                 }
                 catch (Exception ex)
                 {
-                    progress.Report(new BatchOperationProgress { LogMessage = $"Could not resolve temp directory for copy: {ex.Message}. Falling back to default temp path." });
-                    localTempWorkingDir = Path.Combine(Path.GetTempPath(), "BatchConvertIsoToXiso_Convert", Guid.NewGuid().ToString());
+                    progress.Report(new BatchOperationProgress
+                    {
+                        LogMessage =
+                            $"Could not resolve temp directory for copy: {ex.Message}. Falling back to default temp path."
+                    });
+                    localTempWorkingDir = Path.Combine(Path.GetTempPath(), "BatchConvertIsoToXiso_Convert",
+                        Guid.NewGuid().ToString());
                 }
 
                 Directory.CreateDirectory(localTempWorkingDir);
                 var simpleFilename = GenerateFilename.GenerateSimpleFilename(fileIndex);
                 var localTempIsoPath = Path.Combine(localTempWorkingDir, simpleFilename);
 
-                progress.Report(new BatchOperationProgress { LogMessage = $"File '{originalFileName}': Copying to local temp...", CurrentDrive = PathHelper.GetDriveLetter(Path.GetTempPath()) });
+                progress.Report(new BatchOperationProgress
+                {
+                    LogMessage = $"File '{originalFileName}': Copying to local temp...",
+                    CurrentDrive = PathHelper.GetDriveLetter(Path.GetTempPath())
+                });
 
-                if (!await CopyFileWithCloudRetryAsync(inputFile, localTempIsoPath, onCloudRetryRequired, progress, token))
+                if (!await CopyFileWithCloudRetryAsync(inputFile, localTempIsoPath, onCloudRetryRequired, progress,
+                        token))
                 {
                     return FileProcessingStatus.Failed;
                 }
@@ -495,7 +545,10 @@ public class OrchestratorService : IOrchestratorService
                 }
                 catch (Exception ex)
                 {
-                    progress.Report(new BatchOperationProgress { LogMessage = $"Error: Could not delete existing output file '{outputFileName}': {ex.Message}" });
+                    progress.Report(new BatchOperationProgress
+                    {
+                        LogMessage = $"Error: Could not delete existing output file '{outputFileName}': {ex.Message}"
+                    });
                     return FileProcessingStatus.Failed;
                 }
             }
@@ -504,21 +557,38 @@ public class OrchestratorService : IOrchestratorService
 
             if (useXdvdfs)
             {
-                progress.Report(new BatchOperationProgress { LogMessage = $"File '{originalFileName}': Converting using xdvdfs.exe...", CurrentDrive = PathHelper.GetDriveLetter(outputFolder) });
-                var success = await Task.Run(() => _xdvdfsService.ConvertIsoToXisoAsync(sourcePath, outputFolder, token), token);
+                progress.Report(new BatchOperationProgress
+                {
+                    LogMessage = $"File '{originalFileName}': Converting using xdvdfs.exe...",
+                    CurrentDrive = PathHelper.GetDriveLetter(outputFolder)
+                });
+                var success =
+                    await Task.Run(() => _xdvdfsService.ConvertIsoToXisoAsync(sourcePath, outputFolder, token), token);
                 status = success ? FileProcessingStatus.Converted : FileProcessingStatus.Failed;
             }
             else if (useExtractXiso)
             {
-                progress.Report(new BatchOperationProgress { LogMessage = $"File '{originalFileName}': Converting using extract-xiso.exe...", CurrentDrive = PathHelper.GetDriveLetter(outputFolder) });
-                var success = await Task.Run(() => _extractXisoService.ConvertIsoToXisoAsync(sourcePath, outputFolder, skipSystemUpdate, token), token);
+                progress.Report(new BatchOperationProgress
+                {
+                    LogMessage = $"File '{originalFileName}': Converting using extract-xiso.exe...",
+                    CurrentDrive = PathHelper.GetDriveLetter(outputFolder)
+                });
+                var success =
+                    await Task.Run(
+                        () => _extractXisoService.ConvertIsoToXisoAsync(sourcePath, outputFolder, skipSystemUpdate,
+                            token), token);
                 status = success ? FileProcessingStatus.Converted : FileProcessingStatus.Failed;
             }
             else
             {
                 // Use built-in Native Writer
-                progress.Report(new BatchOperationProgress { LogMessage = $"File '{originalFileName}': Rewriting to output...", CurrentDrive = PathHelper.GetDriveLetter(outputFolder) });
-                status = await _xisoWriter.RewriteIsoAsync(sourcePath, destinationPath, skipSystemUpdate, checkIntegrity, progress, token);
+                progress.Report(new BatchOperationProgress
+                {
+                    LogMessage = $"File '{originalFileName}': Rewriting to output...",
+                    CurrentDrive = PathHelper.GetDriveLetter(outputFolder)
+                });
+                status = await _xisoWriter.RewriteIsoAsync(sourcePath, destinationPath, skipSystemUpdate,
+                    checkIntegrity, progress, token);
             }
 
             if (status == FileProcessingStatus.AlreadyOptimized) return FileProcessingStatus.Skipped;
@@ -529,11 +599,13 @@ public class OrchestratorService : IOrchestratorService
                 try
                 {
                     File.Delete(inputFile);
-                    progress.Report(new BatchOperationProgress { LogMessage = $"Deleted original: {originalFileName}" });
+                    progress.Report(new BatchOperationProgress
+                        { LogMessage = $"Deleted original: {originalFileName}" });
                 }
                 catch (Exception ex)
                 {
-                    progress.Report(new BatchOperationProgress { LogMessage = $"Warning: Could not delete original {originalFileName}: {ex.Message}" });
+                    progress.Report(new BatchOperationProgress
+                        { LogMessage = $"Warning: Could not delete original {originalFileName}: {ex.Message}" });
                 }
             }
 
@@ -542,7 +614,8 @@ public class OrchestratorService : IOrchestratorService
         finally
         {
             if (localTempWorkingDir != null)
-                await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(localTempWorkingDir, 5, 1000, null, token);
+                await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(localTempWorkingDir, 5, 1000, null,
+                    token);
         }
     }
 
@@ -550,7 +623,9 @@ public class OrchestratorService : IOrchestratorService
 
     #region Testing Logic
 
-    public async Task TestAsync(string inputFolder, bool moveSuccessful, bool moveFailed, bool searchSubfolders, bool performDeepScan, IProgress<BatchOperationProgress> progress, Func<string, Task<CloudRetryResult>> onCloudRetryRequired, CancellationToken token)
+    public async Task TestAsync(string inputFolder, bool moveSuccessful, bool moveFailed, bool searchSubfolders,
+        bool performDeepScan, IProgress<BatchOperationProgress> progress,
+        Func<string, Task<CloudRetryResult>> onCloudRetryRequired, CancellationToken token)
     {
         if (!Directory.Exists(inputFolder))
         {
@@ -564,7 +639,8 @@ public class OrchestratorService : IOrchestratorService
                 "Please verify the folder exists and try again.");
         }
 
-        var enumOptions = new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = searchSubfolders };
+        var enumOptions = new EnumerationOptions
+            { IgnoreInaccessible = true, RecurseSubdirectories = searchSubfolders };
 
         List<string> isoFiles;
         try
@@ -593,18 +669,25 @@ public class OrchestratorService : IOrchestratorService
         {
             token.ThrowIfCancellationRequested();
             var fileName = Path.GetFileName(isoPath);
-            progress.Report(new BatchOperationProgress { StatusText = $"Testing: {fileName}", CurrentDrive = PathHelper.GetDriveLetter(Path.GetTempPath()) });
+            progress.Report(new BatchOperationProgress
+                { StatusText = $"Testing: {fileName}", CurrentDrive = PathHelper.GetDriveLetter(Path.GetTempPath()) });
 
-            var result = await TestSingleIsoInternalAsync(isoPath, fileIndex++, performDeepScan, onCloudRetryRequired, progress, token);
+            var result = await TestSingleIsoInternalAsync(isoPath, fileIndex++, performDeepScan, onCloudRetryRequired,
+                progress, token);
 
             if (result == IsoTestResultStatus.Passed)
             {
-                progress.Report(new BatchOperationProgress { SuccessCount = 1, LogMessage = $"  SUCCESS: '{fileName}' passed test." });
-                if (moveSuccessful) await _fileMover.MoveTestedFileAsync(isoPath, successFolder, "successfully tested", token);
+                progress.Report(new BatchOperationProgress
+                    { SuccessCount = 1, LogMessage = $"  SUCCESS: '{fileName}' passed test." });
+                if (moveSuccessful)
+                    await _fileMover.MoveTestedFileAsync(isoPath, successFolder, "successfully tested", token);
             }
             else
             {
-                progress.Report(new BatchOperationProgress { FailedCount = 1, FailedPathToAdd = isoPath, LogMessage = $"  FAILURE: '{fileName}' failed test." });
+                progress.Report(new BatchOperationProgress
+                {
+                    FailedCount = 1, FailedPathToAdd = isoPath, LogMessage = $"  FAILURE: '{fileName}' failed test."
+                });
                 if (moveFailed) await _fileMover.MoveTestedFileAsync(isoPath, failedFolder, "failed test", token);
             }
 
@@ -613,7 +696,9 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
-    private async Task<IsoTestResultStatus> TestSingleIsoInternalAsync(string isoPath, int index, bool performDeepScan, Func<string, Task<CloudRetryResult>> cloudRetry, IProgress<BatchOperationProgress> progress, CancellationToken token)
+    private async Task<IsoTestResultStatus> TestSingleIsoInternalAsync(string isoPath, int index, bool performDeepScan,
+        Func<string, Task<CloudRetryResult>> cloudRetry, IProgress<BatchOperationProgress> progress,
+        CancellationToken token)
     {
         // 1. Handle Cloud/OneDrive files (download to temp if necessary)
         var pathToCheck = isoPath;
@@ -710,21 +795,27 @@ public class OrchestratorService : IOrchestratorService
         return ex is IOException ioEx2 &&
                (ioEx2.Message.Contains("device", StringComparison.OrdinalIgnoreCase) ||
                 ioEx2.Message.Contains("network name is no longer available", StringComparison.OrdinalIgnoreCase) ||
-                ioEx2.Message.Contains("Zařízení není připraveno", StringComparison.OrdinalIgnoreCase)); // Czech translation from bug reports
+                ioEx2.Message.Contains("Zařízení není připraveno",
+                    StringComparison.OrdinalIgnoreCase)); // Czech translation from bug reports
     }
 
-    private static void ReportStatus(FileProcessingStatus status, string path, IProgress<BatchOperationProgress> progress)
+    private static void ReportStatus(FileProcessingStatus status, string path,
+        IProgress<BatchOperationProgress> progress)
     {
         switch (status)
         {
-            case FileProcessingStatus.Converted: progress.Report(new BatchOperationProgress { SuccessCount = 1 }); break;
+            case FileProcessingStatus.Converted:
+                progress.Report(new BatchOperationProgress { SuccessCount = 1 }); break;
             case FileProcessingStatus.AlreadyOptimized:
             case FileProcessingStatus.Skipped: progress.Report(new BatchOperationProgress { SkippedCount = 1 }); break;
-            case FileProcessingStatus.Failed: progress.Report(new BatchOperationProgress { FailedCount = 1, FailedPathToAdd = path }); break;
+            case FileProcessingStatus.Failed:
+                progress.Report(new BatchOperationProgress { FailedCount = 1, FailedPathToAdd = path }); break;
         }
     }
 
-    private static async Task<bool> CopyFileWithCloudRetryAsync(string source, string dest, Func<string, Task<CloudRetryResult>> cloudRetry, IProgress<BatchOperationProgress> progress, CancellationToken token)
+    private static async Task<bool> CopyFileWithCloudRetryAsync(string source, string dest,
+        Func<string, Task<CloudRetryResult>> cloudRetry, IProgress<BatchOperationProgress> progress,
+        CancellationToken token)
     {
         const int maxNetworkRetries = 5;
         const int initialRetryDelayMs = 500;
@@ -741,7 +832,11 @@ public class OrchestratorService : IOrchestratorService
             {
                 networkRetryCount++;
                 var delayMs = initialRetryDelayMs * (int)Math.Pow(2, networkRetryCount - 1);
-                progress.Report(new BatchOperationProgress { LogMessage = $"Network error detected, retrying in {delayMs}ms... (attempt {networkRetryCount}/{maxNetworkRetries})" });
+                progress.Report(new BatchOperationProgress
+                {
+                    LogMessage =
+                        $"Network error detected, retrying in {delayMs}ms... (attempt {networkRetryCount}/{maxNetworkRetries})"
+                });
                 await Task.Delay(delayMs, token);
             }
             catch (IOException ex) when (ex.Message.Contains("cloud operation", StringComparison.OrdinalIgnoreCase))
@@ -769,7 +864,8 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
-    private static async Task CleanupTempFoldersAsync(List<string> folders, IProgress<BatchOperationProgress> progress, CancellationToken token)
+    private static async Task CleanupTempFoldersAsync(List<string> folders, IProgress<BatchOperationProgress> progress,
+        CancellationToken token)
     {
         if (folders.Count == 0) return;
 

@@ -45,7 +45,8 @@ public class ScreenshotService : IScreenshotService
     private static extern bool DeleteDC(IntPtr hdc);
 
     [DllImport("dwmapi.dll")]
-    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out Rect pvAttribute, int cbAttribute);
+    private static extern int
+        DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out Rect pvAttribute, int cbAttribute);
 
     private const uint Srccopy = 0x00CC0020;
     private const int DwmwaExtendedFrameBounds = 9;

@@ -74,12 +74,14 @@ public partial class MainWindow
         {
             var entries = _nativeIsoTester.GetDirectoryEntries(isoSt, dirEntry);
             var uiItems = entries.Select(static e => new XisoExplorerItem
-            {
-                Name = e.FileName,
-                IsDirectory = e.IsDirectory,
-                SizeFormatted = e.IsDirectory ? "" : Formatter.FormatBytes(e.FileSize),
-                Entry = e
-            }).OrderByDescending(static i => i.IsDirectory).ThenBy(static i => i.Name).ToList();
+                {
+                    Name = e.FileName,
+                    IsDirectory = e.IsDirectory,
+                    SizeFormatted = e.IsDirectory ? "" : Formatter.FormatBytes(e.FileSize),
+                    Entry = e
+                }).OrderByDescending(static i => i.IsDirectory)
+                .ThenBy(static i => i.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
             ExplorerListView.ItemsSource = uiItems;
 
@@ -113,30 +115,37 @@ public partial class MainWindow
         ExplorerPathTextBlock.Text = path;
     }
 
-    private void ExplorerListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    private async void ExplorerListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (ExplorerListView.SelectedItem is not XisoExplorerItem item) return;
-
-        if (item.IsDirectory)
+        try
         {
-            // Save current directory entry to stack before navigating deeper
-            // XDVDFS filesystem doesn't store . or .. entries, so we track the current
-            // directory at the class level and push it to the stack before navigating
-            if (_currentDirectoryEntry != null)
+            if (ExplorerListView.SelectedItem is not XisoExplorerItem item) return;
+
+            if (item.IsDirectory)
             {
-                _parentDirectoryStack.Push(_currentDirectoryEntry);
-            }
+                // Save current directory entry to stack before navigating deeper
+                // XDVDFS filesystem doesn't store . or .. entries, so we track the current
+                // directory at the class level and push it to the stack before navigating
+                if (_currentDirectoryEntry != null)
+                {
+                    _parentDirectoryStack.Push(_currentDirectoryEntry);
+                }
 
-            LoadDirectory(item.Entry, item.Name);
+                LoadDirectory(item.Entry, item.Name);
+            }
+            else
+            {
+                // Open the file with the default application
+                await OpenFileFromIso(item.Entry, item.Name);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            // Open the file with the default application
-            OpenFileFromIso(item.Entry, item.Name);
+            await _bugReportService.SendBugReportAsync("Error in method ExplorerListView_MouseDoubleClick", ex);
         }
     }
 
-    private void OpenFileFromIso(FileEntry entry, string fileName)
+    private async Task OpenFileFromIso(FileEntry entry, string fileName)
     {
         IsoSt isoSt;
         lock (_explorerIsoStLock)
@@ -144,7 +153,7 @@ public partial class MainWindow
             isoSt = _explorerIsoSt!;
         }
 
-        Task.Run(async () =>
+        await Task.Run(async () =>
         {
             try
             {
@@ -172,14 +181,24 @@ public partial class MainWindow
                 _ = Task.Run(async () =>
                 {
                     await Task.Delay(30_000);
-                    try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { /* in use */ }
+                    try
+                    {
+                        if (File.Exists(tempPath)) File.Delete(tempPath);
+                    }
+                    catch
+                    {
+                        /* in use */
+                    }
 
                     try
                     {
                         var dir = Path.GetDirectoryName(tempPath);
                         if (dir != null && Directory.Exists(dir)) Directory.Delete(dir, true);
                     }
-                    catch { /* ignore cleanup failures */ }
+                    catch
+                    {
+                        /* ignore cleanup failures */
+                    }
                 });
             }
             catch (Exception ex)
@@ -189,7 +208,7 @@ public partial class MainWindow
                     _messageBoxService.ShowError($"Failed to extract and open file: {ex.Message}");
                 });
             }
-        });
+        }, _cts.Token);
     }
 
     private static Task ExtractFileToDiskAsync(IsoSt isoSt, FileEntry entry, string outputPath)
@@ -281,7 +300,8 @@ public partial class MainWindow
 
     private static void ExtractFileToDisk(IsoSt isoSt, FileEntry entry, string outputPath)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? throw new InvalidOperationException("outputPath cannot be null"));
+        Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ??
+                                  throw new InvalidOperationException("outputPath cannot be null"));
 
         const int bufferSize = 4 * 1024 * 1024; // 4MB buffer
         var buffer = new byte[bufferSize];

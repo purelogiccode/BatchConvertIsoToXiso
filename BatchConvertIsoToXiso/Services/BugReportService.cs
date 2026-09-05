@@ -45,7 +45,7 @@ public class BugReportService : IBugReportService
     {
         try
         {
-            var payload = new Dictionary<string, object?>
+            var payload = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
             {
                 { "message", fullMessage },
                 { "applicationName", _applicationName },
@@ -83,11 +83,13 @@ public class BugReportService : IBugReportService
         sb.AppendLine("=== Environment Details ===");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Date: {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Application Name: {App.ApplicationName}");
-        sb.AppendLine(CultureInfo.InvariantCulture, $"Application Version: {GetApplicationVersion.GetProgramVersion()}");
+        sb.AppendLine(CultureInfo.InvariantCulture,
+            $"Application Version: {GetApplicationVersion.GetProgramVersion()}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"OS Version: {Environment.OSVersion}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Architecture: {RuntimeInformation.ProcessArchitecture}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Bitness: {(Environment.Is64BitProcess ? "64-bit" : "32-bit")}");
-        sb.AppendLine(CultureInfo.InvariantCulture, $"Windows Version: {Environment.OSVersion.Version.Major}.{Environment.OSVersion.Version.Minor}.{Environment.OSVersion.Version.Build}");
+        sb.AppendLine(CultureInfo.InvariantCulture,
+            $"Windows Version: {Environment.OSVersion.Version.Major}.{Environment.OSVersion.Version.Minor}.{Environment.OSVersion.Version.Build}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Processor Count: {Environment.ProcessorCount}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Base Directory: {AppContext.BaseDirectory}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Temp Path: {Path.GetTempPath()}");

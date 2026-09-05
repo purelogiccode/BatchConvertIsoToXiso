@@ -99,7 +99,8 @@ public class XdvdfsService : IXdvdfsService
                 {
                     // Offload to background thread to avoid blocking UI thread
                     // Use CancellationToken.None because 'token' is already cancelled at this point
-                    _ = Task.Run(() => ProcessTerminatorHelper.TerminateProcess(p, "xdvdfs", _logger), CancellationToken.None);
+                    _ = Task.Run(() => ProcessTerminatorHelper.TerminateProcess(p, "xdvdfs", _logger),
+                        CancellationToken.None);
                 }
             }, process);
 
@@ -115,7 +116,8 @@ public class XdvdfsService : IXdvdfsService
                     // Fallback: xdvdfs may have written the output elsewhere (e.g. working directory
                     // or next to the input file). Search for a matching file created during this
                     // conversion and move it to the expected output location.
-                    found = await TryRecoverOutputFileAsync(outputPath, outputFileName, inputFile, conversionStartTime, token);
+                    found = await TryRecoverOutputFileAsync(outputPath, outputFileName, inputFile, conversionStartTime,
+                        token);
                 }
 
                 if (found)
@@ -125,12 +127,15 @@ public class XdvdfsService : IXdvdfsService
                 }
 
                 _logger.LogMessage($"[WARNING] xdvdfs completed but output file not found for '{fileName}'.");
-                _logger.LogMessage("[HINT] If you are using an antivirus, it may have quarantined the newly created file. Please add an exclusion for the output folder and try again.");
-                _ = _bugReportService.SendBugReportAsync($"xdvdfs completed but output file not found for '{fileName}'");
+                _logger.LogMessage(
+                    "[HINT] If you are using an antivirus, it may have quarantined the newly created file. Please add an exclusion for the output folder and try again.");
+                _ = _bugReportService.SendBugReportAsync(
+                    $"xdvdfs completed but output file not found for '{fileName}'");
                 return false;
             }
 
-            _logger.LogMessage($"[ERROR] xdvdfs.exe exited with code {process.ExitCode} for '{fileName}'. The ISO file may be invalid, corrupt, or not a supported Xbox ISO format.");
+            _logger.LogMessage(
+                $"[ERROR] xdvdfs.exe exited with code {process.ExitCode} for '{fileName}'. The ISO file may be invalid, corrupt, or not a supported Xbox ISO format.");
             return false;
         }
         catch (OperationCanceledException)
@@ -207,7 +212,8 @@ public class XdvdfsService : IXdvdfsService
     /// Searches likely output locations (working directory, input file directory) for a
     /// file created during this conversion and moves it to the expected output path.
     /// </summary>
-    private async Task<bool> TryRecoverOutputFileAsync(string outputPath, string outputFileName, string inputFile, DateTime conversionStartTime, CancellationToken token)
+    private async Task<bool> TryRecoverOutputFileAsync(string outputPath, string outputFileName, string inputFile,
+        DateTime conversionStartTime, CancellationToken token)
     {
         var searchDirectories = new[]
         {
@@ -237,7 +243,8 @@ public class XdvdfsService : IXdvdfsService
                         {
                             var fileInfo = new FileInfo(f);
                             return !string.Equals(f, inputFile, StringComparison.OrdinalIgnoreCase) &&
-                                   (fileInfo.LastWriteTimeUtc >= conversionStartTime || fileInfo.CreationTimeUtc >= conversionStartTime);
+                                   (fileInfo.LastWriteTimeUtc >= conversionStartTime ||
+                                    fileInfo.CreationTimeUtc >= conversionStartTime);
                         }
                         catch
                         {
@@ -285,17 +292,19 @@ public class XdvdfsService : IXdvdfsService
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Fall back to copy + delete (handles cross-volume moves and file locks)
+            _ = _bugReportService.SendBugReportAsync("Error in method MoveRecoveredFileAsync", ex);
         }
 
         try
         {
             await Task.Run(async () =>
             {
-                await using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous);
-                await using var destStream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, FileOptions.Asynchronous);
+                await using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read,
+                    FileShare.Read, 81920, FileOptions.Asynchronous);
+                await using var destStream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None,
+                    81920, FileOptions.Asynchronous);
 
                 await sourceStream.CopyToAsync(destStream, token);
             }, token);

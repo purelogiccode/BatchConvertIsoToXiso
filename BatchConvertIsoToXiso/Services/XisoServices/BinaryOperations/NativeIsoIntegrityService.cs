@@ -20,14 +20,16 @@ public class NativeIsoIntegrityService : INativeIsoIntegrityService
         _bugReportService = bugReportService;
     }
 
-    public Task<bool> TestIsoIntegrityAsync(string isoPath, bool performDeepScan, IProgress<BatchOperationProgress> progress, CancellationToken token)
+    public Task<bool> TestIsoIntegrityAsync(string isoPath, bool performDeepScan,
+        IProgress<BatchOperationProgress> progress, CancellationToken token)
     {
         return Task.Run(() =>
         {
             try
             {
                 _logger.LogMessage($"[INFO] Starting structural integrity test for: {Path.GetFileName(isoPath)}");
-                _logger.LogMessage("[INFO] Note: This verifies filesystem structure and readability, not data checksums.");
+                _logger.LogMessage(
+                    "[INFO] Note: This verifies filesystem structure and readability, not data checksums.");
 
                 using var isoSt = new IsoSt(isoPath);
 
@@ -126,7 +128,8 @@ public class NativeIsoIntegrityService : INativeIsoIntegrityService
         return scanSuccessful;
     }
 
-    private bool VerifyAllFiles(FileEntry rootEntry, IsoSt isoSt, IProgress<BatchOperationProgress> progress, CancellationToken token)
+    private bool VerifyAllFiles(FileEntry rootEntry, IsoSt isoSt, IProgress<BatchOperationProgress> progress,
+        CancellationToken token)
     {
         // Use a Queue for BFS traversal to avoid stack overflow and process files in order
         var dirQueue = new Queue<FileEntry>();

@@ -15,10 +15,10 @@ public class ExceptionFormatterTests
         ExceptionFormatter.AppendExceptionDetails(sb, exception);
 
         var result = sb.ToString();
-        Assert.Contains("Type: System.InvalidOperationException", result);
-        Assert.Contains("Message: Test message", result);
-        Assert.Contains("Source:", result);
-        Assert.Contains("StackTrace:", result);
+        Assert.Contains("Type: System.InvalidOperationException", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Message: Test message", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Source:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("StackTrace:", result, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -31,11 +31,11 @@ public class ExceptionFormatterTests
         ExceptionFormatter.AppendExceptionDetails(sb, outer);
 
         var result = sb.ToString();
-        Assert.Contains("Type: System.InvalidOperationException", result);
-        Assert.Contains("Message: Outer error", result);
-        Assert.Contains("Inner Exception:", result);
-        Assert.Contains("Type: System.ArgumentException", result);
-        Assert.Contains("Message: Inner error", result);
+        Assert.Contains("Type: System.InvalidOperationException", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Message: Outer error", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Inner Exception:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Type: System.ArgumentException", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Message: Inner error", result, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -51,8 +51,8 @@ public class ExceptionFormatterTests
 
         var result = sb.ToString();
         // Outer should be indented with 2 spaces
-        Assert.Contains("  Type: System.InvalidOperationException", result);
+        Assert.Contains("  Type: System.InvalidOperationException", result, StringComparison.OrdinalIgnoreCase);
         // Inner should be indented with 4 spaces
-        Assert.Contains("    Type: System.ArgumentException", result);
+        Assert.Contains("    Type: System.ArgumentException", result, StringComparison.OrdinalIgnoreCase);
     }
 }

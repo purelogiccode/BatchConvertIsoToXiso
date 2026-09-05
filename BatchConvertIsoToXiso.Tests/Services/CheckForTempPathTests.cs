@@ -23,7 +23,8 @@ public class CheckForTempPathTests
     [Fact]
     public void IsSystemTempPathWithNonTempPathReturnsFalse()
     {
-        var path = Path.Combine(Path.GetPathRoot(Environment.CurrentDirectory) ?? throw new InvalidOperationException(), "SomeRandomFolder");
+        var path = Path.Combine(Path.GetPathRoot(Environment.CurrentDirectory) ?? throw new InvalidOperationException(),
+            "SomeRandomFolder");
         Assert.False(CheckForTempPath.IsSystemTempPath(path));
     }
 

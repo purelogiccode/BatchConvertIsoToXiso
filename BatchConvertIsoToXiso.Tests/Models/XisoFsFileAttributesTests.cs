@@ -27,8 +27,8 @@ public class XisoFsFileAttributesTests
     public void DirectoryFlagCanBeTested()
     {
         const XisoFsFileAttributes attr = XisoFsFileAttributes.Directory | XisoFsFileAttributes.ReadOnly;
-        Assert.True((attr & XisoFsFileAttributes.Directory) != 0);
-        Assert.True((attr & XisoFsFileAttributes.ReadOnly) != 0);
-        Assert.False((attr & XisoFsFileAttributes.Hidden) != 0);
+        Assert.NotEqual((byte)0, (byte)(attr & XisoFsFileAttributes.Directory));
+        Assert.NotEqual((byte)0, (byte)(attr & XisoFsFileAttributes.ReadOnly));
+        Assert.Equal((byte)0, (byte)(attr & XisoFsFileAttributes.Hidden));
     }
 }

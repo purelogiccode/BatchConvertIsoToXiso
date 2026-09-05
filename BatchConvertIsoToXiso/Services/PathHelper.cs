@@ -222,7 +222,8 @@ public static class PathHelper
     /// Resolves a temporary directory path with sufficient disk space.
     /// First checks the system temp drive, then falls back to other local drives.
     /// </summary>
-    public static string ResolveTempDirectory(long requiredSize, string tempSubfolder, IDiskMonitorService diskMonitorService)
+    public static string ResolveTempDirectory(long requiredSize, string tempSubfolder,
+        IDiskMonitorService diskMonitorService)
     {
         var defaultTempPath = Path.GetTempPath();
         var defaultTempDriveRoot = Path.GetPathRoot(defaultTempPath);
@@ -250,6 +251,7 @@ public static class PathHelper
 
         var requiredFormatted = Formatter.FormatBytes(requiredWithBuffer);
         var defaultAvailable = Formatter.FormatBytes(diskMonitorService.GetAvailableFreeSpace(defaultTempPath));
-        throw new IOException($"Not enough disk space to create temporary files. Required: {requiredFormatted}, Available: {defaultAvailable}. No other local drives have sufficient free space. Please free up disk space and try again.");
+        throw new IOException(
+            $"Not enough disk space to create temporary files. Required: {requiredFormatted}, Available: {defaultAvailable}. No other local drives have sufficient free space. Please free up disk space and try again.");
     }
 }

@@ -31,7 +31,7 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
     public void StartMonitoring(string? path)
     {
         var driveLetter = PathHelper.GetDriveLetter(path);
-        if (CurrentDriveLetter == driveLetter) return;
+        if (string.Equals(CurrentDriveLetter, driveLetter, StringComparison.OrdinalIgnoreCase)) return;
 
         StopMonitoring();
 
@@ -57,7 +57,8 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
             if (!PerformanceCounterCategory.Exists("LogicalDisk"))
             {
                 StatusMessage = "Disk speed monitoring unavailable - performance counters disabled";
-                _logger.LogMessage("Performance counter category 'LogicalDisk' not available. Performance counters may be disabled.");
+                _logger.LogMessage(
+                    "Performance counter category 'LogicalDisk' not available. Performance counters may be disabled.");
                 return;
             }
 
@@ -70,12 +71,14 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
             }
 
             // Initialize read speed counter
-            var readCounter = new PerformanceCounter("LogicalDisk", "Disk Read Bytes/sec", perfCounterInstanceName, true);
+            var readCounter =
+                new PerformanceCounter("LogicalDisk", "Disk Read Bytes/sec", perfCounterInstanceName, true);
             readCounter.NextValue(); // Prime the counter
             _diskReadSpeedCounter = readCounter;
 
             // Initialize write speed counter
-            var writeCounter = new PerformanceCounter("LogicalDisk", "Disk Write Bytes/sec", perfCounterInstanceName, true);
+            var writeCounter =
+                new PerformanceCounter("LogicalDisk", "Disk Write Bytes/sec", perfCounterInstanceName, true);
             writeCounter.NextValue(); // Prime the counter
             _diskWriteSpeedCounter = writeCounter;
 

@@ -77,7 +77,8 @@ public class UtilsTests
     public void FillBufferBetweenStreamsCopiesData()
     {
         using var inFs = CreateFileStreamFromBytes([1, 2, 3, 4, 5, 6, 7, 8]);
-        using var outFs = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
+        using var outFs = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None,
+            4096, FileOptions.DeleteOnClose);
         var buf = new byte[4];
 
         var result = Utils.FillBuffer(inFs, outFs, 0, 6, buf);
@@ -93,7 +94,8 @@ public class UtilsTests
     public void FillBufferBetweenStreamsWithOffsetSeeksAndCopies()
     {
         using var inFs = CreateFileStreamFromBytes([1, 2, 3, 4, 5, 6, 7, 8]);
-        using var outFs = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
+        using var outFs = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None,
+            4096, FileOptions.DeleteOnClose);
         var buf = new byte[4];
 
         var result = Utils.FillBuffer(inFs, outFs, 4, 2, buf);
@@ -108,7 +110,8 @@ public class UtilsTests
     [Fact]
     public void WriteZeroesWritesZeros()
     {
-        using var fs = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
+        using var fs = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None,
+            4096, FileOptions.DeleteOnClose);
         var buf = new byte[4];
 
         Utils.WriteZeroes(fs, 0, 10, buf);
@@ -122,7 +125,8 @@ public class UtilsTests
     [Fact]
     public void WriteZeroesWithOffsetSeeksAndWrites()
     {
-        using var fs = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.DeleteOnClose);
+        using var fs = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None,
+            4096, FileOptions.DeleteOnClose);
         fs.Write([1, 2, 3, 4, 5]);
         fs.Position = 0;
         var buf = new byte[4];

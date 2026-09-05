@@ -35,11 +35,13 @@ public partial class ExternalToolService : IExternalToolService
         _logger.LogMessage($"  Found BIN file: '{binFileName}'");
 
         var outputBaseName = Path.GetFileNameWithoutExtension(cuePath);
-        var result = await RunProcessAsync(_bchunkPath, $"\"{binPath}\" \"{cuePath}\" \"{outputBaseName}\"", tempOutputDir, outputBaseName, token);
+        var result = await RunProcessAsync(_bchunkPath, $"\"{binPath}\" \"{cuePath}\" \"{outputBaseName}\"",
+            tempOutputDir, outputBaseName, token);
 
         if (result != 0)
         {
-            _logger.LogMessage($"[ERROR] Failed to convert CUE/BIN to ISO for '{cueFileName}'. bchunk.exe exited with code {result}.");
+            _logger.LogMessage(
+                $"[ERROR] Failed to convert CUE/BIN to ISO for '{cueFileName}'. bchunk.exe exited with code {result}.");
             return null;
         }
 
@@ -50,13 +52,15 @@ public partial class ExternalToolService : IExternalToolService
         }
         else
         {
-            _logger.LogMessage($"[WARNING] CUE/BIN conversion completed but no ISO file was found for '{cueFileName}'.");
+            _logger.LogMessage(
+                $"[WARNING] CUE/BIN conversion completed but no ISO file was found for '{cueFileName}'.");
         }
 
         return isoFile;
     }
 
-    private async Task<int?> RunProcessAsync(string fileName, string arguments, string? workingDir, string contextName, CancellationToken token)
+    private async Task<int?> RunProcessAsync(string fileName, string arguments, string? workingDir, string contextName,
+        CancellationToken token)
     {
         try
         {
@@ -84,7 +88,8 @@ public partial class ExternalToolService : IExternalToolService
                              {
                                  // Offload to background thread to avoid blocking UI thread
                                  // Use CancellationToken.None because 'token' is already cancelled at this point
-                                 _ = Task.Run(() => ProcessTerminatorHelper.TerminateProcess(p, contextName, _logger), CancellationToken.None);
+                                 _ = Task.Run(() => ProcessTerminatorHelper.TerminateProcess(p, contextName, _logger),
+                                     CancellationToken.None);
                              }
                          }, process))
             {
@@ -126,7 +131,9 @@ public partial class ExternalToolService : IExternalToolService
                 var match = CueRegex().Match(line.Trim());
                 if (!match.Success) continue;
 
-                var rawBinName = !string.IsNullOrEmpty(match.Groups[1].Value) ? match.Groups[1].Value : match.Groups[2].Value;
+                var quoted = match.Groups["Quoted"].Value;
+                var unquoted = match.Groups["Unquoted"].Value;
+                var rawBinName = !string.IsNullOrEmpty(quoted) ? quoted : unquoted;
 
                 // Combine with CUE directory while preserving relative paths (e.g. "data\file.bin")
                 var binPath = Path.Combine(cueDir, rawBinName);
@@ -142,6 +149,7 @@ public partial class ExternalToolService : IExternalToolService
         return File.Exists(fallback) ? fallback : null;
     }
 
-    [GeneratedRegex("""^FILE\s+(?:"(.+)"|(\S+))\s+\S+""", RegexOptions.IgnoreCase)]
+    [GeneratedRegex("""^FILE\s+(?:"(?<Quoted>.+)"|(?<Unquoted>\S+))\s+\S+""", RegexOptions.IgnoreCase,
+        matchTimeoutMilliseconds: 1000)]
     private static partial Regex CueRegex();
 }

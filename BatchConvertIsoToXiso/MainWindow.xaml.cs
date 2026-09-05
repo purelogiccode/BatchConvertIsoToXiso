@@ -39,14 +39,15 @@ public partial class MainWindow
 
     // XIso Explorer State
     private IsoSt? _explorerIsoSt;
-    private readonly object _explorerIsoStLock = new();
+    private readonly Lock _explorerIsoStLock = new();
     private readonly Stack<FileEntry> _parentDirectoryStack = new();
     private readonly Stack<string> _explorerPathNames = new();
     private FileEntry? _currentDirectoryEntry;
 
     public MainWindow(IUpdateChecker updateChecker, ILogger logger, IBugReportService bugReportService,
         IMessageBoxService messageBoxService, IUrlOpener urlOpener, IScreenshotService screenshotService,
-        IOrchestratorService orchestratorService, IDiskMonitorService diskMonitorService, INativeIsoIntegrityService nativeIsoTester)
+        IOrchestratorService orchestratorService, IDiskMonitorService diskMonitorService,
+        INativeIsoIntegrityService nativeIsoTester)
     {
         InitializeComponent();
 
@@ -96,7 +97,8 @@ public partial class MainWindow
 
         if (_isOperationRunning)
         {
-            var result = _messageBoxService.Show("An operation is still running. Exit anyway?", "Warning", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            var result = _messageBoxService.Show("An operation is still running. Exit anyway?", "Warning",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (result == MessageBoxResult.No)
             {
                 e.Cancel = true;

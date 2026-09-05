@@ -84,7 +84,7 @@ public class StatsServiceTests
             .Setup<Task<HttpResponseMessage>>("SendAsync",
                 ItExpr.IsAny<HttpRequestMessage>(),
                 ItExpr.IsAny<CancellationToken>())
-            .Callback<HttpRequestMessage, CancellationToken>((req, _) => { capturedRequest = req; })
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) => capturedRequest = req)
             .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handlerMock.Object);
 
@@ -105,7 +105,7 @@ public class StatsServiceTests
             .Setup<Task<HttpResponseMessage>>("SendAsync",
                 ItExpr.IsAny<HttpRequestMessage>(),
                 ItExpr.IsAny<CancellationToken>())
-            .Callback<HttpRequestMessage, CancellationToken>((req, _) => { capturedRequest = req; })
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) => capturedRequest = req)
             .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handlerMock.Object);
 
@@ -127,7 +127,7 @@ public class StatsServiceTests
             .Setup<Task<HttpResponseMessage>>("SendAsync",
                 ItExpr.IsAny<HttpRequestMessage>(),
                 ItExpr.IsAny<CancellationToken>())
-            .Callback<HttpRequestMessage, CancellationToken>((req, _) => { capturedRequest = req; })
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) => capturedRequest = req)
             .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handlerMock.Object);
 
@@ -148,20 +148,24 @@ public class StatsServiceTests
             .Setup<Task<HttpResponseMessage>>("SendAsync",
                 ItExpr.IsAny<HttpRequestMessage>(),
                 ItExpr.IsAny<CancellationToken>())
-            .Callback<HttpRequestMessage, CancellationToken>(async void (req, _) =>
+#pragma warning disable MA0147
+            .Callback<HttpRequestMessage, CancellationToken>(async void (req, t) =>
             {
                 try
                 {
                     if (req.Content != null)
                     {
-                        capturedBody = await req.Content.ReadAsStringAsync();
+                        capturedBody = await req.Content.ReadAsStringAsync(t);
                     }
                 }
+#pragma warning disable RCS1075
                 catch (Exception)
+#pragma warning restore RCS1075
                 {
                     // Ignore
                 }
             })
+#pragma warning restore MA0147
             .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handlerMock.Object);
 

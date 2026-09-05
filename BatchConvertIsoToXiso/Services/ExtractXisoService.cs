@@ -14,7 +14,8 @@ public class ExtractXisoService : IExtractXisoService
     private readonly IDiskMonitorService _diskMonitorService;
     private readonly string _extractXisoPath;
 
-    public ExtractXisoService(ILogger logger, IBugReportService bugReportService, IDiskMonitorService diskMonitorService)
+    public ExtractXisoService(ILogger logger, IBugReportService bugReportService,
+        IDiskMonitorService diskMonitorService)
     {
         _logger = logger;
         _bugReportService = bugReportService;
@@ -23,7 +24,8 @@ public class ExtractXisoService : IExtractXisoService
         _extractXisoPath = Path.Combine(appDir, "extract-xiso.exe");
     }
 
-    public async Task<bool> ConvertIsoToXisoAsync(string inputFile, string outputFolder, bool skipSystemUpdate, CancellationToken token)
+    public async Task<bool> ConvertIsoToXisoAsync(string inputFile, string outputFolder, bool skipSystemUpdate,
+        CancellationToken token)
     {
         var fileName = Path.GetFileName(inputFile);
         _logger.LogMessage($"Converting '{fileName}' using extract-xiso.exe...");
@@ -129,7 +131,8 @@ public class ExtractXisoService : IExtractXisoService
                     {
                         // Offload to background thread to avoid blocking UI thread
                         // Use CancellationToken.None because 'token' is already cancelled at this point
-                        _ = Task.Run(() => ProcessTerminatorHelper.TerminateProcess(p, "extract-xiso", _logger), CancellationToken.None);
+                        _ = Task.Run(() => ProcessTerminatorHelper.TerminateProcess(p, "extract-xiso", _logger),
+                            CancellationToken.None);
                     }
                 }, process);
 
@@ -157,7 +160,8 @@ public class ExtractXisoService : IExtractXisoService
                             {
                                 var fileInfo = new FileInfo(f);
                                 // File must be created or modified after this conversion started
-                                return fileInfo.LastWriteTimeUtc >= conversionStartTime || fileInfo.CreationTimeUtc >= conversionStartTime;
+                                return fileInfo.LastWriteTimeUtc >= conversionStartTime ||
+                                       fileInfo.CreationTimeUtc >= conversionStartTime;
                             }
                             catch
                             {
@@ -171,7 +175,8 @@ public class ExtractXisoService : IExtractXisoService
                         // Move the converted file to the final destination
                         _logger.LogMessage("  Moving converted file to output folder...");
                         await MoveFileWithFallbackAsync(possibleOutputs[0], outputPath, token);
-                        _logger.LogMessage($"Successfully converted '{fileName}' to XISO format (found: {Path.GetFileName(possibleOutputs[0])}).");
+                        _logger.LogMessage(
+                            $"Successfully converted '{fileName}' to XISO format (found: {Path.GetFileName(possibleOutputs[0])}).");
                         return true;
                     }
 
@@ -202,30 +207,30 @@ public class ExtractXisoService : IExtractXisoService
         catch (Exception ex) when (PathHelper.IsNetworkError(ex))
         {
             _logger.LogMessage($"[ERROR] Network error while converting '{fileName}': {ex.Message}\n\n" +
-                "Please try:\n" +
-                "1. Check that the network drive is still connected and accessible\n" +
-                "2. Copy the file to a local drive before processing\n" +
-                "3. Check your network connection stability");
+                               "Please try:\n" +
+                               "1. Check that the network drive is still connected and accessible\n" +
+                               "2. Copy the file to a local drive before processing\n" +
+                               "3. Check your network connection stability");
             throw;
         }
         catch (DirectoryNotFoundException ex)
         {
             _logger.LogMessage($"[ERROR] Drive or path not found for '{fileName}': {ex.Message}\n\n" +
-                "Please check that the drive is connected and the path exists.");
+                               "Please check that the drive is connected and the path exists.");
             throw;
         }
         catch (UnauthorizedAccessException)
         {
             _logger.LogMessage($"[ERROR] Access denied while converting '{fileName}'.\n\n" +
-                "The output folder may be write-protected or require administrator rights.\n" +
-                "Please choose a different output folder or run the application as administrator.");
+                               "The output folder may be write-protected or require administrator rights.\n" +
+                               "Please choose a different output folder or run the application as administrator.");
             return false;
         }
         catch (IOException ex) when (ex.Message.Contains("parameter is incorrect", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogMessage($"[ERROR] Failed to move the converted file for '{fileName}': {ex.Message}\n\n" +
-                "The output drive may not support files of this size or format (e.g. FAT32 is limited to 4 GB per file).\n" +
-                "Please use an NTFS or exFAT formatted output drive.");
+                               "The output drive may not support files of this size or format (e.g. FAT32 is limited to 4 GB per file).\n" +
+                               "Please use an NTFS or exFAT formatted output drive.");
             return false;
         }
         catch (Exception ex)
@@ -330,8 +335,10 @@ public class ExtractXisoService : IExtractXisoService
         {
             try
             {
-                await using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, FileOptions.Asynchronous);
-                await using var destStream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize, FileOptions.Asynchronous);
+                await using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read,
+                    FileShare.Read, bufferSize, FileOptions.Asynchronous);
+                await using var destStream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None,
+                    bufferSize, FileOptions.Asynchronous);
 
                 var buffer = new byte[bufferSize];
                 int bytesRead;

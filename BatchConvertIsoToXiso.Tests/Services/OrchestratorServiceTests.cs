@@ -17,18 +17,25 @@ public class OrchestratorServiceTests : IDisposable
     {
         foreach (var file in _tempFiles)
         {
-            try { if (File.Exists(file)) File.Delete(file); }
+            try
+            {
+                if (File.Exists(file)) File.Delete(file);
+            }
             catch
             {
                 // ignored
             }
         }
 
-        try { if (Directory.Exists(_tempDir)) Directory.Delete(_tempDir, true); }
+        try
+        {
+            if (Directory.Exists(_tempDir)) Directory.Delete(_tempDir, true);
+        }
         catch
         {
             // ignored
         }
+
         GC.SuppressFinalize(this);
     }
 
@@ -50,10 +57,10 @@ public class OrchestratorServiceTests : IDisposable
     }
 
     [Theory]
-    [InlineData(0x15, "The device is not ready")]        // ERROR_NOT_READY
+    [InlineData(0x15, "The device is not ready")] // ERROR_NOT_READY
     [InlineData(0x03, "The system cannot find the path")] // ERROR_PATH_NOT_FOUND
     [InlineData(0x0F, "The system cannot find the drive")] // ERROR_INVALID_DRIVE
-    [InlineData(0x37, "The device does not exist")]       // ERROR_DEV_NOT_EXIST
+    [InlineData(0x37, "The device does not exist")] // ERROR_DEV_NOT_EXIST
     [InlineData(0x40, "The network name is no longer available")] // ERROR_NETNAME_DELETED
     public void IsFatalEnvironmentalErrorIoExceptionWithFatalHResultReturnsTrue(int hresult, string message)
     {
@@ -62,8 +69,8 @@ public class OrchestratorServiceTests : IDisposable
     }
 
     [Theory]
-    [InlineData(0x02, "File not found")]    // ERROR_FILE_NOT_FOUND - not fatal
-    [InlineData(0x05, "Access denied")]     // ERROR_ACCESS_DENIED - not fatal
+    [InlineData(0x02, "File not found")] // ERROR_FILE_NOT_FOUND - not fatal
+    [InlineData(0x05, "Access denied")] // ERROR_ACCESS_DENIED - not fatal
     [InlineData(0x20, "Sharing violation")] // ERROR_SHARING_VIOLATION - not fatal
     public void IsFatalEnvironmentalErrorIoExceptionWithNonFatalHResultReturnsFalse(int hresult, string message)
     {
@@ -208,7 +215,7 @@ public class OrchestratorServiceTests : IDisposable
         var result = OrchestratorService.GetReferencedBinFilesFromCue(cuePath);
 
         Assert.Single(result);
-        Assert.Contains("my game file.bin", result[0]);
+        Assert.Contains("my game file.bin", result[0], StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -231,7 +238,7 @@ public class OrchestratorServiceTests : IDisposable
         var result = OrchestratorService.GetReferencedBinFilesFromCue(cuePath);
 
         Assert.Single(result);
-        Assert.Contains("game.bin", result[0]);
+        Assert.Contains("game.bin", result[0], StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -243,7 +250,7 @@ public class OrchestratorServiceTests : IDisposable
         var result = OrchestratorService.GetReferencedBinFilesFromCue(cuePath);
 
         Assert.Single(result);
-        Assert.Contains("game.bin", result[0]);
+        Assert.Contains("game.bin", result[0], StringComparison.OrdinalIgnoreCase);
     }
 
     #endregion

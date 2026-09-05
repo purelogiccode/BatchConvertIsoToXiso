@@ -14,7 +14,8 @@ public partial class MainWindow
 
         if (CheckForTempPath.IsSystemTempPath(inputFolder))
         {
-            _messageBoxService.ShowError("The system's temporary folder or a subfolder within it cannot be selected as an input folder. Please choose a different location.");
+            _messageBoxService.ShowError(
+                "The system's temporary folder or a subfolder within it cannot be selected as an input folder. Please choose a different location.");
             return;
         }
 
@@ -28,7 +29,8 @@ public partial class MainWindow
 
         if (CheckForTempPath.IsSystemTempPath(outputFolder))
         {
-            _messageBoxService.ShowError("The system's temporary folder or a subfolder within it cannot be selected as an output folder. Please choose a different location.");
+            _messageBoxService.ShowError(
+                "The system's temporary folder or a subfolder within it cannot be selected as an output folder. Please choose a different location.");
             return;
         }
 
@@ -42,7 +44,8 @@ public partial class MainWindow
 
         if (CheckForTempPath.IsSystemTempPath(inputFolder))
         {
-            _messageBoxService.ShowError("The system's temporary folder or a subfolder within it cannot be selected as an input folder for testing. Please choose a different location.");
+            _messageBoxService.ShowError(
+                "The system's temporary folder or a subfolder within it cannot be selected as an input folder for testing. Please choose a different location.");
             return;
         }
 
@@ -99,7 +102,14 @@ public partial class MainWindow
             }
 
             var oldCts = Interlocked.Exchange(ref _cts, new CancellationTokenSource());
-            try { oldCts.Dispose(); } catch { /* Already disposed by CleanupResources */ }
+            try
+            {
+                oldCts.Dispose();
+            }
+            catch
+            {
+                /* Already disposed by CleanupResources */
+            }
 
             var progress = new Progress<BatchOperationProgress>(p =>
             {
@@ -232,7 +242,14 @@ public partial class MainWindow
             }
 
             var oldCts = Interlocked.Exchange(ref _cts, new CancellationTokenSource());
-            try { oldCts.Dispose(); } catch { /* Already disposed by CleanupResources */ }
+            try
+            {
+                oldCts.Dispose();
+            }
+            catch
+            {
+                /* Already disposed by CleanupResources */
+            }
 
             var progress = new Progress<BatchOperationProgress>(p =>
             {

@@ -16,7 +16,7 @@ public class XdvdfsTests
 
         // Root directory at sector 34 (well after header sector 32)
         const int rootDirSector = 34;
-        var rootDirOffset = gamePartitionOffset + (long)rootDirSector * sectorSize;
+        var rootDirOffset = gamePartitionOffset + ((long)rootDirSector * sectorSize);
         var requiredSize = rootDirOffset + 64;
         fs.SetLength(requiredSize);
 
@@ -49,7 +49,8 @@ public class XdvdfsTests
     public void FindXisoSignatureOffsetWithValidXisoAtZeroReturnsZero()
     {
         var path = CreateMinimalXisoFile();
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096,
+            FileOptions.DeleteOnClose);
         var result = Xdvdfs.FindXisoSignatureOffset(fs);
         Assert.Equal(0, result);
     }
@@ -59,7 +60,8 @@ public class XdvdfsTests
     {
         const int offset = 34078720; // XGD3 offset
         var path = CreateMinimalXisoFile(offset);
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096,
+            FileOptions.DeleteOnClose);
         var result = Xdvdfs.FindXisoSignatureOffset(fs);
         Assert.Equal(offset, result);
     }
@@ -69,7 +71,8 @@ public class XdvdfsTests
     {
         var path = Path.GetTempFileName();
         File.WriteAllBytes(path, new byte[1024 * 1024]);
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096,
+            FileOptions.DeleteOnClose);
 
         var result = Xdvdfs.FindXisoSignatureOffset(fs);
         Assert.Null(result);
@@ -79,7 +82,8 @@ public class XdvdfsTests
     public void ValidateXisoSignatureAtOffsetWithValidSignatureReturnsTrue()
     {
         var path = CreateMinimalXisoFile();
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096,
+            FileOptions.DeleteOnClose);
         var result = Xdvdfs.ValidateXisoSignatureAtOffset(fs, 0);
         Assert.True(result);
     }
@@ -89,7 +93,8 @@ public class XdvdfsTests
     {
         var path = Path.GetTempFileName();
         File.WriteAllBytes(path, new byte[1024 * 1024]);
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096,
+            FileOptions.DeleteOnClose);
 
         var result = Xdvdfs.ValidateXisoSignatureAtOffset(fs, 0);
         Assert.False(result);
@@ -99,7 +104,8 @@ public class XdvdfsTests
     public void GetXisoRangesWithValidXisoReturnsRanges()
     {
         var path = CreateMinimalXisoFile();
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096,
+            FileOptions.DeleteOnClose);
         var ranges = Xdvdfs.GetXisoRanges(fs, 0, true, false);
 
         Assert.NotEmpty(ranges);
@@ -111,7 +117,8 @@ public class XdvdfsTests
     {
         var path = Path.GetTempFileName();
         File.WriteAllBytes(path, new byte[1024 * 1024]);
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096,
+            FileOptions.DeleteOnClose);
 
         var ranges = Xdvdfs.GetXisoRanges(fs, 0, true, false);
         Assert.Empty(ranges);
@@ -134,7 +141,8 @@ public class XdvdfsTests
             buildFs.Write(MagicId);
         }
 
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096,
+            FileOptions.DeleteOnClose);
         var ranges = Xdvdfs.GetXisoRanges(fs, 0, true, false);
         Assert.Empty(ranges);
     }

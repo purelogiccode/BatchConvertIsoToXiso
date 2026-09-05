@@ -13,8 +13,14 @@ public class VolumeDescriptorTests : IDisposable
     {
         foreach (var file in _tempFiles)
         {
-            try { if (File.Exists(file)) File.Delete(file); }
-            catch { /* best effort */ }
+            try
+            {
+                if (File.Exists(file)) File.Delete(file);
+            }
+            catch
+            {
+                /* best effort */
+            }
         }
 
         GC.SuppressFinalize(this);
@@ -28,7 +34,7 @@ public class VolumeDescriptorTests : IDisposable
         // Write zeros up to the volume descriptor area
         const int volumeDescriptorSector = 32;
         const int sectorSize = 2048;
-        var volumePosition = gamePartitionOffset + (long)volumeDescriptorSector * sectorSize;
+        var volumePosition = gamePartitionOffset + ((long)volumeDescriptorSector * sectorSize);
 
         // Ensure file is large enough
         var requiredSize = volumePosition + 0x800;

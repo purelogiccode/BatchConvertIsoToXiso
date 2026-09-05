@@ -34,7 +34,8 @@ public class DisplayInstructionsTests
 
         DisplayInstructions.DisplayInitialInstructions();
 
-        mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.StartsWith("This application provides"))),
+        mockLogger.Verify(
+            static x => x.LogMessage(It.Is<string>(static s => s.StartsWith("This application provides"))),
             Times.Once);
         mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("Convert"))),
             Times.AtLeastOnce);
@@ -52,7 +53,8 @@ public class DisplayInstructionsTests
 
         DisplayInstructions.DisplayInitialInstructions();
 
-        mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("Xbox") && s.Contains("IMPORTANT"))),
+        mockLogger.Verify(
+            static x => x.LogMessage(It.Is<string>(static s => s.Contains("Xbox") && s.Contains("IMPORTANT"))),
             Times.Once);
     }
 

@@ -25,7 +25,8 @@ public class UrlOpenerServiceTests
         var ex = Record.Exception(() => service.OpenUrl("not_a_valid_url"));
 
         Assert.NotNull(ex);
-        _loggerMock.Verify(static l => l.LogMessage(It.Is<string>(static s => s.Contains("Error opening URL"))), Times.Once);
+        _loggerMock.Verify(static l => l.LogMessage(It.Is<string>(static s => s.Contains("Error opening URL"))),
+            Times.Once);
         _bugReportMock.Verify(static b => b.SendBugReportAsync(It.IsAny<string>(), It.IsAny<Exception>()), Times.Once);
     }
 }

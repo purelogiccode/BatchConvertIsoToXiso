@@ -8,7 +8,8 @@ public static class TempFolderCleanupHelper
     /// <summary>
     /// Deletes a directory with retry logic for locked files
     /// </summary>
-    public static async Task TryDeleteDirectoryWithRetryAsync(string directoryPath, int maxRetries, int delayMs, ILogger? logger, CancellationToken cancellationToken = default)
+    public static async Task TryDeleteDirectoryWithRetryAsync(string directoryPath, int maxRetries, int delayMs,
+        ILogger? logger, CancellationToken cancellationToken = default)
     {
         for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
@@ -22,12 +23,14 @@ public static class TempFolderCleanupHelper
             }
             catch (IOException) when (attempt < maxRetries)
             {
-                logger?.LogMessage($"Deletion attempt {attempt}/{maxRetries} failed for '{Path.GetFileName(directoryPath)}' (files locked). Retrying...");
+                logger?.LogMessage(
+                    $"Deletion attempt {attempt}/{maxRetries} failed for '{Path.GetFileName(directoryPath)}' (files locked). Retrying...");
                 await Task.Delay(delayMs, cancellationToken);
             }
             catch (UnauthorizedAccessException) when (attempt < maxRetries)
             {
-                logger?.LogMessage($"Deletion attempt {attempt}/{maxRetries} failed for '{Path.GetFileName(directoryPath)}' (access denied). Retrying...");
+                logger?.LogMessage(
+                    $"Deletion attempt {attempt}/{maxRetries} failed for '{Path.GetFileName(directoryPath)}' (access denied). Retrying...");
                 await Task.Delay(delayMs, cancellationToken);
             }
             catch (OperationCanceledException)
@@ -41,13 +44,15 @@ public static class TempFolderCleanupHelper
             }
         }
 
-        logger?.LogMessage($"WARNING: Could not delete '{Path.GetFileName(directoryPath)}' after {maxRetries} attempts. Manual cleanup may be needed.");
+        logger?.LogMessage(
+            $"WARNING: Could not delete '{Path.GetFileName(directoryPath)}' after {maxRetries} attempts. Manual cleanup may be needed.");
     }
 
     /// <summary>
     /// Cleans up all BatchConvertIsoToXiso temp folders on all fixed drives
     /// </summary>
-    public static async Task CleanupBatchConvertTempFoldersAsync(ILogger logger, CancellationToken cancellationToken = default)
+    public static async Task CleanupBatchConvertTempFoldersAsync(ILogger logger,
+        CancellationToken cancellationToken = default)
     {
         const string searchPattern = "BatchConvertIsoToXiso_*";
 
