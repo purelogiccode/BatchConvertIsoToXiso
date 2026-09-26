@@ -204,6 +204,13 @@ public class ExtractXisoService : IExtractXisoService
             _logger.LogMessage($"[ERROR] Not enough disk space to convert '{fileName}': {ex.Message}");
             throw;
         }
+        catch (Exception ex) when (PathHelper.IsDeviceIoError(ex))
+        {
+            _logger.LogMessage($"[ERROR] The drive reported a hardware I/O error while converting '{fileName}': {ex.Message}\n\n" +
+                               "This usually means the source or output drive is failing, was disconnected, or has a hardware problem.\n" +
+                               "Please check the drive connection and health (e.g. run chkdsk), then try again.");
+            throw;
+        }
         catch (Exception ex) when (PathHelper.IsNetworkError(ex))
         {
             _logger.LogMessage($"[ERROR] Network error while converting '{fileName}': {ex.Message}\n\n" +

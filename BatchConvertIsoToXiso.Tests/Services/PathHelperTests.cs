@@ -159,4 +159,39 @@ public class PathHelperTests
         var ex = new IOException("outer", inner);
         Assert.True(PathHelper.IsDiskSpaceError(ex));
     }
+
+    [Fact]
+    public void IsDeviceIoErrorWithNullReturnsFalse()
+    {
+        Assert.False(PathHelper.IsDeviceIoError(null));
+    }
+
+    [Theory]
+    [InlineData("The request could not be performed because of an I/O device error.", true)]
+    [InlineData("Impossibile eseguire la richiesta a causa di un errore di dispositivo I/O.", true)]
+    [InlineData("Die Anforderung konnte wegen eines E/A-Gerätefehlers nicht ausgeführt werden.", true)]
+    [InlineData("La demande n'a pas pu être exécutée en raison d'une erreur de périphérique d'E/S.", true)]
+    [InlineData("No se pudo realizar la solicitud debido a un error de dispositivo de E/S.", true)]
+    [InlineData("some random error message", false)]
+    [InlineData("The device is not ready", false)]
+    public void IsDeviceIoErrorWithKnownPatternsReturnsExpectedResult(string message, bool expected)
+    {
+        var ex = new IOException(message);
+        Assert.Equal(expected, PathHelper.IsDeviceIoError(ex));
+    }
+
+    [Fact]
+    public void IsDeviceIoErrorWithWin32ErrorCodeReturnsTrue()
+    {
+        var ex = new IOException("Impossibile eseguire la richiesta a causa di un errore di dispositivo I/O.", 0x45D);
+        Assert.True(PathHelper.IsDeviceIoError(ex));
+    }
+
+    [Fact]
+    public void IsDeviceIoErrorChecksInnerException()
+    {
+        var inner = new IOException("The request could not be performed because of an I/O device error.", 0x45D);
+        var ex = new IOException("outer", inner);
+        Assert.True(PathHelper.IsDeviceIoError(ex));
+    }
 }

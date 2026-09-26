@@ -62,6 +62,7 @@ public class OrchestratorServiceTests : IDisposable
     [InlineData(0x0F, "The system cannot find the drive")] // ERROR_INVALID_DRIVE
     [InlineData(0x37, "The device does not exist")] // ERROR_DEV_NOT_EXIST
     [InlineData(0x40, "The network name is no longer available")] // ERROR_NETNAME_DELETED
+    [InlineData(0x45D, "The request could not be performed because of an I/O device error")] // ERROR_IO_DEVICE
     public void IsFatalEnvironmentalErrorIoExceptionWithFatalHResultReturnsTrue(int hresult, string message)
     {
         var ex = new IOException(message, hresult);
@@ -96,6 +97,13 @@ public class OrchestratorServiceTests : IDisposable
     public void IsFatalEnvironmentalErrorIoExceptionWithCzechDeviceMessageReturnsTrue()
     {
         var ex = new IOException("Zařízení není připraveno");
+        Assert.True(OrchestratorService.IsFatalEnvironmentalError(ex));
+    }
+
+    [Fact]
+    public void IsFatalEnvironmentalErrorIoExceptionWithLocalizedDeviceIoMessageReturnsTrue()
+    {
+        var ex = new IOException("Impossibile eseguire la richiesta a causa di un errore di dispositivo I/O.");
         Assert.True(OrchestratorService.IsFatalEnvironmentalError(ex));
     }
 

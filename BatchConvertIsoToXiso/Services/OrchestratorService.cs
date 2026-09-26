@@ -782,6 +782,8 @@ public class OrchestratorService : IOrchestratorService
 
     internal static bool IsFatalEnvironmentalError(Exception ex)
     {
+        if (PathHelper.IsDeviceIoError(ex)) return true;
+
         if (ex is IOException ioEx)
         {
             var hResult = ioEx.HResult & 0xFFFF;

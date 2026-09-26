@@ -195,7 +195,8 @@ public partial class MainWindow
 
             // Environmental errors (disk space, network, disconnected drives) are not
             // application bugs — the user already gets a clear message from the orchestrator.
-            if (!PathHelper.IsDiskSpaceError(ex) && !PathHelper.IsNetworkError(ex))
+            if (!PathHelper.IsDiskSpaceError(ex) && !PathHelper.IsNetworkError(ex) &&
+                !PathHelper.IsDeviceIoError(ex))
             {
                 _ = _bugReportService.SendBugReportAsync("Critical error during batch conversion", ex);
             }
@@ -321,7 +322,8 @@ public partial class MainWindow
 
             // Environmental errors (disk space, network, disconnected drives) are not
             // application bugs — the user already gets a clear message from the orchestrator.
-            if (!PathHelper.IsDiskSpaceError(ex) && !PathHelper.IsNetworkError(ex))
+            if (!PathHelper.IsDiskSpaceError(ex) && !PathHelper.IsNetworkError(ex) &&
+                !PathHelper.IsDeviceIoError(ex))
             {
                 _ = _bugReportService.SendBugReportAsync("Critical error during batch test", ex);
             }

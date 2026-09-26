@@ -219,6 +219,44 @@ public static class PathHelper
     }
 
     /// <summary>
+    /// Win32 error code ERROR_IO_DEVICE: the request could not be performed because
+    /// of an I/O device error (e.g. a failing or disconnected drive).
+    /// </summary>
+    private const int ErrorIoDevice = 0x45D;
+
+    /// <summary>
+    /// Determines if an exception was caused by a hardware I/O failure on the source or
+    /// destination device (e.g. a failing, disconnected, or power-cycling drive).
+    /// Windows localizes the message, so the Win32 error code is checked first, with
+    /// localized message patterns as a fallback for wrapped exceptions that lost the code.
+    /// </summary>
+    public static bool IsDeviceIoError(Exception? exception)
+    {
+        if (exception == null) return false;
+
+        if (HasDeviceIoErrorCode(exception) || MatchesDeviceIoPatterns(exception.Message)) return true;
+
+        return exception.InnerException != null &&
+               (HasDeviceIoErrorCode(exception.InnerException) ||
+                MatchesDeviceIoPatterns(exception.InnerException.Message));
+    }
+
+    private static bool HasDeviceIoErrorCode(Exception exception)
+    {
+        return exception is IOException ioException && (ioException.HResult & 0xFFFF) == ErrorIoDevice;
+    }
+
+    private static bool MatchesDeviceIoPatterns(string message)
+    {
+        // English, Italian, German, French and Spanish variants of the Windows message
+        return message.Contains("I/O device error", StringComparison.OrdinalIgnoreCase) ||
+               message.Contains("dispositivo I/O", StringComparison.OrdinalIgnoreCase) ||
+               message.Contains("E/A-Gerät", StringComparison.OrdinalIgnoreCase) ||
+               message.Contains("périphérique d'E/S", StringComparison.OrdinalIgnoreCase) ||
+               message.Contains("dispositivo de E/S", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Resolves a temporary directory path with sufficient disk space.
     /// First checks the system temp drive, then falls back to other local drives.
     /// </summary>
