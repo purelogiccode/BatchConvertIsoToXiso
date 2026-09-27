@@ -319,18 +319,8 @@ public partial class MainWindow
         _diskMonitorService.StartMonitoring(driveLetter);
     }
 
-    private void ExtractXisoUrl_Click(object sender, MouseButtonEventArgs e)
+    private void XisoSharpUrl_Click(object sender, MouseButtonEventArgs e)
     {
-        _urlOpener.OpenUrl("https://github.com/XboxDev/extract-xiso");
-    }
-
-    private void XdvdfsUrl_Click(object sender, MouseButtonEventArgs e)
-    {
-        _urlOpener.OpenUrl("https://github.com/antangelo/xdvdfs");
-    }
-
-    private void DeterousUrl_Click(object sender, MouseButtonEventArgs e)
-    {
-        _urlOpener.OpenUrl("https://github.com/Deterous/XboxKit");
+        _urlOpener.OpenUrl("https://github.com/purelogiccode/XISOSharp");
     }
 }

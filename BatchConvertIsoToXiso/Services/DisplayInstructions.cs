@@ -53,27 +53,8 @@ public static class DisplayInstructions
                 }
             }
 
-            // Check for extract-xiso.exe
-            var extractXisoPath = Path.Combine(appDirectory, "extract-xiso.exe");
-            if (File.Exists(extractXisoPath))
-            {
-                _logger.LogMessage("INFO: extract-xiso.exe found. XISO conversion is enabled.");
-            }
-            else
-            {
-                _logger.LogMessage("WARNING: extract-xiso.exe not found. XISO conversion will fail.");
-            }
-
-            // Check for xdvdfs.exe
-            var xdvdfsPath = Path.Combine(appDirectory, "xdvdfs.exe");
-            if (File.Exists(xdvdfsPath))
-            {
-                _logger.LogMessage("INFO: xdvdfs.exe found. Xdvdfs conversion is enabled.");
-            }
-            else
-            {
-                _logger.LogMessage("WARNING: xdvdfs.exe not found. Xdvdfs conversion will fail.");
-            }
+            // XISO conversion is performed in-process by the XISOSharp library
+            _logger.LogMessage("INFO: XISOSharp conversion engine loaded. XISO conversion is enabled.");
 
             _logger.LogMessage("");
 

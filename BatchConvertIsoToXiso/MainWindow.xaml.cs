@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Threading;
 using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Services;
-using BatchConvertIsoToXiso.Services.XisoServices.BinaryOperations;
+using XISOSharp;
 
 namespace BatchConvertIsoToXiso;
 
@@ -12,7 +12,6 @@ public partial class MainWindow
 {
     private readonly IOrchestratorService _orchestratorService;
     private readonly IDiskMonitorService _diskMonitorService;
-    private readonly INativeIsoIntegrityService _nativeIsoTester;
     private CancellationTokenSource _cts = new();
     private TaskCompletionSource _operationCompletedTcs = new();
     private readonly IUpdateChecker _updateChecker;
@@ -38,16 +37,13 @@ public partial class MainWindow
     private readonly HashSet<string> _failedFilePaths = new(StringComparer.OrdinalIgnoreCase);
 
     // XIso Explorer State
-    private IsoSt? _explorerIsoSt;
-    private readonly Lock _explorerIsoStLock = new();
-    private readonly Stack<FileEntry> _parentDirectoryStack = new();
-    private readonly Stack<string> _explorerPathNames = new();
-    private FileEntry? _currentDirectoryEntry;
+    private XisoExplorer? _explorer;
+    private readonly Lock _explorerLock = new();
+    private string _currentInternalPath = "/";
 
     public MainWindow(IUpdateChecker updateChecker, ILogger logger, IBugReportService bugReportService,
         IMessageBoxService messageBoxService, IUrlOpener urlOpener, IScreenshotService screenshotService,
-        IOrchestratorService orchestratorService, IDiskMonitorService diskMonitorService,
-        INativeIsoIntegrityService nativeIsoTester)
+        IOrchestratorService orchestratorService, IDiskMonitorService diskMonitorService)
     {
         InitializeComponent();
 
@@ -59,7 +55,6 @@ public partial class MainWindow
         _screenshotService = screenshotService;
         _orchestratorService = orchestratorService;
         _diskMonitorService = diskMonitorService;
-        _nativeIsoTester = nativeIsoTester;
         _logger.Initialize(LogViewer);
         _processingTimer.Tick += ProcessingTimer_Tick;
         _memoryTimer.Tick += MemoryTimer_Tick;
@@ -162,9 +157,9 @@ public partial class MainWindow
 
     private void CleanupResources()
     {
-        lock (_explorerIsoStLock)
+        lock (_explorerLock)
         {
-            _explorerIsoSt?.Dispose();
+            _explorer?.Dispose();
         }
 
         _processingTimer.Stop();

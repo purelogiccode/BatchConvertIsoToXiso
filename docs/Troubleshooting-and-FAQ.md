@@ -92,17 +92,14 @@ This can happen when antivirus software quarantines the freshly created file. Th
 
 ## Frequently Asked Questions
 
-**Which conversion method should I use?**
-See [Conversion Methods](Conversion-Methods.md) — in short: built-in logic for safety and preserved layout; `xdvdfs` or `extract-xiso` for the smallest files.
-
-**Why is the built-in method's output larger than the repack tools?**
-It preserves the original gaps between files exactly as laid out on the disc. The repack tools reposition files to remove those gaps.
+**Which conversion engine is used?**
+All conversion is performed by the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library. See [Conversion Methods](Conversion-Methods.md) for how it works.
 
 **Does the tool modify my source files?**
 Only when **Delete Originals** (Replace Originals) is enabled — and even then, originals are removed only after the converted file has been produced and verified.
 
 **Are Xbox 360 images supported?**
-The XDVDFS parsing supports Xbox and Xbox 360 images; conversion trims the game partition of Redump-style dumps.
+Xbox and Xbox 360 images are supported; conversion repacks the game partition of Redump-style dumps into an optimized XISO.
 
 **Where are temporary files stored?**
 In the system temp folder, in dedicated subfolders. They are cleaned automatically after each file and at startup (orphaned leftovers from crashes are removed too). If the temp drive lacks space, other local drives are used as fallback.

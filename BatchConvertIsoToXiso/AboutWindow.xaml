@@ -81,7 +81,7 @@
                                Margin="0,0,0,12"
                                ToolTip="Batch Convert ISO to XISO converts Xbox/Xbox 360 ISOs into trimmed XISO format, saving space while preserving content" />
                     <TextBlock
-                        Text="Features include batch conversion with multi-engine support (extract-xiso, xdvdfs, and a native C# XDVDFS engine), integrity testing with deep surface scanning and XISO file exploration with drag-and-drop extraction."
+                        Text="Features include batch conversion powered by the XISOSharp library, integrity testing with deep surface scanning and XISO file exploration with drag-and-drop extraction."
                         Foreground="{StaticResource TextSecondaryBrush}"
                         TextWrapping="Wrap"
                         LineHeight="20"
@@ -111,34 +111,14 @@
                                ToolTip="Click any link to visit the project's GitHub repository" />
 
                     <StackPanel Margin="10,0,0,0">
-                        <TextBlock Margin="0,0,0,8" ToolTip="Visit extract-xiso on GitHub — external XISO conversion tool by XboxDev team">
-                            <Hyperlink NavigateUri="https://github.com/XboxDev/extract-xiso"
+                        <TextBlock Margin="0,0,0,8" ToolTip="Visit XISOSharp on GitHub — the library that powers all XISO reading, writing, and conversion">
+                            <Hyperlink NavigateUri="https://github.com/purelogiccode/XISOSharp"
                                        RequestNavigate="Hyperlink_RequestNavigate"
                                        Foreground="{StaticResource LinkTextBrush}"
                                        TextDecorations="Underline">
-                                extract-xiso
+                                XISOSharp
                             </Hyperlink>
-                            <Run Text=" - External XISO conversion tool by XboxDev team" Foreground="{StaticResource TextMutedBrush}" />
-                        </TextBlock>
-
-                        <TextBlock Margin="0,0,0,8" ToolTip="Visit xdvdfs on GitHub — modern XDVDFS tool by antangelo">
-                            <Hyperlink NavigateUri="https://github.com/antangelo/xdvdfs"
-                                       RequestNavigate="Hyperlink_RequestNavigate"
-                                       Foreground="{StaticResource LinkTextBrush}"
-                                       TextDecorations="Underline">
-                                xdvdfs
-                            </Hyperlink>
-                            <Run Text=" - Modern XDVDFS tool by antangelo" Foreground="{StaticResource TextMutedBrush}" />
-                        </TextBlock>
-
-                        <TextBlock Margin="0,0,0,8" ToolTip="Visit XboxKit on GitHub — original XDVDFS trimming logic by Deterous">
-                            <Hyperlink NavigateUri="https://github.com/Deterous/XboxKit"
-                                       RequestNavigate="Hyperlink_RequestNavigate"
-                                       Foreground="{StaticResource LinkTextBrush}"
-                                       TextDecorations="Underline">
-                                XboxKit by Deterous
-                            </Hyperlink>
-                            <Run Text=" - Original XDVDFS trimming logic (enhanced in this project)" Foreground="{StaticResource TextMutedBrush}" />
+                            <Run Text=" - XISO/XDVDFS reading, writing, and conversion library" Foreground="{StaticResource TextMutedBrush}" />
                         </TextBlock>
 
                         <TextBlock Margin="0,0,0,8" ToolTip="Visit bchunk on GitHub — CUE/BIN to ISO conversion tool">

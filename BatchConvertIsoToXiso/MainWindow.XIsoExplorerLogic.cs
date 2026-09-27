@@ -5,9 +5,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using BatchConvertIsoToXiso.Models;
 using BatchConvertIsoToXiso.Services;
-using BatchConvertIsoToXiso.Services.XisoServices.BinaryOperations;
-using BatchConvertIsoToXiso.Services.XisoServices.XDVDFS;
 using Microsoft.Win32;
+using XISOSharp;
 
 namespace BatchConvertIsoToXiso;
 
@@ -35,26 +34,13 @@ public partial class MainWindow
     {
         try
         {
-            lock (_explorerIsoStLock)
+            lock (_explorerLock)
             {
-                _explorerIsoSt?.Dispose();
-                _explorerIsoSt = new IsoSt(isoPath);
+                _explorer?.Dispose();
+                _explorer = new XisoExplorer(isoPath, new XisoExplorerOptions { KeepOpen = true });
             }
 
-            _parentDirectoryStack.Clear();
-            _explorerPathNames.Clear();
-            _currentDirectoryEntry = null;
-
-            IsoSt isoSt;
-            lock (_explorerIsoStLock)
-            {
-                isoSt = _explorerIsoSt;
-            }
-
-            var volume = VolumeDescriptor.ReadFrom(isoSt);
-            var root = FileEntry.CreateRootEntry(volume.RootDirTableSector);
-
-            LoadDirectory(root, "Root", true);
+            LoadDirectory("/");
         }
         catch (Exception ex)
         {
@@ -62,44 +48,30 @@ public partial class MainWindow
         }
     }
 
-    private void LoadDirectory(FileEntry dirEntry, string folderName, bool isRoot = false, bool isUpNavigation = false)
+    private void LoadDirectory(string internalPath)
     {
-        IsoSt isoSt;
-        lock (_explorerIsoStLock)
+        XisoExplorer explorer;
+        lock (_explorerLock)
         {
-            isoSt = _explorerIsoSt!;
+            if (_explorer == null) return;
+            explorer = _explorer;
         }
 
         try
         {
-            var entries = _nativeIsoTester.GetDirectoryEntries(isoSt, dirEntry);
+            var entries = explorer.ListChildren(internalPath);
             var uiItems = entries.Select(static e => new XisoExplorerItem
                 {
-                    Name = e.FileName,
+                    Name = e.Name,
                     IsDirectory = e.IsDirectory,
-                    SizeFormatted = e.IsDirectory ? "" : Formatter.FormatBytes(e.FileSize),
-                    Entry = e
+                    SizeFormatted = e.IsDirectory ? "" : Formatter.FormatBytes(e.Size),
+                    Node = e
                 }).OrderByDescending(static i => i.IsDirectory)
                 .ThenBy(static i => i.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             ExplorerListView.ItemsSource = uiItems;
-
-            if (isRoot)
-            {
-                _parentDirectoryStack.Clear();
-                _explorerPathNames.Clear();
-                _currentDirectoryEntry = null;
-            }
-            else if (!isUpNavigation)
-            {
-                // Track this directory in the path for display purposes
-                _explorerPathNames.Push(folderName);
-            }
-
-            // Track the current directory entry for "Up" navigation
-            _currentDirectoryEntry = dirEntry;
-
+            _currentInternalPath = XisoExplorer.Normalize(internalPath);
             UpdateExplorerUiState();
         }
         catch (Exception ex)
@@ -110,9 +82,8 @@ public partial class MainWindow
 
     private void UpdateExplorerUiState()
     {
-        ExplorerUpButton.IsEnabled = _parentDirectoryStack.Count > 0;
-        var path = "/" + string.Join("/", _explorerPathNames.Reverse());
-        ExplorerPathTextBlock.Text = path;
+        ExplorerUpButton.IsEnabled = !string.Equals(_currentInternalPath, "/", StringComparison.Ordinal);
+        ExplorerPathTextBlock.Text = _currentInternalPath;
     }
 
     private async void ExplorerListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -123,20 +94,12 @@ public partial class MainWindow
 
             if (item.IsDirectory)
             {
-                // Save current directory entry to stack before navigating deeper
-                // XDVDFS filesystem doesn't store . or .. entries, so we track the current
-                // directory at the class level and push it to the stack before navigating
-                if (_currentDirectoryEntry != null)
-                {
-                    _parentDirectoryStack.Push(_currentDirectoryEntry);
-                }
-
-                LoadDirectory(item.Entry, item.Name);
+                LoadDirectory(item.Node.FullPath);
             }
             else
             {
                 // Open the file with the default application
-                await OpenFileFromIso(item.Entry, item.Name);
+                await OpenFileFromIso(item.Node, item.Name);
             }
         }
         catch (Exception ex)
@@ -145,24 +108,25 @@ public partial class MainWindow
         }
     }
 
-    private async Task OpenFileFromIso(FileEntry entry, string fileName)
+    private async Task OpenFileFromIso(ExplorerNode node, string fileName)
     {
-        IsoSt isoSt;
-        lock (_explorerIsoStLock)
-        {
-            isoSt = _explorerIsoSt!;
-        }
-
         await Task.Run(async () =>
         {
             try
             {
-                var tempFolder = ResolveExplorerTempDirectory(entry.FileSize, "XisoExplorer");
+                var tempFolder = ResolveExplorerTempDirectory(node.Size, "XisoExplorer");
                 Directory.CreateDirectory(tempFolder);
                 var tempPath = Path.Combine(tempFolder, fileName);
 
                 // Extract file to temp location
-                await ExtractFileToDiskAsync(isoSt, entry, tempPath);
+                XisoExplorer explorer;
+                lock (_explorerLock)
+                {
+                    if (_explorer == null) return;
+                    explorer = _explorer;
+                }
+
+                explorer.CopyOut(node.FullPath, tempPath);
 
                 // Open with default application on UI thread
                 await Dispatcher.InvokeAsync(() =>
@@ -211,11 +175,6 @@ public partial class MainWindow
         }, _cts.Token);
     }
 
-    private static Task ExtractFileToDiskAsync(IsoSt isoSt, FileEntry entry, string outputPath)
-    {
-        return Task.Run(() => ExtractFileToDisk(isoSt, entry, outputPath));
-    }
-
     private void ExplorerListView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _dragStartPoint = e.GetPosition(null);
@@ -226,12 +185,6 @@ public partial class MainWindow
         try
         {
             if (e.LeftButton != MouseButtonState.Pressed || _isDragging) return;
-
-            IsoSt isoSt;
-            lock (_explorerIsoStLock)
-            {
-                isoSt = _explorerIsoSt!;
-            }
 
             var currentPosition = e.GetPosition(null);
             var diff = _dragStartPoint - currentPosition;
@@ -252,7 +205,7 @@ public partial class MainWindow
             {
                 _isDragging = true;
                 // Extract files to temp folder for drag operation
-                var totalSize = selectedItems.Sum(static i => i.Entry.FileSize);
+                var totalSize = selectedItems.Sum(static i => i.Node.Size);
                 var tempFolder = ResolveExplorerTempDirectory(totalSize, "XisoExplorer_DragDrop");
                 Directory.CreateDirectory(tempFolder);
 
@@ -261,10 +214,17 @@ public partial class MainWindow
                 // Perform extraction asynchronously to avoid UI freeze
                 await Task.Run(() =>
                 {
+                    XisoExplorer explorer;
+                    lock (_explorerLock)
+                    {
+                        if (_explorer == null) return;
+                        explorer = _explorer;
+                    }
+
                     foreach (var item in selectedItems)
                     {
                         var tempPath = Path.Combine(tempFolder, item.Name);
-                        ExtractFileToDisk(isoSt, item.Entry, tempPath);
+                        explorer.CopyOut(item.Node.FullPath, tempPath);
                         tempFiles.Add(tempPath);
                     }
                 });
@@ -298,49 +258,18 @@ public partial class MainWindow
         }
     }
 
-    private static void ExtractFileToDisk(IsoSt isoSt, FileEntry entry, string outputPath)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ??
-                                  throw new InvalidOperationException("outputPath cannot be null"));
-
-        const int bufferSize = 4 * 1024 * 1024; // 4MB buffer
-        var buffer = new byte[bufferSize];
-
-        using var fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None);
-
-        long bytesRemaining = entry.FileSize;
-        long currentOffset = 0;
-
-        while (bytesRemaining > 0)
-        {
-            var toRead = (int)Math.Min(bufferSize, bytesRemaining);
-            var read = isoSt.Read(entry, buffer.AsSpan(0, toRead), currentOffset);
-
-            if (read == 0)
-            {
-                throw new IOException($"Unexpected end of file while extracting: {entry.FileName}");
-            }
-
-            fileStream.Write(buffer, 0, read);
-            bytesRemaining -= read;
-            currentOffset += read;
-        }
-    }
-
     private void ExplorerUpButton_Click(object sender, RoutedEventArgs e)
     {
-        lock (_explorerIsoStLock)
-        {
-            if (_explorerIsoSt == null) return;
-        }
+        if (string.Equals(_currentInternalPath, "/", StringComparison.Ordinal)) return;
 
-        if (_parentDirectoryStack.Count == 0 || _explorerPathNames.Count == 0) return;
+        LoadDirectory(GetParentPath(_currentInternalPath));
+    }
 
-        // Pop the parent directory from the stack and navigate to it
-        var parentEntry = _parentDirectoryStack.Pop();
-        var parentName = _explorerPathNames.Pop();
-
-        LoadDirectory(parentEntry, parentName, false, true);
+    private static string GetParentPath(string internalPath)
+    {
+        var normalized = XisoExplorer.Normalize(internalPath);
+        var lastSlash = normalized.LastIndexOf('/');
+        return lastSlash <= 0 ? "/" : normalized[..lastSlash];
     }
 
     private void ExplorerListView_SizeChanged(object sender, SizeChangedEventArgs e)

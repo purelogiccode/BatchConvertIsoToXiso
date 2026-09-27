@@ -513,7 +513,8 @@ public class FileExtractorService : IFileExtractor
                             if (process.ExitCode != 0)
                             {
                                 throw new IOException(
-                                    $"7-Zip CLI extraction failed with exit code {process.ExitCode}: {stderr}");
+                                    $"7-Zip CLI extraction failed with exit code {process.ExitCode}: {stderr}",
+                                    notSupportedEx);
                             }
 
                             _logger.LogMessage($"  Successfully extracted using 7-Zip CLI fallback: {archiveFileName}");
@@ -544,7 +545,7 @@ public class FileExtractorService : IFileExtractor
                                            "1. Install 7-Zip from https://7-zip.org/ — the app auto-detects it in Program Files.\n" +
                                            "2. Alternatively, place '7za.exe' (for x64) or '7za_arm64.exe' (for ARM64) in the application directory.";
                 _logger.LogMessage($"  ERROR: {userMessage}");
-                throw new IOException(userMessage);
+                throw new IOException(userMessage, ex);
             }
 
             var cliResult = await TryExtractWithSevenZipCliAsync(archivePath, extractionPath, token);

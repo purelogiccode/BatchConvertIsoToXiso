@@ -31,25 +31,17 @@ Below the three views, a shared **status bar** shows a live log, progress bar, c
 
 Enable **Search Subfolders** to recurse into nested directories; every matching file found is queued.
 
-### 2. Choose a Conversion Method
+### 2. Conversion Engine
 
-Three radio buttons select the engine:
-
-| Option | Engine | Summary |
-|:---|:---|:---|
-| **extract-xiso** | External tool | Full repack; smallest output |
-| **xdvdfs** | External tool (Rust) | Full repack; smallest output, modern implementation |
-| **Built-in logic** | Native C# trim | Fast trim preserving the original layout; highest safety |
-
-A detailed comparison is available on the [Conversion Methods](Conversion-Methods.md) page.
+All conversion is performed in-process by the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library — there is no engine selection. XISOSharp repacks the game partition into a tightly packed, optimized XISO, and images that already carry the optimized tag are skipped automatically. See the [Conversion Methods](Conversion-Methods.md) page for details.
 
 ### 3. Options
 
 | Option | Behavior when enabled |
 |:---|:---|
-| **Skip $SystemUpdate** | Excludes the `$SystemUpdate` folder from the output for extra space savings (~100–300 MB). Supported by the built-in engine and `extract-xiso`. |
+| **Skip $SystemUpdate** | Excludes the `$SystemUpdate` folder from the output for extra space savings (~100–300 MB). |
 | **Delete Originals** | Replaces each input file with its converted version. Deletion happens **only after** the output has been produced and verified. |
-| **Check Output Integrity** | Runs the XDVDFS validation on each newly created XISO before reporting success. |
+| **Check Output Integrity** | Runs a structural validation on each newly created XISO before reporting success. |
 | **Search Subfolders** | Includes ISOs found in subdirectories of the input folder. |
 
 ### 4. Start, Monitor, Cancel
@@ -63,7 +55,7 @@ A detailed comparison is available on the [Conversion Methods](Conversion-Method
 
 The orchestrator decides per input file:
 
-1. **`.iso`** — converted directly with the selected method.
+1. **`.iso`** — converted directly with the XISOSharp engine.
 2. **`.cue`/`.bin`** — converted to ISO with the bundled `bchunk` tool, then converted normally.
 3. **`.zip` / `.7z` / `.rar`** — extracted to a temporary folder (with automatic drive fallback if the temp drive is short on space), the ISO inside is converted, then temporaries are cleaned up.
    - Password-protected/encrypted archives are detected and **skipped with a clear message** instead of a cryptic failure.
@@ -124,7 +116,7 @@ The **memory indicator** shows the current process memory usage, which is useful
 
 Every operation is written to the in-application log pane. The log includes:
 
-- File-by-file decisions (which engine, source, destination)
+- File-by-file decisions (source, destination, engine output)
 - Warnings for skipped files with clear reasons (disk space, FAT32 size limit, permissions, locked files)
 - Retry attempts for transient failures (file locks, network errors)
 - A final batch summary
@@ -135,9 +127,8 @@ When an unexpected error occurs, the application can send an automatic bug repor
 
 ## Practical Tips
 
-- **Test one file first** when trying a new conversion method, then run the whole batch.
+- **Test one file first** when converting a new type of image, then run the whole batch.
 - **Keep 10–15% free space** on the output drive; the application pre-checks free space but headroom avoids edge cases.
-- **Use the built-in logic** if you want to preserve the original layout (useful for debugging or archival fidelity); use **xdvdfs** or **extract-xiso** for the smallest files.
 - **Antivirus software** can temporarily lock newly created files. The application waits and retries automatically, but real-time scanning of large ISO folders slows batches down — consider adding your working folders to the exclusion list.
 - **Network shares** are fully supported (UNC paths and mapped drives). Wired connections reduce retry-related slowdowns.
 - **FAT32 output drives** cannot hold files larger than 4 GB; the application detects this in advance and skips those files with a clear message. Use NTFS or exFAT for modern game images.

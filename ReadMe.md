@@ -6,7 +6,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
 [![GitHub release](https://img.shields.io/github/v/release/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases)
 
-A high-performance Windows WPF utility for the Xbox preservation and emulation community. Convert, verify, and explore Xbox and Xbox 360 ISO files with dual-engine support: a native C# XDVDFS engine and external tool integration.
+A high-performance Windows WPF utility for the Xbox preservation and emulation community. Convert, verify, and explore Xbox and Xbox 360 ISO files, powered by the XISOSharp library.
 
 ---
 
@@ -28,7 +28,7 @@ A high-performance Windows WPF utility for the Xbox preservation and emulation c
 
 ## Overview
 
-**Batch ISO to XISO Converter** streamlines the process of converting standard Xbox and Xbox 360 ISOs into the optimized, trimmed **XISO** format. Built with a flexible multi-engine architecture, the tool combines a **native C# XDVDFS engine** with robust **external tool integration** (extract-xiso and xdvdfs), delivering superior performance and modern features like real-time disk write monitoring.
+**Batch ISO to XISO Converter** streamlines the process of converting standard Xbox and Xbox 360 ISOs into the optimized, trimmed **XISO** format. All encoding and decoding is delegated to the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library, which repacks the XDVDFS game partition, delivering superior performance and modern features like real-time disk write monitoring.
 
 Whether you're managing a large collection of Xbox game backups or verifying the integrity of your dumps, this application provides a user-friendly interface with powerful batch processing capabilities.
 
@@ -50,15 +50,13 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 ## Key Features
 
 ### 🔄 Batch Conversion
-- **Multi-Engine Support**: Choose between three conversion methods:
-  - **extract-xiso** (external): Maximum compression by repacking
-  - **xdvdfs** (external): Maximum compression with modern Rust implementation
-  - **Modified Deterous Logic** (built-in): Fast trimming while preserving original structure
+- **XISOSharp Engine**: All ISO to XISO conversion is performed in-process by the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library — no external conversion binaries required
 - **Smart Processing**: Removes video partitions and padding, converting Redump ISOs to playable XISO format
 - **Archive Support**: Process `.zip`, `.7z`, and `.rar` files directly with high-performance extraction via SharpCompress, with automatic 7-Zip CLI fallback for complex `.7z` archives
 - **Encrypted Archive Detection**: Automatically detects password-protected archives and provides clear guidance for manual extraction, preventing cryptic extraction failures
 - **CUE/BIN Support**: Integrated `bchunk` support for converting classic disc images to ISO format
-- **System Update Removal**: Option to skip the `$SystemUpdate` folder for additional space savings (supported by native engine and extract-xiso)
+- **System Update Removal**: Option to skip the `$SystemUpdate` folder for additional space savings
+- **Skip Already Optimized**: Images that already carry the optimized XISO tag are detected and skipped
 
 ### ✅ Integrity Testing
 - **Structural Validation**: Deep traversal of the XDVDFS file tree to ensure filesystem validity
@@ -84,8 +82,8 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 - **Operating System**: Windows 10 (version 1809) or later / Windows 11
 - **Runtime**: [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
 - **Architecture Support**:
-    - **x64 (64-bit)**: All three trim logics are supported.
-    - **ARM64**: The built-in modified "Deterous Logic" is supported; the other two logics may also work.
+    - **x64 (64-bit)**: Fully supported.
+    - **ARM64**: Fully supported. CUE/BIN conversion requires `bchunk.exe`, which is x64-only.
 
 ### Steps
 1. Download the latest release from the [Releases](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases) page
@@ -106,11 +104,7 @@ No installation required – the application is fully portable.
     - **Remove System Update**: Skip `$SystemUpdate` folder to save space
     - **Replace Originals**: Replace input files with converted versions
     - **Test After Conversion**: Automatically verify converted ISOs
-    - **Conversion Method**: Select between:
-          - **extract-xiso**: Smallest output, external tool
-          - **xdvdfs**: Smallest output, external tool
-          - **Modified Deterous Logic**: Built-in (enhanced from Deterous/XboxKit), preserves original layout
-          > 💡 See [Conversion Methods Explained](#conversion-methods-explained) for detailed comparison
+    - **Check Output Integrity**: Structurally validate each converted XISO before reporting success
 5. Click **"Convert"** to start the batch process
 
 ### Testing ISO Integrity
@@ -128,59 +122,21 @@ No installation required – the application is fully portable.
 
 ---
 
-## Conversion Methods Explained
+## Conversion Engine
 
-The application offers **three conversion methods**, each using a different approach to convert Redump ISOs to XISO format:
+All conversion is performed by the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library:
 
-### Method Comparison
-
-| Feature | extract-xiso | xdvdfs | Modified Deterous Logic (Built-in) |
-|:--------|:-------------|:-------|:----------------------------------|
-| **Approach** | Repack | Repack | Trim |
-| **Output Size** | Smallest | Smallest | Slightly Larger |
-| **Safety** | High | High | **Highest** |
-| **Preserves Layout** | No | No | **Yes** |
-| **External Tool** | Required | Required | **Built-in** |
+- **Approach**: Repack — reads the XDVDFS game partition and writes a new optimized XISO with files packed tightly together
+- **Output Size**: Smallest — video partition, padding, and inter-file gaps are removed
+- **No External Tool**: The engine is a managed library bundled with the application
+- **Redump-Aware**: Automatically detects XGD1/XGD2/XGD3 and hybrid partition offsets
+- **Already Optimized**: Images carrying the optimized tag are skipped automatically
 
 ### What Gets Removed
 
-All three methods remove these parts from Redump ISOs:
 - ✅ **Video Partition** (DVD movie/demonstration) - **~7-387 MB removed**
 - ✅ **End Padding** (empty sectors after last file) - **Variable**
 - ✅ **System Update** (optional) - **~100-300 MB removed**
-
-### Key Differences
-
-#### extract-xiso (External Tool)
-- **Developed by**: XboxDev team
-- **Approach**: Reads the entire ISO, creates a new optimized XISO with files packed tightly together
-- **Pros**: Smallest output size, well-tested
-- **Cons**: Requires external executable
-- **Best for**: Maximum storage savings
-
-#### xdvdfs (External Tool)
-- **Developed by**: antangelo
-- **Approach**: Modern Rust implementation that rebuilds the XISO from scratch
-- **Pros**: Smallest output size
-- **Cons**: Requires external executable
-- **Best for**: Maximum compatibility and storage savings
-
-#### Modified Deterous Logic (Built-in)
-- **Original Source**: Based on [XboxKit by Deterous](https://github.com/Deterous/XboxKit) `XDVDFS.cs` implementation for traversing XDVDFS filesystem
-- **Approach**: **Trims** the ISO by identifying and copying only valid sectors (header, directory tree, file data) while preserving original file layout and gaps between files
-- **Key Modifications & Enhancements** (compared to original):
-  - Converted recursive directory traversal to **iterative stack-based** approach to avoid stack overflow on deep/complex directories
-  - Added **cycle detection** using `HashSet` to prevent infinite loops
-  - **Enhanced signature detection**: Supports multiple known XGD1/XGD2/XGD3 partition offsets + robust validation + fallback sector scanning for non-standard/Redump variants
-  - **Optional $SystemUpdate skipping**: Can exclude system update files for extra space savings
-  - Improved directory entry parsing, name reading, attribute handling, and comprehensive error handling/validation
-  - Modern C# implementation with better performance and integration into the application
-- **Pros**:
-  - **Fastest** - No repacking, just selective sector copying
-  - **Safest** - Preserves exact original XDVDFS structure and layout
-  - **No external dependencies** - Pure C# implementation
-- **Cons**: Output larger (preserves gaps between files from original ISO)
-- **Best for**: Preserving original structure, debugging, maximum safety/compatibility
 
 ### Visual Comparison
 
@@ -188,29 +144,11 @@ All three methods remove these parts from Redump ISOs:
 Redump ISO (Original):
 [Video Partition][XDVDFS: Header][Dir][File A][gap][File B][gap][File C][Padding]
 
-extract-xiso / xdvdfs Output:
+XISOSharp Output:
 [XDVDFS: Header][Dir][File A][File B][File C] (gaps removed, tightly packed)
                       ↑    ↑    ↑
                  Files repositioned for maximum compression
-
-Modified Deterous Logic Output:
-[XDVDFS: Header][Dir][File A][gap][File B][gap][File C]
-                       ↑         ↑
-                  Original layout preserved, only video/padding removed
 ```
-
-### Which Should You Choose?
-
-| Use Case | Recommended Method |
-|:---------|:-------------------|
-| **Maximum storage savings** | xdvdfs or extract-xiso |
-| **Preserving exact game structure** | Modified Deterous Logic |
-| **Debugging / Development** | Modified Deterous Logic |
-| **FTP transfer to Xbox** | xdvdfs or extract-xiso |
-
-### Recommendation
-
-**For most users**: If storage space is critical, use **xdvdfs** or **extract-xiso** for maximum compression. Use **Modified Deterous Logic** when you want to preserve the original file layout and structure from the source ISO.
 
 ---
 
@@ -260,15 +198,13 @@ For a deep dive into the XDVDFS format, binary file structures, and the internal
 - **Network Resilience**: Full support for UNC paths and mapped network drives with automatic retry logic for transient network failures
 - **Cloud-Aware Retry**: Automatic retries with exponential backoff for cloud-synced files (OneDrive, etc.)
 - **Encrypted Archive Handling**: Gracefully detects password-protected and encrypted archives, providing clear user guidance instead of cryptic errors
-- **Process Isolation**: External tools run in isolated processes with cancellation support
+- **Process Isolation**: CUE/BIN conversion and archive fallback run in isolated processes with cancellation support
 
 ---
 
 ## Acknowledgements
 
-- **[extract-xiso](https://github.com/XboxDev/extract-xiso)** - External XISO conversion tool by XboxDev team
-- **[xdvdfs](https://github.com/antangelo/xdvdfs)** - Modern XDVDFS tool by antangelo
-- **[XboxKit by Deterous](https://github.com/Deterous/XboxKit)** - Original XDVDFS trimming logic which this project's **native engine is based on and significantly enhanced**
+- **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** - XISO/XDVDFS reading, writing, and conversion library that powers all conversion, integrity testing, and exploration
 - **[bchunk](https://github.com/extramaster/bchunk)** - CUE/BIN to ISO conversion
 - **[SharpCompress](https://github.com/adamhathcock/sharpcompress)** - High-performance archive extraction
 

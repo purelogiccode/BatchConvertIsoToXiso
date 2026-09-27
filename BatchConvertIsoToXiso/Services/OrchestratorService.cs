@@ -1,7 +1,7 @@
 using System.IO;
 using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Models;
-using BatchConvertIsoToXiso.Services.XisoServices;
+using XISOSharp;
 
 namespace BatchConvertIsoToXiso.Services;
 
@@ -11,10 +11,8 @@ public class OrchestratorService : IOrchestratorService
     private readonly IFileExtractor _fileExtractor;
     private readonly IFileMover _fileMover;
     private readonly IBugReportService _bugReportService;
-    private readonly INativeIsoIntegrityService _nativeIsoTester;
-    private readonly XisoWriter _xisoWriter;
-    private readonly IExtractXisoService _extractXisoService;
-    private readonly IXdvdfsService _xdvdfsService;
+    private readonly IXisoIntegrityService _integrityService;
+    private readonly IXisoSharpService _xisoSharpService;
     private readonly IDiskMonitorService _diskMonitorService;
 
     private class ProcessingContext
@@ -27,20 +25,16 @@ public class OrchestratorService : IOrchestratorService
         IFileExtractor fileExtractor,
         IFileMover fileMover,
         IBugReportService bugReportService,
-        INativeIsoIntegrityService nativeIsoTester,
-        XisoWriter xisoWriter,
-        IExtractXisoService extractXisoService,
-        IXdvdfsService xdvdfsService,
+        IXisoIntegrityService integrityService,
+        IXisoSharpService xisoSharpService,
         IDiskMonitorService diskMonitorService)
     {
         _externalToolService = externalToolService;
         _fileExtractor = fileExtractor;
         _fileMover = fileMover;
         _bugReportService = bugReportService;
-        _nativeIsoTester = nativeIsoTester;
-        _xisoWriter = xisoWriter;
-        _extractXisoService = extractXisoService;
-        _xdvdfsService = xdvdfsService;
+        _integrityService = integrityService;
+        _xisoSharpService = xisoSharpService;
         _diskMonitorService = diskMonitorService;
     }
 
@@ -53,8 +47,6 @@ public class OrchestratorService : IOrchestratorService
         bool skipSystemUpdate,
         bool checkIntegrity,
         bool searchSubfolders,
-        bool useExtractXiso,
-        bool useXdvdfs,
         IProgress<BatchOperationProgress> progress,
         Func<string, Task<CloudRetryResult>> onCloudRetryRequired,
         CancellationToken token)
@@ -144,21 +136,19 @@ public class OrchestratorService : IOrchestratorService
                     {
                         case ".iso":
                             var isoStatus = await ConvertFileInternalAsync(entryPath, outputFolder, deleteOriginals,
-                                context.GlobalFileIndex++, skipSystemUpdate, checkIntegrity, useExtractXiso, useXdvdfs,
-                                progress, onCloudRetryRequired, token);
+                                context.GlobalFileIndex++, skipSystemUpdate, checkIntegrity, progress,
+                                onCloudRetryRequired, token);
                             ReportStatus(isoStatus, entryPath, progress);
                             break;
 
                         case ".zip" or ".7z" or ".rar":
                             await ProcessArchiveAsync(entryPath, outputFolder, deleteOriginals, skipSystemUpdate,
-                                checkIntegrity, useExtractXiso, useXdvdfs, context, tempFoldersToCleanUp, progress,
-                                onCloudRetryRequired, token);
+                                checkIntegrity, context, tempFoldersToCleanUp, progress, onCloudRetryRequired, token);
                             break;
 
                         case ".cue":
                             await ProcessCueAsync(entryPath, outputFolder, deleteOriginals, skipSystemUpdate,
-                                checkIntegrity, useExtractXiso, useXdvdfs, context, tempFoldersToCleanUp, progress,
-                                onCloudRetryRequired, token);
+                                checkIntegrity, context, tempFoldersToCleanUp, progress, onCloudRetryRequired, token);
                             break;
                     }
                 }
@@ -240,7 +230,7 @@ public class OrchestratorService : IOrchestratorService
     }
 
     private async Task ProcessArchiveAsync(string archivePath, string outputFolder, bool deleteOriginal,
-        bool skipUpdate, bool checkIntegrity, bool useExtractXiso, bool useXdvdfs, ProcessingContext context,
+        bool skipUpdate, bool checkIntegrity, ProcessingContext context,
         List<string> tempFolders, IProgress<BatchOperationProgress> progress,
         Func<string, Task<CloudRetryResult>> cloudRetry, CancellationToken token)
     {
@@ -297,12 +287,12 @@ public class OrchestratorService : IOrchestratorService
                     if (Path.GetExtension(file).Equals(".iso", StringComparison.OrdinalIgnoreCase))
                     {
                         status = await ConvertFileInternalAsync(file, outputFolder, false, context.GlobalFileIndex++,
-                            skipUpdate, checkIntegrity, useExtractXiso, useXdvdfs, progress, cloudRetry, token);
+                            skipUpdate, checkIntegrity, progress, cloudRetry, token);
                     }
                     else
                     {
                         status = await ProcessCueInternalAsync(file, outputFolder, false, skipUpdate, checkIntegrity,
-                            useExtractXiso, useXdvdfs, context, tempFolders, progress, cloudRetry, token);
+                            context, tempFolders, progress, cloudRetry, token);
                     }
 
                     switch (status)
@@ -368,17 +358,17 @@ public class OrchestratorService : IOrchestratorService
     }
 
     private async Task ProcessCueAsync(string cuePath, string outputFolder, bool deleteOriginal, bool skipUpdate,
-        bool checkIntegrity, bool useExtractXiso, bool useXdvdfs, ProcessingContext context, List<string> tempFolders,
+        bool checkIntegrity, ProcessingContext context, List<string> tempFolders,
         IProgress<BatchOperationProgress> progress, Func<string, Task<CloudRetryResult>> cloudRetry,
         CancellationToken token)
     {
         var status = await ProcessCueInternalAsync(cuePath, outputFolder, deleteOriginal, skipUpdate, checkIntegrity,
-            useExtractXiso, useXdvdfs, context, tempFolders, progress, cloudRetry, token);
+            context, tempFolders, progress, cloudRetry, token);
         ReportStatus(status, cuePath, progress);
     }
 
     private async Task<FileProcessingStatus> ProcessCueInternalAsync(string cuePath, string outputFolder,
-        bool deleteOriginal, bool skipUpdate, bool checkIntegrity, bool useExtractXiso, bool useXdvdfs,
+        bool deleteOriginal, bool skipUpdate, bool checkIntegrity,
         ProcessingContext context, List<string> tempFolders, IProgress<BatchOperationProgress> progress,
         Func<string, Task<CloudRetryResult>> cloudRetry, CancellationToken token)
     {
@@ -425,7 +415,7 @@ public class OrchestratorService : IOrchestratorService
             if (tempIso != null && File.Exists(tempIso))
             {
                 var status = await ConvertFileInternalAsync(tempIso, outputFolder, false, context.GlobalFileIndex++,
-                    skipUpdate, checkIntegrity, useExtractXiso, useXdvdfs, progress, cloudRetry, token);
+                    skipUpdate, checkIntegrity, progress, cloudRetry, token);
                 if (deleteOriginal && status != FileProcessingStatus.Failed)
                 {
                     try
@@ -464,8 +454,8 @@ public class OrchestratorService : IOrchestratorService
     }
 
     private async Task<FileProcessingStatus> ConvertFileInternalAsync(string inputFile, string outputFolder,
-        bool deleteOriginal, int fileIndex, bool skipSystemUpdate, bool checkIntegrity, bool useExtractXiso,
-        bool useXdvdfs, IProgress<BatchOperationProgress> progress,
+        bool deleteOriginal, int fileIndex, bool skipSystemUpdate, bool checkIntegrity,
+        IProgress<BatchOperationProgress> progress,
         Func<string, Task<CloudRetryResult>> onCloudRetryRequired, CancellationToken token)
     {
         var originalFileName = Path.GetFileName(inputFile);
@@ -473,8 +463,7 @@ public class OrchestratorService : IOrchestratorService
 
         try
         {
-            // Use Native Writer directly if possible
-            // We still need to handle Cloud files, so check that first
+            // Handle cloud files first: copy to local temp when the source is not directly readable
             var sourcePath = inputFile;
             var isTempFile = false;
 
@@ -535,8 +524,18 @@ public class OrchestratorService : IOrchestratorService
             var outputFileName = Path.GetFileNameWithoutExtension(originalFileName) + ".iso";
             var destinationPath = Path.Combine(outputFolder, outputFileName);
 
-            // Ensure destination path does not exist before invoking external tools
-            // This prevents them from hanging or failing due to existing files
+            // Never delete the source file: converting a file onto itself would destroy it
+            if (XisoPaths.AreSamePath(sourcePath, destinationPath))
+            {
+                progress.Report(new BatchOperationProgress
+                {
+                    LogMessage =
+                        $"Error: The output file would overwrite the source file '{originalFileName}'. Please choose a different output folder."
+                });
+                return FileProcessingStatus.Failed;
+            }
+
+            // Remove any pre-existing output so the conversion starts from a clean file
             if (File.Exists(destinationPath))
             {
                 try
@@ -553,43 +552,14 @@ public class OrchestratorService : IOrchestratorService
                 }
             }
 
-            FileProcessingStatus status;
+            progress.Report(new BatchOperationProgress
+            {
+                LogMessage = $"File '{originalFileName}': Converting to optimized XISO with XISOSharp...",
+                CurrentDrive = PathHelper.GetDriveLetter(outputFolder)
+            });
 
-            if (useXdvdfs)
-            {
-                progress.Report(new BatchOperationProgress
-                {
-                    LogMessage = $"File '{originalFileName}': Converting using xdvdfs.exe...",
-                    CurrentDrive = PathHelper.GetDriveLetter(outputFolder)
-                });
-                var success =
-                    await Task.Run(() => _xdvdfsService.ConvertIsoToXisoAsync(sourcePath, outputFolder, token), token);
-                status = success ? FileProcessingStatus.Converted : FileProcessingStatus.Failed;
-            }
-            else if (useExtractXiso)
-            {
-                progress.Report(new BatchOperationProgress
-                {
-                    LogMessage = $"File '{originalFileName}': Converting using extract-xiso.exe...",
-                    CurrentDrive = PathHelper.GetDriveLetter(outputFolder)
-                });
-                var success =
-                    await Task.Run(
-                        () => _extractXisoService.ConvertIsoToXisoAsync(sourcePath, outputFolder, skipSystemUpdate,
-                            token), token);
-                status = success ? FileProcessingStatus.Converted : FileProcessingStatus.Failed;
-            }
-            else
-            {
-                // Use built-in Native Writer
-                progress.Report(new BatchOperationProgress
-                {
-                    LogMessage = $"File '{originalFileName}': Rewriting to output...",
-                    CurrentDrive = PathHelper.GetDriveLetter(outputFolder)
-                });
-                status = await _xisoWriter.RewriteIsoAsync(sourcePath, destinationPath, skipSystemUpdate,
-                    checkIntegrity, progress, token);
-            }
+            var status = await _xisoSharpService.ConvertIsoToXisoAsync(sourcePath, outputFolder, skipSystemUpdate,
+                checkIntegrity, progress, token);
 
             if (status == FileProcessingStatus.AlreadyOptimized) return FileProcessingStatus.Skipped;
             if (status != FileProcessingStatus.Converted) return FileProcessingStatus.Failed;
@@ -745,8 +715,7 @@ public class OrchestratorService : IOrchestratorService
         {
             progress.Report(new BatchOperationProgress { LogMessage = "  Verifying ISO structure and readability..." });
 
-            // Use the new In-Memory Tester
-            var passed = await _nativeIsoTester.TestIsoIntegrityAsync(pathToCheck, performDeepScan, progress, token);
+            var passed = await _integrityService.TestIsoIntegrityAsync(pathToCheck, performDeepScan, progress, token);
 
             return passed ? IsoTestResultStatus.Passed : IsoTestResultStatus.Failed;
         }

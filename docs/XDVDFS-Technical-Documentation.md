@@ -27,6 +27,8 @@
 
 The `XDVDFS.cs` class is the heart of the native C# XISO processing engine in the Batch ISO to XISO Converter. It implements the Xbox Disc Volume Descriptor File System (XDVDFS) traversal logic to identify, validate, and extract meaningful data from Xbox and Xbox 360 ISO images.
 
+> **Note:** The application now delegates all XISO encoding and decoding to the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library. This page documents the XDVDFS format and the algorithm itself, which remain accurate and useful for understanding how XISOSharp processes images.
+
 ## What is XDVDFS?
 
 **XDVDFS** (Xbox Disc Volume Descriptor File System) is Microsoft's proprietary file system used on original Xbox and Xbox 360 game discs. It is based on a binary tree structure for directory entries and uses 2048-byte sectors (standard CD/DVD sector size).

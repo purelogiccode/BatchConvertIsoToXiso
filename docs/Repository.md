@@ -37,9 +37,9 @@ This page describes the repository itself: where things live, how releases are m
 │   ├── Interfaces/                        Service contracts
 │   ├── Models/                            DTOs and enums
 │   ├── Services/                          All business logic
-│   │   └── XisoServices/                  XDVDFS parser + native engine
+│   │   ├── XisoSharpService.cs            XISO conversion via the XISOSharp library
+│   │   └── XisoIntegrityService.cs        Integrity validation via XISOSharp
 │   ├── MainWindow*.cs                     Partial classes for the main window
-│   ├── extract-xiso.exe, xdvdfs.exe       Bundled external conversion tools
 │   ├── bchunk.exe, 7za.exe                Bundled helper tools
 │   └── BatchConvertIsoToXiso.csproj
 ├── BatchConvertIsoToXiso.Tests/           xUnit + Moq test project
@@ -67,7 +67,7 @@ Contributions are welcome!
 3. Open a new issue including:
    - Application version (visible in the About window)
    - Windows version and architecture (x64/ARM64)
-   - The conversion method used
+   - The input format used (`.iso`, archive, or CUE/BIN)
    - The relevant lines from the in-application log
 
 ### Submitting Changes
@@ -105,8 +105,6 @@ This project is licensed under the **GNU General Public License v3.0** — see [
 
 ## Acknowledgements
 
-- **[extract-xiso](https://github.com/XboxDev/extract-xiso)** — XboxDev team
-- **[xdvdfs](https://github.com/antangelo/xdvdfs)** — antangelo
-- **[XboxKit by Deterous](https://github.com/Deterous/XboxKit)** — basis of the native engine, significantly enhanced
+- **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** — XISO/XDVDFS library powering conversion, integrity testing, and exploration
 - **[bchunk](https://github.com/extramaster/bchunk)** — CUE/BIN conversion
 - **[SharpCompress](https://github.com/adamhathcock/sharpcompress)** — archive extraction

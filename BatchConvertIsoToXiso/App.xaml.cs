@@ -6,8 +6,6 @@ using System.Windows.Threading;
 using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Services;
 using Microsoft.Extensions.DependencyInjection;
-using BatchConvertIsoToXiso.Services.XisoServices;
-using BatchConvertIsoToXiso.Services.XisoServices.BinaryOperations;
 
 namespace BatchConvertIsoToXiso;
 
@@ -195,17 +193,13 @@ public partial class App
         services.AddSingleton<IExternalToolService>(static provider =>
             new ExternalToolService(provider.GetRequiredService<ILogger>(),
                 provider.GetRequiredService<IBugReportService>()));
-        services.AddSingleton<IExtractXisoService>(static provider =>
-            new ExtractXisoService(provider.GetRequiredService<ILogger>(),
+        services.AddSingleton<IXisoSharpService>(static provider =>
+            new XisoSharpService(provider.GetRequiredService<ILogger>(),
                 provider.GetRequiredService<IBugReportService>(), provider.GetRequiredService<IDiskMonitorService>()));
-        services.AddSingleton<IXdvdfsService, XdvdfsService>();
-        services.AddSingleton<IOrchestratorService, OrchestratorService>();
-        services.AddSingleton<INativeIsoIntegrityService>(static provider =>
-            new NativeIsoIntegrityService(provider.GetRequiredService<ILogger>(),
+        services.AddSingleton<IXisoIntegrityService>(static provider =>
+            new XisoIntegrityService(provider.GetRequiredService<ILogger>(),
                 provider.GetRequiredService<IBugReportService>()));
-        services.AddSingleton(static provider => new XisoWriter(provider.GetRequiredService<ILogger>(),
-            provider.GetRequiredService<INativeIsoIntegrityService>(), provider.GetRequiredService<IBugReportService>(),
-            provider.GetRequiredService<IDiskMonitorService>()));
+        services.AddSingleton<IOrchestratorService, OrchestratorService>();
         services.AddTransient<MainWindow>();
     }
 

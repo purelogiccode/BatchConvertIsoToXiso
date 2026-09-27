@@ -83,26 +83,14 @@ public class DisplayInstructionsTests
     }
 
     [Fact]
-    public void DisplayInitialInstructionsLogsExtractXisoStatus()
+    public void DisplayInitialInstructionsLogsXisoSharpStatus()
     {
         var mockLogger = new Mock<ILogger>();
         DisplayInstructions.Initialize(mockLogger.Object);
 
         DisplayInstructions.DisplayInitialInstructions();
 
-        mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("extract-xiso.exe"))),
-            Times.Once);
-    }
-
-    [Fact]
-    public void DisplayInitialInstructionsLogsXdvdfsStatus()
-    {
-        var mockLogger = new Mock<ILogger>();
-        DisplayInstructions.Initialize(mockLogger.Object);
-
-        DisplayInstructions.DisplayInitialInstructions();
-
-        mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("xdvdfs.exe"))),
+        mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("XISOSharp"))),
             Times.Once);
     }
 }

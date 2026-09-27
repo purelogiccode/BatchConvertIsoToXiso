@@ -43,11 +43,10 @@ Or build and run the application directly:
 dotnet run --project BatchConvertIsoToXiso
 ```
 
-### Bundled Native Tools
+### Bundled Helper Tools
 
-The application project bundles Windows executables that are copied to the output directory on every build:
+XISO conversion is performed by the `XISOSharp` NuGet package — no conversion binaries are bundled. The application project still bundles Windows helper executables that are copied to the output directory on every build:
 
-- `extract-xiso.exe`, `xdvdfs.exe` — external conversion engines
 - `bchunk.exe` — CUE/BIN to ISO conversion
 - `7za.exe`, `7za_arm64.exe` — 7-Zip CLI fallback for archive extraction
 
@@ -61,7 +60,7 @@ The test suite uses xUnit with Moq:
 dotnet test CSharp_BatchConvertIsoToXiso.sln
 ```
 
-The suite covers models, services (orchestrator, extractor, movers, path helpers, update checker, and more), and the XISO binary layer (`XDVDFS`, `VolumeDescriptor`, `FileEntry`, `Utils`).
+The suite covers models, services (orchestrator, XISO conversion, integrity, extractor, movers, path helpers, update checker, and more).
 
 ## Code Analysis
 

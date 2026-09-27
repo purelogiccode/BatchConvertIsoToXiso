@@ -79,20 +79,10 @@
                                     <CheckBox x:Name="CheckOutputIntegrityCheckBox" Content="Check integrity of the output file" Margin="0,8,0,8" HorizontalAlignment="Left" IsChecked="True" ToolTip="Performs a structural integrity check on the newly created XISO file" Style="{StaticResource CustomCheckBoxStyle}" />
                                 </StackPanel>
                             </GroupBox>
-                            <GroupBox Grid.Column="1" Header="Conversion Method" Margin="0,5,0,5" Padding="10,5" VerticalAlignment="Top" Style="{StaticResource CustomGroupBoxStyle}" ToolTip="Select the XISO conversion engine to use">
-                                <StackPanel Orientation="Vertical">
-                                    <StackPanel Orientation="Horizontal" Margin="0,2">
-                                        <RadioButton x:Name="UseExtractXisoRadioButton" GroupName="ConversionMethod" Content="Use extract-xiso.exe tool" ToolTip="Uses the external extract-xiso.exe tool for conversion (default)" VerticalAlignment="Center" />
-                                        <TextBlock Text=" (https://github.com/XboxDev/extract-xiso)" Foreground="{StaticResource LinkTextBrush}" Cursor="Hand" MouseLeftButtonDown="ExtractXisoUrl_Click" TextDecorations="Underline" Margin="5,0,0,0" VerticalAlignment="Center" ToolTip="Open the extract-xiso GitHub repository in your browser" />
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,2">
-                                        <RadioButton x:Name="UseXdvdfsRadioButton" GroupName="ConversionMethod" Content="Use xdvdfs.exe tool" ToolTip="Uses the external xdvdfs.exe tool for conversion" IsChecked="True" VerticalAlignment="Center" />
-                                        <TextBlock Text=" (https://github.com/antangelo/xdvdfs)" Foreground="{StaticResource LinkTextBrush}" Cursor="Hand" MouseLeftButtonDown="XdvdfsUrl_Click" TextDecorations="Underline" Margin="5,0,0,0" VerticalAlignment="Center" ToolTip="Open the xdvdfs GitHub repository in your browser" />
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,2">
-                                        <RadioButton x:Name="UseBuiltInLogicRadioButton" GroupName="ConversionMethod" Content="Use enhanced Deterous logic (built-in)" ToolTip="Uses the application's built-in XISO conversion logic" VerticalAlignment="Center" />
-                                        <TextBlock Text=" (https://github.com/Deterous/XboxKit)" Foreground="{StaticResource LinkTextBrush}" Cursor="Hand" MouseLeftButtonDown="DeterousUrl_Click" TextDecorations="Underline" Margin="5,0,0,0" VerticalAlignment="Center" ToolTip="Open the XboxKit GitHub repository in your browser" />
-                                    </StackPanel>
+                            <GroupBox Grid.Column="1" Header="Conversion Engine" Margin="0,5,0,5" Padding="10,5" VerticalAlignment="Top" Style="{StaticResource CustomGroupBoxStyle}" ToolTip="All ISO to XISO conversion is performed by the XISOSharp library">
+                                <StackPanel Orientation="Horizontal" Margin="0,2">
+                                    <TextBlock Text="Powered by XISOSharp" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <TextBlock Text=" (https://github.com/purelogiccode/XISOSharp)" Foreground="{StaticResource LinkTextBrush}" Cursor="Hand" MouseLeftButtonDown="XisoSharpUrl_Click" TextDecorations="Underline" Margin="5,0,0,0" VerticalAlignment="Center" ToolTip="Open the XISOSharp GitHub repository in your browser" />
                                 </StackPanel>
                             </GroupBox>
                         </Grid>

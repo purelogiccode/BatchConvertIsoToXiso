@@ -1,4 +1,4 @@
-﻿using BatchConvertIsoToXiso.Services.XisoServices.BinaryOperations;
+﻿using XISOSharp;
 
 namespace BatchConvertIsoToXiso.Models;
 
@@ -10,5 +10,5 @@ public class XisoExplorerItem
     public bool IsDirectory { get; init; }
 
     // ReSharper disable once NullableWarningSuppressionIsUsed
-    public FileEntry Entry { get; init; } = null!;
+    public ExplorerNode Node { get; init; } = null!;
 }

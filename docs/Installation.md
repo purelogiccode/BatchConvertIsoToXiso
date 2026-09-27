@@ -20,10 +20,10 @@
 
 ### Architecture Notes
 
-| Architecture | Supported Conversion Methods |
+| Architecture | Supported Conversion |
 |:---|:---|
-| **x64 (64-bit)** | All three methods: `extract-xiso`, `xdvdfs`, and the built-in modified Deterous logic |
-| **ARM64** | The built-in modified Deterous logic is fully supported; the external-tool methods may also work |
+| **x64 (64-bit)** | Fully supported |
+| **ARM64** | Fully supported. CUE/BIN conversion requires the x64-only `bchunk.exe` and is disabled on ARM64 |
 
 ---
 
@@ -45,13 +45,11 @@ After extraction, the application folder contains:
 
 | File | Purpose |
 |:---|:---|
-| `BatchConvertIsoToXiso.exe` | The main application |
-| `extract-xiso.exe` | External conversion tool (XboxDev) used by the *extract-xiso* method |
-| `xdvdfs.exe` | External conversion tool (antangelo, Rust) used by the *xdvdfs* method |
+| `BatchConvertIsoToXiso.exe` | The main application (XISOSharp conversion engine is built in) |
 | `bchunk.exe` | CUE/BIN to ISO converter used when `.cue`/`.bin` pairs are selected |
 | `7za.exe` / `7za_arm64.exe` | 7-Zip CLI fallback used for complex or password-protected `.7z` archives |
 
-Do not delete or rename these executables — the corresponding features will fail if they are missing.
+Do not delete or rename the bundled helper executables — the corresponding features will fail if they are missing.
 
 ---
 

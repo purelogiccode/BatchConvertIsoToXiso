@@ -170,19 +170,12 @@ public partial class MainWindow
             _memoryTimer.Start();
             UpdateStatus("Starting batch conversion...");
 
-            // Determine conversion method from radio buttons
-            // If neither extract-xiso nor xdvdfs is selected, the built-in writer is used
-            var useExtractXiso = UseExtractXisoRadioButton.IsChecked == true;
-            var useXdvdfs = UseXdvdfsRadioButton.IsChecked == true;
-
             await _orchestratorService.ConvertAsync(
                 inputFolder, outputFolder,
                 DeleteOriginalsCheckBox.IsChecked ?? false,
                 SkipSystemUpdateCheckBox.IsChecked ?? false,
                 CheckOutputIntegrityCheckBox.IsChecked ?? false,
                 SearchSubfoldersConversionCheckBox.IsChecked ?? false,
-                useExtractXiso,
-                useXdvdfs,
                 progress, HandleCloudRetryRequestAsync, _cts.Token);
         }
         catch (OperationCanceledException)

@@ -1,5 +1,5 @@
 using BatchConvertIsoToXiso.Models;
-using BatchConvertIsoToXiso.Services.XisoServices.BinaryOperations;
+using XISOSharp;
 using Xunit;
 
 namespace BatchConvertIsoToXiso.Tests.Models;
@@ -34,18 +34,18 @@ public class XisoExplorerItemTests
     [Fact]
     public void PropertiesCanBeInitialized()
     {
-        var entry = FileEntry.CreateRootEntry(0);
+        var node = new ExplorerNode("default.xbe", "/default.xbe", false, 1024, 32, 0x20);
         var item = new XisoExplorerItem
         {
             Name = "default.xbe",
             SizeFormatted = "1.5 MB",
             IsDirectory = false,
-            Entry = entry
+            Node = node
         };
 
         Assert.Equal("default.xbe", item.Name);
         Assert.Equal("1.5 MB", item.SizeFormatted);
         Assert.False(item.IsDirectory);
-        Assert.Same(entry, item.Entry);
+        Assert.Same(node, item.Node);
     }
 }

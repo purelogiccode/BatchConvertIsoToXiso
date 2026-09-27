@@ -27,11 +27,8 @@ CSharp_BatchConvertIsoToXiso.sln
 │   ├── Models/                          DTOs and enums (FileProcessingStatus, BatchOperationProgress, ...)
 │   └── Services/                        All business logic
 │       ├── OrchestratorService.cs       Batch pipeline coordination
-│       ├── ExtractXisoService.cs        External-tool conversion driver
-│       ├── XdvdfsService.cs             External xdvdfs tool driver
-│       ├── XisoWriter.cs                Native trim/rewrite engine
-│       ├── XisoServices/XDVDFS/         XDVDFS filesystem parser (XDVDFS.cs, VolumeDescriptor.cs)
-│       ├── XisoServices/BinaryOperations/  Sector utilities, FileEntry, integrity service
+│       ├── XisoSharpService.cs          XISO conversion via the XISOSharp library
+│       ├── XisoIntegrityService.cs      Structural audit + deep surface scan via XISOSharp
 │       ├── ExtractFiles.cs              Archive handling (zip/7z/rar), locked-file retries
 │       ├── MoveFiles.cs                 File moves with network/lock retries
 │       ├── DiskMonitorService.cs        Read/write speed and free-space monitoring
@@ -39,10 +36,10 @@ CSharp_BatchConvertIsoToXiso.sln
 │       ├── StatsService.cs              Anonymous usage statistics client
 │       ├── UpdateChecker.cs             GitHub release update checks
 │       └── ...                          Logging, formatting, path helpers, etc.
-└── BatchConvertIsoToXiso.Tests/         xUnit + Moq test suite (35 files, ~290 tests)
+└── BatchConvertIsoToXiso.Tests/         xUnit + Moq test suite
 ```
 
-Bundled native executables (`extract-xiso.exe`, `xdvdfs.exe`, `bchunk.exe`, `7za.exe`, `7za_arm64.exe`) are copied to the output directory and invoked as isolated child processes.
+Bundled helper executables (`bchunk.exe`, `7za.exe`, `7za_arm64.exe`) are copied to the output directory and invoked as isolated child processes. All XISO encoding and decoding is performed in-process by the `XISOSharp` NuGet package.
 
 ## Dependency Injection
 
@@ -53,10 +50,8 @@ Bundled native executables (`extract-xiso.exe`, `xdvdfs.exe`, `bchunk.exe`, `7za
 | `ILogger` / `LoggerService` | Singleton | Timestamped log capture for the UI log pane |
 | `IDiskMonitorService` | Singleton | Drive throughput counters and free-space queries |
 | `IOrchestratorService` | Singleton | Batch pipeline: discovery, per-file dispatch, progress, cancellation |
-| `IExtractXisoService` | Singleton | Drives the external `extract-xiso` tool |
-| `IXdvdfsService` | Singleton | Drives the external `xdvdfs` tool |
-| `XisoWriter` | Singleton | Native trim engine (uses `XDVDFS` parser) |
-| `INativeIsoIntegrityService` | Singleton | Structural validation of XDVDFS images |
+| `IXisoSharpService` | Singleton | XISO conversion via the XISOSharp library |
+| `IXisoIntegrityService` | Singleton | Structural audit + deep surface scan via XISOSharp |
 | `IFileExtractor` | Transient | Archive extraction with fallbacks and lock retries |
 | `IFileMover` | Transient | Move/copy operations with retry + backoff |
 | `IExternalToolService` | Singleton | Child-process lifecycle for bundled tools |
@@ -76,10 +71,7 @@ MainWindow (Convert tab)
          ├─ for each file:
          │    ├─ .cue/.bin ──► bchunk (external) ──► ISO
          │    ├─ .zip/.7z/.rar ──► ExtractFiles ──► temp ISO ──► convert ──► cleanup
-         │    └─ .iso ──► selected engine:
-         │         ├─ IExtractXisoService  (extract-xiso.exe child process)
-         │         ├─ IXdvdfsService       (xdvdfs.exe child process)
-         │         └─ XisoWriter           (native trim via XDVDFS parser)
+         │    └─ .iso ──► XisoSharpService (in-process, XISOSharp library)
          ├─ after each file: optional integrity check, optional original deletion,
          │   file moves (retry-aware), progress + stats updates
          └─ final summary (success/fail/skip counts, elapsed time)
@@ -111,7 +103,6 @@ Three layers of defense:
 | `XisoExplorerItem` | Row model for the explorer list |
 | `GitHubReleaseInfo` | Deserialized GitHub release payload |
 | `CloudRetryResult` | Result of a cloud-hydration retry |
-| `XisoFsFileAttributes` | XDVDFS attribute flags |
 
 ## Testing
 
@@ -121,4 +112,4 @@ The `BatchConvertIsoToXiso.Tests` project (xUnit, Moq) covers models, services, 
 dotnet test CSharp_BatchConvertIsoToXiso.sln
 ```
 
-The suite includes end-to-end-ish service tests (e.g., `OrchestratorServiceTests`, `FileExtractorServiceTests`) as well as binary-precision tests for the parser (`XdvdfsTests`, `VolumeDescriptorTests`, `FileEntryTests`, `UtilsTests`). Analyzers (Meziantou, Roslynator) enforce code quality on both projects.
+The suite includes service tests (e.g., `OrchestratorServiceTests`, `FileExtractorServiceTests`, `XisoSharpServiceTests`, `XisoIntegrityServiceTests`) plus model and helper coverage. Analyzers (Meziantou, Roslynator) enforce code quality on both projects.
