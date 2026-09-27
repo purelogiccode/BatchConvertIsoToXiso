@@ -117,10 +117,10 @@ public class XisoSharpService : IXisoSharpService
                 }
             });
 
-            // outputName is intentionally null: XISOSharp names the rewritten image after the
-            // source file with a .iso extension, which is exactly outputFileName here.
+            // Pass the computed output name explicitly so the result always matches
+            // the path checked above and shown in progress output.
             var result = XisoReader.Rewrite(inputFile, outputFolder, out outIsoPath, token,
-                progress: progressAdapter);
+                outputName: Path.GetFileName(outputPath), progress: progressAdapter);
 
             var resultPath = string.IsNullOrEmpty(outIsoPath) ? outputPath : outIsoPath;
 
