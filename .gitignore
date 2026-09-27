@@ -6,3 +6,4 @@ riderModule.iml
 !/.idea/
 .aider*
 *_wpftmp.csproj
+*.sln.DotSettings.user
