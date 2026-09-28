@@ -20,7 +20,7 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         _logger = logger.ForContext<DiskMonitorService>();
     }
 
-    // P/Invoke for GetDiskFreeSpaceEx which works with UNC paths
+    // P/Invoke for GetDiskFreeSpaceEx which works with UNC paths (Windows only)
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetDiskFreeSpaceEx(
@@ -35,6 +35,12 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         if (string.Equals(CurrentDriveLetter, driveLetter, StringComparison.OrdinalIgnoreCase)) return;
 
         StopMonitoring();
+
+        if (!OperatingSystem.IsWindows())
+        {
+            // Windows performance counters are not available on Linux/macOS; the UI shows N/A.
+            return;
+        }
 
         // Check for network drives - explicitly excluded from speed monitoring
         if (PathHelper.IsNetworkPath(path))
@@ -107,6 +113,7 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
 
     public string GetCurrentReadSpeedFormatted()
     {
+        if (!OperatingSystem.IsWindows()) return "N/A";
         if (_diskReadSpeedCounter == null) return "N/A";
 
         try
@@ -124,6 +131,7 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
 
     public string GetCurrentWriteSpeedFormatted()
     {
+        if (!OperatingSystem.IsWindows()) return "N/A";
         if (_diskWriteSpeedCounter == null) return "N/A";
 
         try
@@ -148,8 +156,8 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
 
         try
         {
-            // Handle UNC paths (network shares) using P/Invoke
-            if (PathHelper.IsUncPath(path))
+            // Handle UNC paths (network shares) using P/Invoke (Windows only)
+            if (OperatingSystem.IsWindows() && PathHelper.IsUncPath(path))
             {
                 // For UNC paths, use GetDiskFreeSpaceEx which works with network shares
                 // We need to pass the share root (\\server\share) not a subdirectory
@@ -211,8 +219,17 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
                 if (!drive.IsReady)
                     continue;
 
-                if (drive.DriveType != DriveType.Fixed)
+                // Windows: only fixed local drives are eligible. Unix: DriveType is not
+                // meaningful, so accept anything that is not removable or networked.
+                if (OperatingSystem.IsWindows())
+                {
+                    if (drive.DriveType != DriveType.Fixed)
+                        continue;
+                }
+                else if (drive.DriveType is DriveType.Removable or DriveType.Network)
+                {
                     continue;
+                }
 
                 var root = drive.Name.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 if (excludedRoot != null && root.Equals(excludedRoot, StringComparison.OrdinalIgnoreCase))

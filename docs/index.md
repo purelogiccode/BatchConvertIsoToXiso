@@ -8,13 +8,13 @@
 
 ---
 
-Welcome to the official documentation for **Xbox ISO Studio** — a high-performance Windows WPF utility built for the Xbox preservation and emulation community. Convert, verify, and explore Xbox and Xbox 360 images (ISO, CSO, ZAR, and CHD), powered by the XISOSharp and CHDSharp libraries.
+Welcome to the official documentation for **Xbox ISO Studio** — a high-performance, cross-platform (Avalonia) utility built for the Xbox preservation and emulation community. Convert, verify, and explore Xbox and Xbox 360 images (ISO, CSO, ZAR, and CHD), powered by the XISOSharp and CHDSharp libraries.
 
 - **Repository:** <https://github.com/purelogiccode/XboxIsoStudio>
 - **Website:** <https://www.purelogiccode.com>
 - **License:** GNU General Public License v3.0
-- **Current version:** 2.9.0
-- **Platform:** Windows x64 / ARM64, .NET 10.0 Desktop Runtime
+- **Current version:** 2.9.0 (3.0.0 in development)
+- **Platform:** Windows, Linux, and macOS (x64 / ARM64), .NET 10.0 Runtime
 
 ---
 
@@ -39,7 +39,7 @@ Whether you are managing a large collection of game backups, preparing files for
 | **Batch Conversion** | XISOSharp and CHDSharp conversion engines, XISO/ZAR/CSO/CHD output formats, ISO input (Redump full-disc images or optimized XISO files), archive input (`.zip`, `.7z`, `.rar`), optional `$SystemUpdate` removal, replace-originals mode, post-conversion verification |
 | **Integrity Testing** | Structural XDVDFS validation for ISO/CSO and the Xbox filesystem inside CHD images, ZAR archive validation, optional deep scan, automatic move of passed/failed files into organized subfolders |
 | **Image Explorer** | Native browsing inside ISO/CSO/ZAR/CHD images, file metadata, double-click to open, drag-and-drop extraction |
-| **Monitoring** | Real-time success/fail/skip counters, per-drive read/write speed indicators, elapsed-time tracking, memory usage |
+| **Monitoring** | Real-time success/fail/skip counters, per-drive read/write speed indicators (Windows), elapsed-time tracking, memory usage |
 | **Reliability** | Atomic replace-originals workflow, automatic temp-folder cleanup, fallback temp drives, network path (UNC) support with retry logic, cloud-aware (OneDrive) retries, encrypted-archive detection |
 | **Support** | In-app bug reporting and automatic update checks |
 
@@ -76,8 +76,8 @@ Whether you are managing a large collection of game backups, preparing files for
 
 ## Quick Start
 
-1. **Download** the latest release from the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page and extract the ZIP — the application is fully portable, no installer required.
-2. **Launch** `XboxIsoStudio.exe` (requires the [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)).
+1. **Download** the release archive for your platform from the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page and extract it — the application is fully portable, no installer required.
+2. **Launch** `XboxIsoStudio.exe` on Windows or `./XboxIsoStudio` on Linux/macOS (requires the [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)).
 3. On the **Convert** tab, select an **input folder** containing your ISO files and an **output folder** for the converted XISOs.
 4. Optionally enable **Skip $SystemUpdate** and **Check output integrity**, then click **Start Conversion** and monitor progress in real time.
 
@@ -85,7 +85,9 @@ Whether you are managing a large collection of game backups, preparing files for
 
 ## Acknowledgements
 
+- **[Avalonia](https://avaloniaui.net/)** — cross-platform .NET UI framework the application is built on
 - **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** — XISO/XDVDFS reading, writing, and conversion library that powers XISO/ZAR/CSO conversion, integrity testing, and exploration
+- **[ZArchiveSharp](https://github.com/purelogiccode/ZArchiveSharp)** — ZArchive/zstd compression library used for ZAR output and reading
 - **[CHDSharp](https://github.com/purelogiccode/CHDSharp)** — CHD (Compressed Hunks of Data) reading, verification, and creation for CHD output and Xbox CHD testing/exploration
 - **[SharpCompress](https://github.com/adamhathcock/sharpcompress)** — high-performance archive extraction
 

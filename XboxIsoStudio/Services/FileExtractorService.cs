@@ -17,35 +17,68 @@ public class FileExtractorService : IFileExtractor
     {
         var appDir = AppDomain.CurrentDomain.BaseDirectory;
 
-        var archExeName = RuntimeInformation.ProcessArchitecture switch
+        if (OperatingSystem.IsWindows())
         {
-            Architecture.X64 => "7za.exe",
-            Architecture.Arm64 => "7za_arm64.exe",
-            _ => null
-        };
+            var archExeName = RuntimeInformation.ProcessArchitecture switch
+            {
+                Architecture.X64 => "7za.exe",
+                Architecture.Arm64 => "7za_arm64.exe",
+                _ => null
+            };
 
-        if (archExeName != null)
-        {
-            var archExe = Path.Combine(appDir, archExeName);
-            if (File.Exists(archExe))
-                return archExe;
+            if (archExeName != null)
+            {
+                var archExe = Path.Combine(appDir, archExeName);
+                if (File.Exists(archExe))
+                    return archExe;
+            }
+
+            var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            var searchPaths = new[]
+            {
+                Path.Combine(programFiles, "7-Zip", "7z.exe"),
+                Path.Combine(Environment.GetEnvironmentVariable("ProgramW6432") ?? programFiles, "7-Zip", "7z.exe")
+            };
+
+            foreach (var path in searchPaths)
+            {
+                if (File.Exists(path))
+                    return path;
+            }
+
+            return null;
         }
 
-        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        var searchPaths = new[]
-        {
-            Path.Combine(programFiles, "7-Zip", "7z.exe"),
-            Path.Combine(Environment.GetEnvironmentVariable("ProgramW6432") ?? programFiles, "7-Zip", "7z.exe")
-        };
+        // Linux/macOS: look for a system 7-Zip on the PATH.
+        var pathVariable = Environment.GetEnvironmentVariable("PATH");
+        if (string.IsNullOrEmpty(pathVariable)) return null;
 
-        foreach (var path in searchPaths)
+        string[] candidates = ["7z", "7za", "7zz", "7zr"];
+        foreach (var dir in pathVariable.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
         {
-            if (File.Exists(path))
-                return path;
+            foreach (var candidate in candidates)
+            {
+                try
+                {
+                    var fullPath = Path.Combine(dir.Trim('"'), candidate);
+                    if (File.Exists(fullPath)) return fullPath;
+                }
+                catch
+                {
+                    // Ignore malformed PATH entries
+                }
+            }
         }
 
         return null;
     }
+
+    /// <summary>Platform-aware instructions for installing the optional 7-Zip CLI fallback.</summary>
+    private static string SevenZipInstallHint =>
+        OperatingSystem.IsWindows()
+            ? "1. Install 7-Zip from https://7-zip.org/ — the app auto-detects it in Program Files.\n" +
+              "2. Alternatively, place '7za.exe' (for x64) or '7za_arm64.exe' (for ARM64) in the application directory."
+            : "Install 7-Zip with your package manager (e.g. 'sudo apt install 7zip' or 'brew install sevenzip') so that '7z' is on the PATH.";
 
     // Cloud file attribute constants
     private const int FileAttributeRecallOnOpen = 0x00040000;
@@ -497,8 +530,7 @@ public class FileExtractorService : IFileExtractor
                                 throw new IOException(
                                     "This archive uses a compression method (e.g., ZSTD) not supported by the built-in extractor.\n\n" +
                                     "To extract this file automatically, you can:\n" +
-                                    "1. Install 7-Zip from https://7-zip.org/ — the app auto-detects it in Program Files.\n" +
-                                    "2. Alternatively, place '7za.exe' (for x64) or '7za_arm64.exe' (for ARM64) in the application directory.\n\n" +
+                                    SevenZipInstallHint + "\n\n" +
                                     "Alternatively, you can manually extract the archive and place the ISO file directly in the input folder.",
                                     notSupportedEx);
                             }
@@ -535,10 +567,9 @@ public class FileExtractorService : IFileExtractor
 
             if (!File.Exists(_sevenZipExePath))
             {
-                const string userMessage = "7z archives require the 7-Zip command-line tool.\n\n" +
-                                           "To extract .7z files automatically, you can:\n" +
-                                           "1. Install 7-Zip from https://7-zip.org/ — the app auto-detects it in Program Files.\n" +
-                                           "2. Alternatively, place '7za.exe' (for x64) or '7za_arm64.exe' (for ARM64) in the application directory.";
+                var userMessage = "7z archives require the 7-Zip command-line tool.\n\n" +
+                                  "To extract .7z files automatically, you can:\n" +
+                                  SevenZipInstallHint;
                 _logger.Information("{Message:l}", userMessage);
                 throw new IOException(userMessage, ex);
             }
@@ -565,11 +596,10 @@ public class FileExtractorService : IFileExtractor
 
             if (!File.Exists(_sevenZipExePath))
             {
-                const string userMessage =
+                var userMessage =
                     "This ZIP archive uses a compression method (e.g., ZSTD) not supported by the built-in extractor.\n\n" +
                     "To extract this file automatically, you can:\n" +
-                    "1. Install 7-Zip from https://7-zip.org/ — the app auto-detects it in Program Files.\n" +
-                    "2. Alternatively, place '7za.exe' (for x64) or '7za_arm64.exe' (for ARM64) in the application directory.\n\n" +
+                    SevenZipInstallHint + "\n\n" +
                     "Alternatively, you can manually extract the ZIP and place the ISO file directly in the input folder.";
                 _logger.Information("{Message:l}", userMessage);
                 throw new IOException(userMessage, notSupportedEx);

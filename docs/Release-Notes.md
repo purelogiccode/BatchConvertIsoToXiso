@@ -12,7 +12,7 @@
 
 | Version | Date | Summary |
 |:---|:---|:---|
-| [2.10.0 (unreleased)](#2100-unreleased) | — | CHDSharp integration: CHD output, Xbox CHD integrity testing, and CHD exploration |
+| [3.0.0 (unreleased)](#300-unreleased) | — | Cross-platform Avalonia port (Windows/Linux/macOS); CHDSharp integration: CHD output, Xbox CHD integrity testing, and CHD exploration |
 | [2.9.0](#290) | September 2026 | Serilog logging with automatic bug reporting; per-file selection lists; XISO/ZAR/CSO output formats; CUE/BIN support removed |
 | [2.8.0](#280) | September 2026 | XISOSharp migration: in-process conversion, integrity testing, and exploration; external engines removed |
 | [2.7.1](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.7.1) | July 2026 | Resource cleanup, cancellation, better error filtering |
@@ -22,14 +22,23 @@
 
 ---
 
-## 2.10.0 (unreleased)
+## 3.0.0 (unreleased)
 
-> **The CHD release (in development).** [CHDSharp](https://github.com/purelogiccode/CHDSharp) is
-> integrated as a second in-process engine: Xbox and Xbox 360 ISOs can be converted to CHD v5, and
-> Xbox DVD CHD files can be integrity-tested and explored without extraction.
+> **The cross-platform CHD release (in development).** The application was ported from WPF to
+> **Avalonia** and now runs on Windows, Linux, and macOS (x64 and ARM64), and
+> [CHDSharp](https://github.com/purelogiccode/CHDSharp) is integrated as a second in-process engine:
+> Xbox and Xbox 360 ISOs can be converted to CHD v5, and Xbox DVD CHD files can be integrity-tested
+> and explored without extraction.
 
 ### New Features
 
+- **Cross-platform UI** — WPF replaced with **Avalonia** (same dark theme, colors, fonts, layout,
+  and control styling) with one `net10.0` codebase. Six release archives are produced:
+  `win-x64`/`win-arm64`, `linux-x64`/`linux-arm64`, and `osx-x64`/`osx-arm64`. All imaging
+  libraries are pure managed code, so conversion, integrity testing, and exploration work
+  identically everywhere. Windows-only integrations degrade gracefully: the read/write speed
+  monitor shows `N/A` (Windows performance counters), the 7-Zip CLI fallback uses the system `7z`
+  from `PATH`, and file/folder pickers and links use the OS-native dialogs.
 - **CHD output format** — the Convert tab's Output Format selector gains **CHD** (`.chd`,
   Compressed Hunks of Data). The optimized game partition is encoded by `ChdEncoder.EncodeRaw`
   (CHDSharp) with the chdman `createdvd` preset — 4096-byte hunks, 2048-byte units, the
@@ -50,6 +59,18 @@
 
 ### Internal
 
+- Ported `MainWindow`, `AboutWindow`, `App`, and theming from XAML/WPF to Avalonia
+  (`Program.cs`, `App.axaml`, `MainWindow.axaml`, `AboutWindow.axaml`); added
+  `Dialogs/MessageBoxWindow` (cross-platform modal dialogs replacing `System.Windows.MessageBox`)
+  and rewrote the screenshot service with `RenderTargetBitmap`.
+- `IMessageBoxService` is now async (`ShowAsync`/`ShowErrorAsync`/`ShowWarningAsync`) with
+  framework-neutral result/button/icon enums; file and folder pickers use Avalonia's
+  `StorageProvider`; drag-out of explorer entries uses the Avalonia `DataTransfer` API.
+- Platform guards: `DiskMonitorService` returns `N/A` on non-Windows (the `System.Diagnostics.PerformanceCounter`
+  package is referenced but only used under `OperatingSystem.IsWindows()`), bundled `7za.exe` files
+  are copied to Windows outputs only, and the Unix fallback searches `7z`/`7za`/`7zz` on `PATH`.
+- Retargeted both projects from `net10.0-windows` to `net10.0`; CI now builds/tests on
+  `windows-latest`, `ubuntu-latest`, and `macos-latest` and publishes all six RIDs.
 - Added the **CHDSharp** 1.4.3 package (pure managed code, no native dependencies).
 - New `IChdService`/`ChdService` (conversion and deep verification), `ChdImageExplorer`,
   `OutputFormat.Chd`, `.chd` filters in `SupportedFiles`, and a `ChdBlockDevice` adapter

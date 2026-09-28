@@ -12,8 +12,8 @@
 
 | Requirement | Notes |
 |:---|:---|
-| **Windows 10/11** (x64 or ARM64) | WPF application; Windows-only |
-| **.NET 10 SDK** | Matches the `net10.0-windows` target; `global.json` pins the required SDK version |
+| **Windows 10/11, Linux, or macOS** (x64 or ARM64) | Avalonia application; builds and runs on all three platforms |
+| **.NET 10 SDK** | Matches the `net10.0` target; `global.json` pins the required SDK version |
 | **Git** | To clone the repository |
 
 Verify your SDK:
@@ -45,11 +45,11 @@ dotnet run --project XboxIsoStudio
 
 ### Bundled Helper Tools
 
-XISO conversion is performed by the `XISOSharp` NuGet package and CHD encoding by the `CHDSharp` NuGet package — no conversion binaries are bundled. The application project still bundles Windows helper executables that are copied to the output directory on every build:
+XISO conversion is performed by the `XISOSharp` NuGet package and CHD encoding by the `CHDSharp` NuGet package — no conversion binaries are bundled. The application project bundles Windows helper executables that are copied to the output directory on Windows builds only:
 
-- `7za.exe`, `7za_arm64.exe` — 7-Zip CLI fallback for archive extraction
+- `7za.exe`, `7za_arm64.exe` — optional 7-Zip CLI fallback for archive extraction
 
-These are committed to the repository, so no extra download steps are needed.
+These are committed to the repository, so no extra download steps are needed. On Linux and macOS the fallback uses the system `7z` command from `PATH` (install it with your package manager, e.g. `sudo apt install 7zip` or `brew install sevenzip`); SharpCompress handles `.zip`/`.rar`/most `.7z` archives without it.
 
 ## Running the Tests
 
@@ -67,23 +67,32 @@ Both projects enforce analyzer rules (**Meziantou.Analyzer**, **Roslynator**) as
 
 ## Publishing a Release Build
 
-Example for a framework-dependent x64 publish:
+Example for a framework-dependent x64 publish (single file):
 
 ```bash
-dotnet publish XboxIsoStudio -c Release -r win-x64 --self-contained false
+dotnet publish XboxIsoStudio -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
 ```
 
-For a self-contained single-folder build (no .NET runtime requirement for end users):
+For a self-contained build (no .NET runtime requirement for end users):
 
 ```bash
 dotnet publish XboxIsoStudio -c Release -r win-x64 --self-contained true
 ```
 
-Use `-r win-arm64` for ARM64 builds. Ensure the bundled executables end up next to the published `XboxIsoStudio.exe`.
+Supported runtime identifiers:
+
+| Platform | RIDs |
+|:---|:---|
+| Windows | `win-x64`, `win-arm64` |
+| Linux | `linux-x64`, `linux-arm64` |
+| macOS | `osx-x64`, `osx-arm64` |
+
+All RIDs can be cross-published from any OS (the native Avalonia/Skia assets come from NuGet). After extracting a Linux/macOS build, mark the executable runnable with `chmod +x XboxIsoStudio`.
 
 ## Project Notes
 
-- **Target framework:** `net10.0-windows` with `<UseWPF>true</UseWPF>`.
+- **Target framework:** `net10.0` with **Avalonia** (`Avalonia`, `Avalonia.Desktop`, `Avalonia.Themes.Fluent`, `Avalonia.Controls.DataGrid`).
 - **Nullable + implicit usings** are enabled.
 - The `References/` folder (vendored sources such as the xdvdfs Rust workspace, if present) is excluded from compilation.
 - Version numbers are maintained in `XboxIsoStudio.csproj` (`AssemblyVersion` / `FileVersion`); the update checker compares against GitHub release tags.
+- Windows-only features degrade gracefully on Linux/macOS: the disk read/write speed monitor shows `N/A`, and the 7-Zip fallback uses the system `7z`.

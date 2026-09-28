@@ -1,27 +1,35 @@
-using System.Windows;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using XboxIsoStudio.Dialogs;
 using XboxIsoStudio.Interfaces;
 
 namespace XboxIsoStudio.Services;
 
 public class MessageBoxService : IMessageBoxService
 {
-    public MessageBoxResult Show(string message, string title, MessageBoxButton buttons, MessageBoxImage icon)
+    public async Task<UiMessageBoxResult> ShowAsync(string message, string title, UiMessageBoxButton buttons,
+        UiMessageBoxImage icon)
     {
-        if (Application.Current is { MainWindow: not null } app)
+        var owner = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        var dialog = new MessageBoxWindow(message, title, buttons, icon);
+
+        if (owner is { IsVisible: true })
         {
-            return MessageBox.Show(app.MainWindow, message, title, buttons, icon);
+            return await dialog.ShowDialog<UiMessageBoxResult>(owner);
         }
 
-        return MessageBox.Show(message, title, buttons, icon);
+        dialog.Show();
+        return await dialog.Result;
     }
 
-    public void ShowError(string message)
+    public Task ShowErrorAsync(string message)
     {
-        Show(message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        return ShowAsync(message, "Error", UiMessageBoxButton.Ok, UiMessageBoxImage.Error);
     }
 
-    public void ShowWarning(string message, string title)
+    public Task ShowWarningAsync(string message, string title)
     {
-        Show(message, title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        return ShowAsync(message, title, UiMessageBoxButton.Ok, UiMessageBoxImage.Warning);
     }
 }

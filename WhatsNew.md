@@ -2,13 +2,19 @@
 
 <!-- Keep this file focused on the newest release. Full history lives in docs/Release-Notes.md. -->
 
-## Version 2.10.0 (unreleased)
+## Version 3.0.0 (unreleased)
 
 **Release date:** TBD
 
-Version 2.10.0 is the **CHD release**: the [CHDSharp](https://github.com/purelogiccode/CHDSharp) library is now built in, so Xbox and Xbox 360 images can be converted to **CHD** (`.chd`, Compressed Hunks of Data), and Xbox DVD CHD files can be integrity-tested and explored without extraction.
+Version 3.0.0 is the **CHD & cross-platform release**: the application was ported from WPF to **Avalonia** and now runs on **Windows, Linux, and macOS**, and the [CHDSharp](https://github.com/purelogiccode/CHDSharp) library is now built in, so Xbox and Xbox 360 images can be converted to **CHD** (`.chd`, Compressed Hunks of Data), and Xbox DVD CHD files can be integrity-tested and explored without extraction.
 
 ### Highlights
+
+#### Cross-platform: Windows, Linux, and macOS
+- The UI was ported from WPF to **[Avalonia](https://avaloniaui.net/)** with the same dark theme, colors, fonts, layout, and controls — one codebase now produces binaries for **Windows, Linux, and macOS** on **x64 and ARM64** (six release archives).
+- All imaging libraries (XISOSharp, ZArchiveSharp, CHDSharp, SharpCompress) are pure managed code with no native dependencies, so every feature — conversion, testing, and exploration — works identically on all three platforms.
+- Windows-specific integrations degrade gracefully: the disk read/write speed monitor uses Windows performance counters and shows **N/A** on Linux/macOS, the archive fallback uses the system `7z` from `PATH` instead of the bundled Windows executable, and links/pickers use the native OS dialogs.
+- CI now builds and tests on **Windows, Linux, and macOS** and publishes all six platform archives.
 
 #### CHD output format
 - The Convert tab's **Output Format** selector now includes **CHD** (`.chd`, CHD v5). The optimized game partition is encoded with the chdman `createdvd` preset — 4096-byte hunks, 2048-byte units, and the `lzma,zlib,huff,flac` codec list — and tagged as a DVD image.
@@ -24,7 +30,7 @@ Version 2.10.0 is the **CHD release**: the [CHDSharp](https://github.com/purelog
 - Both game-partition-only CHDs (produced by this app) and full Redump-image CHDs (produced by `chdman createdvd`) are supported — partition offsets are auto-detected.
 
 ### Upgrading
-No action is required. CHD support adds the **CHDSharp** 1.4.3 package (pure managed code, no native dependencies); all existing formats keep working unchanged.
+Download the archive that matches your platform and architecture. No action is required for existing Windows users — the portable layout and all existing formats keep working unchanged. CHD support adds the **CHDSharp** 1.4.3 package (pure managed code, no native dependencies), and the only UI change is the framework the window is drawn with (WPF → Avalonia).
 
 ---
 

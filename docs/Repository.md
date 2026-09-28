@@ -34,7 +34,13 @@ This page describes the repository itself: where things live, how releases are m
 │   ├── Release-Notes.md                   Full version history
 │   ├── Repository.md                      This page
 │   └── _Sidebar.md                        Sidebar menu (GitHub wiki)
-├── XboxIsoStudio/                 Main WPF application project
+├── XboxIsoStudio/                 Main Avalonia application project
+│   ├── Program.cs                         Entry point (Avalonia AppBuilder)
+│   ├── App.axaml(.cs)                     Theme/styles + DI composition
+│   ├── MainWindow.axaml(.cs)              Shell window
+│   ├── MainWindow*.cs                     Partial classes for the main window
+│   ├── AboutWindow.axaml(.cs)             About dialog
+│   ├── Dialogs/                           Cross-platform message box dialog
 │   ├── Interfaces/                        Service contracts
 │   ├── Models/                            DTOs and enums
 │   ├── Services/                          All business logic
@@ -43,8 +49,7 @@ This page describes the repository itself: where things live, how releases are m
 │   │   ├── XisoIntegrityService.cs        Integrity validation via XISOSharp / ZArchiveSharp / CHDSharp
 │   │   ├── ImageExplorerFactory.cs        Explorer over ISO/CSO (XisoExplorer), ZAR (ZArchiveReader) or CHD (ChdImageExplorer)
 │   │   └── ChdImageExplorer.cs            Explorer over CHD via CHDSharp + XISOSharp
-│   ├── MainWindow*.cs                     Partial classes for the main window
-│   ├── 7za.exe, 7za_arm64.exe             Bundled helper tools
+│   ├── 7za.exe, 7za_arm64.exe             Bundled helper tools (Windows builds only)
 │   └── XboxIsoStudio.csproj
 ├── XboxIsoStudio.Tests/           xUnit + Moq test project
 ├── CSharp_XboxIsoStudio.sln       Solution file
@@ -58,7 +63,7 @@ This page describes the repository itself: where things live, how releases are m
 ## Branching and Releases
 
 - The primary branch is **`master`**.
-- **Releases** are tagged on GitHub and published on the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page with ready-to-run ZIP archives.
+- **Releases** are tagged on GitHub and published on the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page with ready-to-run archives for Windows, Linux, and macOS (x64 and ARM64).
 - **Versioning:** `MAJOR.MINOR.PATCH` (currently 2.9.0). Releases are tagged `release_MAJOR.MINOR.PATCH` (for example `release_2.8.0`). The application's update checker extracts the numeric version from the latest release tag, so keep the `MAJOR.MINOR.PATCH` part intact.
 
 ## Contributing
@@ -71,7 +76,7 @@ Contributions are welcome!
 2. Search existing [issues](https://github.com/purelogiccode/XboxIsoStudio/issues) to avoid duplicates.
 3. Open a new issue including:
    - Application version (visible in the About window)
-   - Windows version and architecture (x64/ARM64)
+   - Operating system, version, and architecture (x64/ARM64)
    - The input format used (`.iso`, `.cso`, `.zar`, `.chd`, or archive)
    - The relevant lines from the in-application log
 
@@ -108,7 +113,7 @@ When adding features, please update the relevant documentation pages in the same
 
 | Workflow | Trigger | Purpose |
 |:---|:---|:---|
-| **CI** (`.github/workflows/ci.yml`) | Push / PR to `master` | Restores, builds in Release, runs the xUnit suite, and uploads portable `win-x64` / `win-arm64` publish artifacts |
+| **CI** (`.github/workflows/ci.yml`) | Push / PR to `master` | Restores, builds in Release, and runs the xUnit suite on **Windows, Linux, and macOS**, then uploads portable publish artifacts for all six RIDs (`win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64`) |
 | **Update Wiki** (`.github/workflows/wiki.yml`) | Push to `docs/**` (or manual) | Copies the documentation into the GitHub wiki and rewrites internal links. Requires a `WIKI_TOKEN` repository secret (PAT with `repo` scope); skips with a notice when the secret is absent |
 
 **GitHub Pages** is built automatically by GitHub from the `master` branch `/docs` folder and is published at <https://purelogiccode.github.io/XboxIsoStudio/> — no workflow is required for it.
@@ -119,6 +124,8 @@ This project is licensed under the **GNU General Public License v3.0** — see [
 
 ## Acknowledgements
 
+- **[Avalonia](https://avaloniaui.net/)** — cross-platform UI framework powering the Windows/Linux/macOS interface
 - **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** — XISO/XDVDFS library powering XISO/ZAR/CSO conversion, integrity testing, and exploration
+- **[ZArchiveSharp](https://github.com/purelogiccode/ZArchiveSharp)** — ZArchive/zstd library powering ZAR output and reading
 - **[CHDSharp](https://github.com/purelogiccode/CHDSharp)** — CHD reading, verification, and creation powering CHD conversion, testing, and exploration
 - **[SharpCompress](https://github.com/adamhathcock/sharpcompress)** — archive extraction

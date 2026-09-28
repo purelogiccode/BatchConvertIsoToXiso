@@ -1,10 +1,12 @@
 using System.Globalization;
-using System.IO;
-using System.Windows;
-using System.Windows.Controls;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Platform.Storage;
+using Avalonia.Styling;
+using Avalonia.Threading;
+using XboxIsoStudio.Interfaces;
 using XboxIsoStudio.Models;
 using XboxIsoStudio.Services;
-using Microsoft.Win32;
 
 namespace XboxIsoStudio;
 
@@ -25,21 +27,21 @@ public partial class MainWindow
 
     private async Task<CloudRetryResult> HandleCloudRetryRequestAsync(string fileName)
     {
-        return await Application.Current.Dispatcher.InvokeAsync(() =>
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            var result = _messageBoxService.Show(
+            var result = await _messageBoxService.ShowAsync(
                 $"The file '{fileName}' is stored in the cloud and needs to be downloaded.\n\n" +
                 "• Click 'Yes' to Retry.\n" +
                 "• Click 'No' to Skip.\n" +
                 "• Click 'Cancel' to stop the batch.",
                 "Cloud File Required",
-                MessageBoxButton.YesNoCancel,
-                MessageBoxImage.Information);
+                UiMessageBoxButton.YesNoCancel,
+                UiMessageBoxImage.Information);
 
             return result switch
             {
-                MessageBoxResult.Yes => CloudRetryResult.Retry,
-                MessageBoxResult.No => CloudRetryResult.Skip,
+                UiMessageBoxResult.Yes => CloudRetryResult.Retry,
+                UiMessageBoxResult.No => CloudRetryResult.Skip,
                 _ => CloudRetryResult.Cancel
             };
         });
@@ -60,7 +62,7 @@ public partial class MainWindow
         }
     }
 
-    private void CancelButton_Click(object sender, RoutedEventArgs e)
+    private void CancelButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         try
         {
@@ -75,41 +77,54 @@ public partial class MainWindow
         _logger.Information("Cancellation requested. Finishing current file...");
     }
 
-    private void AboutMenuItem_Click(object sender, RoutedEventArgs e)
+    private async void AboutMenuItem_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        var aboutWindow = new AboutWindow(_urlOpener, _messageBoxService, _logger) { Owner = this };
-        aboutWindow.ShowDialog();
+        var aboutWindow = new AboutWindow(_urlOpener, _messageBoxService, _logger);
+        await aboutWindow.ShowDialog(this);
     }
 
-    private void DonateButton_Click(object sender, RoutedEventArgs e)
+    private void DonateButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _urlOpener.OpenUrl("https://www.purelogiccode.com/donate");
     }
 
-    private static string? SelectFolder(string description)
+    private async Task<string?> SelectFolderAsync(string description)
     {
-        var dialog = new OpenFolderDialog { Title = description };
-        return dialog.ShowDialog() == true ? dialog.FolderName : null;
+        try
+        {
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = description,
+                AllowMultiple = false
+            });
+
+            return folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Folder picker failed");
+            return null;
+        }
     }
 
-    private bool ValidateInputOutputFolders(string inputFolder, string outputFolder)
+    private async Task<bool> ValidateInputOutputFoldersAsync(string inputFolder, string outputFolder)
     {
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         var normalizedInput = Path.GetFullPath(inputFolder)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var normalizedOutput = Path.GetFullPath(outputFolder)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-        if (normalizedInput.Equals(normalizedOutput, StringComparison.OrdinalIgnoreCase))
+        if (normalizedInput.Equals(normalizedOutput, comparison))
         {
-            _messageBoxService.ShowError("Input and output folders must be different.");
+            await _messageBoxService.ShowErrorAsync("Input and output folders must be different.");
             return false;
         }
 
         // Check if output folder is a subfolder of input folder
-        if (normalizedOutput.StartsWith(normalizedInput + Path.DirectorySeparatorChar,
-                StringComparison.OrdinalIgnoreCase))
+        if (normalizedOutput.StartsWith(normalizedInput + Path.DirectorySeparatorChar, comparison))
         {
-            _messageBoxService.ShowError(
+            await _messageBoxService.ShowErrorAsync(
                 "Output folder cannot be a subfolder of the input folder. This would cause recursive processing issues.");
             return false;
         }
@@ -133,7 +148,7 @@ public partial class MainWindow
         ProgressBar.Maximum = total;
         ProgressBar.Value = current;
 
-        if (ProgressBar.Visibility == Visibility.Visible && !ProgressBar.IsIndeterminate)
+        if (ProgressBar.IsVisible && !ProgressBar.IsIndeterminate)
         {
             var percentage = (double)current / total * 100;
             ProgressTextBlock.Text = $"{current} of {total} ({percentage:F0}%)";
@@ -164,25 +179,25 @@ public partial class MainWindow
                 _logger.Information("");
             }
 
-            await Application.Current.Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 if (_isForceClosing) return;
 
                 if (_totalProcessedFiles > 5 && (double)_invalidIsoErrorCount / _totalProcessedFiles > 0.5)
                 {
-                    _messageBoxService.ShowWarning(
+                    await _messageBoxService.ShowWarningAsync(
                         $"Many files ({_invalidIsoErrorCount} out of {_totalProcessedFiles}) were not valid Xbox ISOs. " +
                         "Please ensure you are selecting the correct ISO files from Xbox or Xbox 360 games.",
                         "High Rate of Invalid ISOs Detected");
                 }
 
-                _messageBoxService.Show($"Batch {operationType.ToLowerInvariant()} completed.\n\n" +
-                                        $"Total files processed: {_uiTotalFiles}\n" +
-                                        $"Successfully {ConvertToPastTense.GetPastTense(operationType)}: {_uiSuccessCount} files\n" +
-                                        $"Skipped: {_uiSkippedCount} files\n" +
-                                        $"Failed: {_uiFailedCount} files",
-                    $"{operationType} Complete", MessageBoxButton.OK,
-                    _uiFailedCount > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+                await _messageBoxService.ShowAsync($"Batch {operationType.ToLowerInvariant()} completed.\n\n" +
+                                                    $"Total files processed: {_uiTotalFiles}\n" +
+                                                    $"Successfully {ConvertToPastTense.GetPastTense(operationType)}: {_uiSuccessCount} files\n" +
+                                                    $"Skipped: {_uiSkippedCount} files\n" +
+                                                    $"Failed: {_uiFailedCount} files",
+                    $"{operationType} Complete", UiMessageBoxButton.Ok,
+                    _uiFailedCount > 0 ? UiMessageBoxImage.Warning : UiMessageBoxImage.Information);
 
                 _isOperationRunning = false;
                 _operationCompletedTcs.TrySetResult();
@@ -234,9 +249,9 @@ public partial class MainWindow
         ControlsBorder.IsEnabled = enabled;
 
         // Toggle visibility of progress and cancel
-        ProgressAreaGrid.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
-        ProgressBar.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
-        CancelButton.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+        ProgressAreaGrid.IsVisible = !enabled;
+        ProgressBar.IsVisible = !enabled;
+        CancelButton.IsVisible = !enabled;
 
         if (enabled)
         {
@@ -260,44 +275,50 @@ public partial class MainWindow
         ProgressTextBlock.Text = "";
     }
 
-    private void NavConvert_Click(object sender, RoutedEventArgs e)
+    private void NavConvert_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        ConvertView.Visibility = Visibility.Visible;
-        TestView.Visibility = Visibility.Collapsed;
-        ExplorerHeaderView.Visibility = Visibility.Collapsed;
+        ConvertView.IsVisible = true;
+        TestView.IsVisible = false;
+        ExplorerHeaderView.IsVisible = false;
 
         ShowLogPanel();
-        StatsPanel.Visibility = Visibility.Visible;
+        StatsPanel.IsVisible = true;
 
         UpdateNavigationButtonStyles(BtnNavConvert);
     }
 
-    private void NavTest_Click(object sender, RoutedEventArgs e)
+    private void NavTest_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        ConvertView.Visibility = Visibility.Collapsed;
-        TestView.Visibility = Visibility.Visible;
-        ExplorerHeaderView.Visibility = Visibility.Collapsed;
+        ConvertView.IsVisible = false;
+        TestView.IsVisible = true;
+        ExplorerHeaderView.IsVisible = false;
 
         ShowLogPanel();
-        StatsPanel.Visibility = Visibility.Visible;
+        StatsPanel.IsVisible = true;
 
         UpdateNavigationButtonStyles(BtnNavTest);
     }
 
-    private void NavExplorer_Click(object sender, RoutedEventArgs e)
+    private void NavExplorer_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        ConvertView.Visibility = Visibility.Collapsed;
-        TestView.Visibility = Visibility.Collapsed;
-        ExplorerHeaderView.Visibility = Visibility.Visible;
+        ConvertView.IsVisible = false;
+        TestView.IsVisible = false;
+        ExplorerHeaderView.IsVisible = true;
 
         HideLogPanel();
-        StatsPanel.Visibility = Visibility.Collapsed;
+        StatsPanel.IsVisible = false;
 
         UpdateNavigationButtonStyles(BtnNavExplorer);
     }
 
     private GridLength _savedLogColumnWidth = new(1, GridUnitType.Star);
     private GridLength _savedSplitterColumnWidth = new(10);
+
+    /// <summary>The splitter column of the main content grid (see MainWindow.axaml).</summary>
+    private ColumnDefinition SplitterColumn => ContentGrid.ColumnDefinitions[1];
+
+    /// <summary>The log column of the main content grid (see MainWindow.axaml).</summary>
+    private ColumnDefinition LogColumn => ContentGrid.ColumnDefinitions[2];
 
     /// <summary>
     ///     Gives the explorer the full window width by collapsing the log column.
@@ -313,7 +334,7 @@ public partial class MainWindow
         LogColumn.MinWidth = 0;
         LogColumn.Width = new GridLength(0);
         SplitterColumn.Width = new GridLength(0);
-        LogBorder.Visibility = Visibility.Collapsed;
+        LogBorder.IsVisible = false;
     }
 
     /// <summary>
@@ -324,18 +345,18 @@ public partial class MainWindow
         LogColumn.MinWidth = 300;
         LogColumn.Width = _savedLogColumnWidth;
         SplitterColumn.Width = _savedSplitterColumnWidth;
-        LogBorder.Visibility = Visibility.Visible;
+        LogBorder.IsVisible = true;
     }
 
     private void UpdateNavigationButtonStyles(Button selectedButton)
     {
         // Reset all navigation buttons to default style
-        BtnNavConvert.Style = (Style)FindResource("MenuButtonStyle");
-        BtnNavTest.Style = (Style)FindResource("MenuButtonStyle");
-        BtnNavExplorer.Style = (Style)FindResource("MenuButtonStyle");
+        BtnNavConvert.Theme = (ControlTheme?)this.FindResource("MenuButtonStyle");
+        BtnNavTest.Theme = (ControlTheme?)this.FindResource("MenuButtonStyle");
+        BtnNavExplorer.Theme = (ControlTheme?)this.FindResource("MenuButtonStyle");
 
         // Apply selected style to the active button
-        selectedButton.Style = (Style)FindResource("SelectedMenuButtonStyle");
+        selectedButton.Theme = (ControlTheme?)this.FindResource("SelectedMenuButtonStyle");
     }
 
     private bool _isPerformanceCounterStopped;
@@ -347,7 +368,7 @@ public partial class MainWindow
         _isPerformanceCounterStopped = true;
 
         _diskMonitorService.StopMonitoring();
-        _ = Application.Current?.Dispatcher.InvokeAsync(() =>
+        _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
             ReadSpeedValue?.Text = "N/A";
 

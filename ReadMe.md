@@ -1,9 +1,11 @@
 # Xbox ISO Studio
 
-[![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/purelogiccode/XboxIsoStudio/releases)
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6.svg?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+[![Linux](https://img.shields.io/badge/Linux-x64%20%7C%20ARM64-FCC624.svg?logo=linux&logoColor=black)](https://github.com/purelogiccode/XboxIsoStudio/releases)
+[![macOS](https://img.shields.io/badge/macOS-Intel%20%7C%20Apple%20Silicon-000000.svg?logo=apple&logoColor=white)](https://github.com/purelogiccode/XboxIsoStudio/releases)
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/XboxIsoStudio/releases)
+[![Avalonia](https://img.shields.io/badge/UI-Avalonia-8A2BE2.svg)](https://avaloniaui.net/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
 [![GitHub release](https://img.shields.io/github/v/release/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio/releases)
 [![GitHub release date](https://img.shields.io/github/release-date/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio/releases)
@@ -21,7 +23,7 @@
 [![Code analyzers](https://img.shields.io/badge/analyzers-Meziantou%20%7C%20Roslynator-blueviolet)](docs/Architecture.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/Repository.md#contributing)
 
-A high-performance Windows WPF utility for the Xbox preservation and emulation community. Convert, verify, and explore Xbox and Xbox 360 images (ISO, CSO, ZAR, and CHD), powered by the XISOSharp and CHDSharp libraries.
+A high-performance, cross-platform desktop utility for the Xbox preservation and emulation community, running on **Windows, Linux, and macOS**. Convert, verify, and explore Xbox and Xbox 360 images (ISO, CSO, ZAR, and CHD), powered by the XISOSharp and CHDSharp libraries.
 
 ---
 
@@ -51,6 +53,13 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 ---
 
 ## What's New
+
+### v3.0.0 — cross-platform Avalonia port & CHD support (unreleased)
+
+- **Cross-platform UI** — the application was ported from WPF to **[Avalonia](https://avaloniaui.net/)** and now runs on **Windows, Linux, and macOS** (x64 and ARM64) with the same dark theme and layout. All image libraries (XISOSharp, ZArchiveSharp, CHDSharp, SharpCompress) are pure managed code with no native dependencies.
+- **CHD output format** — convert Xbox and Xbox 360 ISOs to **CHD** (`.chd`, CHD v5 with the chdman `createdvd` preset) alongside XISO/ZAR/CSO.
+- **CHD integrity testing** — test Xbox DVD CHD files, including an optional deep scan that verifies every hunk and checksum plus the Xbox filesystem structure.
+- **CHD explorer** — browse and extract files from CHD images directly, with hunk decompression on demand.
 
 ### v2.9.0 — structured logging, file selection & output formats
 
@@ -109,11 +118,11 @@ Read the full [What's New](WhatsNew.md) or browse the [Release Notes](docs/Relea
 - **Native Browsing**: Open any Xbox ISO, CSO, ZAR, or CHD to browse files and directories without extraction
 - **Metadata View**: View file sizes, attributes, and directory structures directly in the UI
 - **Double-Click to Open**: Open files directly from the image with their default associated applications
-- **Drag & Drop Extraction**: Drag files out of the explorer to extract them to any folder (Windows Explorer, Desktop, etc.)
+- **Drag & Drop Extraction**: Drag files out of the explorer to extract them to any folder (your file manager, Desktop, etc.)
 
 ### 📊 Advanced Monitoring
 - **Real-time Statistics**: Track success/fail counts, elapsed time, and processed files
-- **Disk Monitor**: Live monitoring of write speeds and drive activity to identify hardware bottlenecks
+- **Disk Monitor**: Live monitoring of read/write speeds and drive activity to identify hardware bottlenecks (Windows performance counters; shows N/A on Linux/macOS)
 - **Cloud-Aware**: Automatic detection and handling of cloud-stored files (e.g., OneDrive)
 - **Structured Logging**: [Serilog](https://serilog.net/) pipeline with an on-screen viewer, a rolling daily log file, and automatic bug-report forwarding for Warning-or-higher events
 
@@ -122,16 +131,19 @@ Read the full [What's New](WhatsNew.md) or browse the [Release Notes](docs/Relea
 ## Installation
 
 ### Prerequisites
-- **Operating System**: Windows 10 (version 1809) or later / Windows 11
-- **Runtime**: [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
+- **Operating System**: Windows 10 (version 1809) or later / Windows 11, a modern x64/ARM64 Linux distribution, or macOS 12+ (Intel or Apple Silicon)
+- **Runtime**: [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
 - **Architecture Support**:
-    - **x64 (64-bit)**: Fully supported.
-    - **ARM64**: Fully supported.
+    - **Windows**: x64 and ARM64.
+    - **Linux**: x64 and ARM64.
+    - **macOS**: Intel (x64) and Apple Silicon (ARM64).
 
 ### Steps
-1. Download the latest release from the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page
-2. Extract the ZIP file to your desired location
-3. Run `XboxIsoStudio.exe`
+1. Download the release archive for your platform from the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page
+2. Extract the archive to your desired location
+3. Run the executable:
+    - **Windows**: `XboxIsoStudio.exe`
+    - **Linux/macOS**: `./XboxIsoStudio` (run `chmod +x XboxIsoStudio` first if needed)
 
 No installation required – the application is fully portable.
 
@@ -161,7 +173,7 @@ No installation required – the application is fully portable.
 2. Click **"Browse..."** and select an Xbox `.iso`, `.cso`, `.zar`, or `.chd` file
 3. Browse the file tree to view contents without extraction
 4. **Open Files**: Double-click any file to open it with its default application
-5. **Extract Files**: Drag and drop files from the explorer to Windows Explorer, Desktop, or any folder to extract them
+5. **Extract Files**: Drag and drop files from the explorer to your file manager, Desktop, or any folder to extract them
 
 ---
 
@@ -226,13 +238,13 @@ For a deep dive into the XDVDFS format, binary file structures, and the conversi
 
 ## System Requirements
 
-| Component    | Minimum Requirement                 |
-|:-------------|:------------------------------------|
-| OS           | Windows 10 (1809) or Windows 11     |
-| .NET Runtime | .NET 10.0 Desktop Runtime           |
-| Processor    | x64 or arm64 architecture           |
-| RAM          | 4 GB recommended                    |
-| Storage      | Varies based on ISO collection size |
+| Component    | Minimum Requirement                                                   |
+|:-------------|:----------------------------------------------------------------------|
+| OS           | Windows 10 (1809)+ / Windows 11, modern Linux (x64/ARM64), macOS 12+  |
+| .NET Runtime | .NET 10.0 Runtime                                                     |
+| Processor    | x64 or ARM64 architecture                                             |
+| RAM          | 4 GB recommended                                                      |
+| Storage      | Varies based on ISO collection size                                   |
 
 ---
 
@@ -251,7 +263,9 @@ For a deep dive into the XDVDFS format, binary file structures, and the conversi
 
 ## Acknowledgements
 
+- **[Avalonia](https://avaloniaui.net/)** - Cross-platform .NET UI framework the application is built on
 - **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** - XISO/XDVDFS reading, writing, and conversion library that powers XISO/ZAR/CSO conversion, integrity testing, and exploration
+- **[ZArchiveSharp](https://github.com/purelogiccode/ZArchiveSharp)** - ZArchive/zstd compression library used for ZAR output and reading
 - **[CHDSharp](https://github.com/purelogiccode/CHDSharp)** - CHD (Compressed Hunks of Data) reading, verification, and creation, used for CHD output and Xbox CHD testing/exploration
 - **[Serilog](https://serilog.net/)** - Structured logging pipeline (log viewer, rolling file log, and bug report sinks)
 - **[SharpCompress](https://github.com/adamhathcock/sharpcompress)** - High-performance archive extraction

@@ -1,5 +1,5 @@
 using System.IO;
-using System.Windows;
+using Avalonia.Interactivity;
 using XboxIsoStudio.Models;
 using XboxIsoStudio.Services;
 
@@ -7,14 +7,14 @@ namespace XboxIsoStudio;
 
 public partial class MainWindow
 {
-    private void BrowseConversionInputButton_Click(object sender, RoutedEventArgs e)
+    private async void BrowseConversionInputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var inputFolder = SelectFolder("Select the folder containing ISO or archive files");
+        var inputFolder = await SelectFolderAsync("Select the folder containing ISO or archive files");
         if (string.IsNullOrEmpty(inputFolder)) return;
 
         if (CheckForTempPath.IsSystemTempPath(inputFolder))
         {
-            _messageBoxService.ShowError(
+            await _messageBoxService.ShowErrorAsync(
                 "The system's temporary folder or a subfolder within it cannot be selected as an input folder. Please choose a different location.");
             return;
         }
@@ -23,14 +23,14 @@ public partial class MainWindow
         _ = RefreshConversionFileListAsync();
     }
 
-    private void BrowseConversionOutputButton_Click(object sender, RoutedEventArgs e)
+    private async void BrowseConversionOutputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var outputFolder = SelectFolder("Select the output folder for converted files");
+        var outputFolder = await SelectFolderAsync("Select the output folder for converted files");
         if (string.IsNullOrEmpty(outputFolder)) return;
 
         if (CheckForTempPath.IsSystemTempPath(outputFolder))
         {
-            _messageBoxService.ShowError(
+            await _messageBoxService.ShowErrorAsync(
                 "The system's temporary folder or a subfolder within it cannot be selected as an output folder. Please choose a different location.");
             return;
         }
@@ -38,14 +38,14 @@ public partial class MainWindow
         ConversionOutputFolderTextBox.Text = outputFolder;
     }
 
-    private void BrowseTestInputButton_Click(object sender, RoutedEventArgs e)
+    private async void BrowseTestInputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var inputFolder = SelectFolder("Select the folder containing ISO, CSO, ZAR, or CHD files to test");
+        var inputFolder = await SelectFolderAsync("Select the folder containing ISO, CSO, ZAR, or CHD files to test");
         if (string.IsNullOrEmpty(inputFolder)) return;
 
         if (CheckForTempPath.IsSystemTempPath(inputFolder))
         {
-            _messageBoxService.ShowError(
+            await _messageBoxService.ShowErrorAsync(
                 "The system's temporary folder or a subfolder within it cannot be selected as an input folder for testing. Please choose a different location.");
             return;
         }
@@ -54,7 +54,7 @@ public partial class MainWindow
         _ = RefreshTestFileListAsync();
     }
 
-    private async void StartConversionButton_ClickAsync(object sender, RoutedEventArgs e)
+    private async void StartConversionButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -63,7 +63,7 @@ public partial class MainWindow
             _isOperationRunning = true;
             _operationCompletedTcs = new TaskCompletionSource();
             SetControlsState(false);
-            LogViewer.Clear();
+            LogViewer.Text = string.Empty;
             ResetSummaryStats();
 
             // Immediate visual feedback while the background thread scans the filesystem
@@ -78,26 +78,26 @@ public partial class MainWindow
 
             if (string.IsNullOrEmpty(inputFolder) || string.IsNullOrEmpty(outputFolder))
             {
-                _messageBoxService.ShowError("Please select both input and output folders for conversion.");
+                await _messageBoxService.ShowErrorAsync("Please select both input and output folders for conversion.");
                 FinalizeUiState();
                 return;
             }
 
             if (!Directory.Exists(inputFolder))
             {
-                _messageBoxService.ShowError($"The input folder no longer exists:\n{inputFolder}");
+                await _messageBoxService.ShowErrorAsync($"The input folder no longer exists:\n{inputFolder}");
                 FinalizeUiState();
                 return;
             }
 
             if (!Directory.Exists(outputFolder))
             {
-                _messageBoxService.ShowError($"The output folder no longer exists:\n{outputFolder}");
+                await _messageBoxService.ShowErrorAsync($"The output folder no longer exists:\n{outputFolder}");
                 FinalizeUiState();
                 return;
             }
 
-            if (!ValidateInputOutputFolders(inputFolder, outputFolder))
+            if (!await ValidateInputOutputFoldersAsync(inputFolder, outputFolder))
             {
                 FinalizeUiState();
                 return;
@@ -106,7 +106,7 @@ public partial class MainWindow
             var selectedFiles = GetSelectedConversionFiles();
             if (selectedFiles.Count == 0)
             {
-                _messageBoxService.ShowError(
+                await _messageBoxService.ShowErrorAsync(
                     "No files selected for conversion. Select a source folder and tick at least one file in the list.");
                 FinalizeUiState();
                 return;
@@ -225,7 +225,7 @@ public partial class MainWindow
         }
     }
 
-    private async void StartTestButton_ClickAsync(object sender, RoutedEventArgs e)
+    private async void StartTestButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -234,7 +234,7 @@ public partial class MainWindow
             _isOperationRunning = true;
             _operationCompletedTcs = new TaskCompletionSource();
             SetControlsState(false);
-            LogViewer.Clear();
+            LogViewer.Text = string.Empty;
             ResetSummaryStats();
 
             // Immediate visual feedback while the background thread scans the filesystem
@@ -247,14 +247,14 @@ public partial class MainWindow
             var inputFolder = TestInputFolderTextBox.Text;
             if (string.IsNullOrEmpty(inputFolder))
             {
-                _messageBoxService.ShowError("Please select the input folder for testing.");
+                await _messageBoxService.ShowErrorAsync("Please select the input folder for testing.");
                 FinalizeUiState();
                 return;
             }
 
             if (!Directory.Exists(inputFolder))
             {
-                _messageBoxService.ShowError($"The input folder no longer exists:\n{inputFolder}");
+                await _messageBoxService.ShowErrorAsync($"The input folder no longer exists:\n{inputFolder}");
                 FinalizeUiState();
                 return;
             }
@@ -262,7 +262,7 @@ public partial class MainWindow
             var selectedFiles = GetSelectedTestFiles();
             if (selectedFiles.Count == 0)
             {
-                _messageBoxService.ShowError(
+                await _messageBoxService.ShowErrorAsync(
                     "No files selected for testing. Select an image folder and tick at least one file in the list.");
                 FinalizeUiState();
                 return;

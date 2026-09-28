@@ -33,9 +33,9 @@ FAT32 cannot store files larger than 4 GB. Modern game images routinely exceed t
 
 The output folder (or the application folder itself) does not grant write permission.
 
-- Do **not** run the application from, or write output to, protected folders such as `C:\Program Files`.
-- Pick a normal user-writable folder (for example `D:\Games\Out`).
-- If you must write to a protected location, adjust the folder's permissions — running the application as administrator is not required for normal use.
+- Do **not** run the application from, or write output to, protected folders such as `C:\Program Files`, `/usr`, or `/Applications`.
+- Pick a normal user-writable folder (for example `D:\Games\Out` or `~/Games/Out`).
+- If you must write to a protected location, adjust the folder's permissions — running the application as administrator/root is not required for normal use.
 
 ### File locked / being used by another process
 
@@ -75,14 +75,15 @@ The file was read, but no XDVDFS volume descriptor with the `MICROSOFT*XBOX*MEDI
 - Re-dump or re-download the image if it came from an unreliable source; a truncated dump fails validation.
 - Test the image on the **Test Integrity** tab for a more detailed diagnosis.
 
-### Font / rendering error at startup (Wine, Steam Deck, old Windows)
+### Font / rendering error at startup
 
 **Message pattern:** a startup error mentioning fonts or rendering.
 
-This happens when required system fonts are missing — commonly under Wine/Proton (Steam Deck, Linux) or stripped-down Windows installs.
+This happens when required system fonts are missing or the rendering backend cannot initialize.
 
 - Windows: run `sfc /scannow` to repair system files; ensure *Segoe UI* and *Arial* are installed.
-- Linux/Steam Deck: install core fonts via `winetricks corefonts` and update your Wine/Proton version.
+- Linux: install a font package (for example `ttf-dejavu` or `ttf-mscorefonts-installer`) and make sure the graphics driver supports Skia/OpenGL.
+- macOS: fonts ship with the OS; a missing GPU/rendering backend is usually the cause.
 
 ### The application seems not to start / the main window takes a long time to appear
 
@@ -129,14 +130,17 @@ Xbox and Xbox 360 images are supported; conversion repacks the game partition of
 **Where are temporary files stored?**
 In the system temp folder, in dedicated subfolders. They are cleaned automatically after each file and at startup (orphaned leftovers from crashes are removed too). If the temp drive lacks space, other local drives are used as fallback.
 
+**Does the application run on Linux and macOS?**
+Yes. The UI is built with Avalonia, and all image libraries are pure managed code, so builds are provided for Windows, Linux, and macOS (x64 and ARM64). The disk read/write speed monitor uses Windows performance counters and shows `N/A` on other platforms; the archive extraction fallback uses the system `7z` there instead of the bundled Windows executable.
+
 **Where is the log file?**
-The app writes a rolling log to `%LocalAppData%\XboxIsoStudio\logs\log-*.txt` (10 MB per file, 14 files retained). It contains the same messages shown in the log pane, with levels and full exception details.
+The app writes a rolling log under the per-user application-data folder — `%LocalAppData%\XboxIsoStudio\logs\log-*.txt` on Windows, `~/.local/share/XboxIsoStudio/logs` or `~/Library/Application Support/XboxIsoStudio/logs` elsewhere (10 MB per file, 14 files retained). It contains the same messages shown in the log pane, with levels and full exception details.
 
 **Does the application collect my data?**
 It sends an anonymous usage ping and, for warnings and errors, an automatic bug report containing the message, environment details, and exception details. Expected environmental errors (disk space, network) are logged at Information level and are never reported. No personal data or file contents are collected.
 
 **How do I report a bug?**
-Warnings and errors are reported automatically with environment and exception details. For anything else, open an issue at <https://github.com/purelogiccode/XboxIsoStudio/issues> and include the relevant lines from the log pane or the log file (`%LocalAppData%\XboxIsoStudio\logs`).
+Warnings and errors are reported automatically with environment and exception details. For anything else, open an issue at <https://github.com/purelogiccode/XboxIsoStudio/issues> and include the relevant lines from the log pane or the log file (under the per-user application-data folder, see above).
 
 **Where do I download new versions?**
 From the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page. The application checks for updates automatically and offers to open the page when a new version exists.

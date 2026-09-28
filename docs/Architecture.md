@@ -8,21 +8,23 @@
 
 ---
 
-The application is a WPF (.NET 10, `net10.0-windows`) desktop app built on modern software engineering principles: dependency injection, service-oriented design, interface-driven contracts, and a comprehensive xUnit test suite.
+The application is a cross-platform **Avalonia** (.NET 10, `net10.0`) desktop app — one codebase for Windows, Linux, and macOS — built on modern software engineering principles: dependency injection, service-oriented design, interface-driven contracts, and a comprehensive xUnit test suite.
 
 ## Solution Layout
 
 ```text
 CSharp_XboxIsoStudio.sln
-├── XboxIsoStudio/               Main WPF application
-│   ├── App.xaml(.cs)                    Entry point, DI composition, global error handlers
-│   ├── MainWindow.xaml(.cs)             Shell window + navigation
+├── XboxIsoStudio/               Main Avalonia application
+│   ├── Program.cs                       Entry point (Avalonia AppBuilder)
+│   ├── App.axaml(.cs)                   Theme/styles + DI composition, global error handlers
+│   ├── MainWindow.axaml(.cs)            Shell window + navigation
 │   ├── MainWindow.ConversionAndTesting.cs   Convert/Test workflows (UI layer)
 │   ├── MainWindow.FileSelection.cs      Folder scanning + selectable file lists (UI layer)
 │   ├── MainWindow.XIsoExplorerLogic.cs  Explorer workflows (UI layer)
 │   ├── MainWindow.CheckForUpdatesAsync.cs   Update check integration
 │   ├── MainWindow.UIHelpersAndWindowEvents.cs  UI helpers, links, window events
-│   ├── AboutWindow.xaml(.cs)            About dialog
+│   ├── AboutWindow.axaml(.cs)           About dialog
+│   ├── Dialogs/                         MessageBoxWindow (cross-platform modal dialogs)
 │   ├── Interfaces/                      One interface per service (IOrchestratorService, IXisoSharpService, ...)
 │   ├── Models/                          DTOs and enums (FileProcessingStatus, FileItem, BatchOperationProgress, ...)
 │   └── Services/                        All business logic
@@ -48,16 +50,16 @@ CSharp_XboxIsoStudio.sln
 └── XboxIsoStudio.Tests/         xUnit + Moq test suite
 ```
 
-Bundled helper executables (`7za.exe`, `7za_arm64.exe`) are copied to the output directory and invoked as isolated child processes. All XISO and CHD encoding/decoding is performed in-process by the `XISOSharp` and `CHDSharp` NuGet packages.
+Bundled helper executables (`7za.exe`, `7za_arm64.exe`) are copied to Windows output directories and invoked as isolated child processes; on Linux/macOS the fallback uses the system `7z` from `PATH`. All XISO and CHD encoding/decoding is performed in-process by the `XISOSharp` and `CHDSharp` NuGet packages, and all image libraries are pure managed code with no native dependencies.
 
 ## Dependency Injection
 
-`App.ConfigureServices` registers every service with `Microsoft.Extensions.DependencyInjection`. All core logic is decoupled from the UI behind interfaces, enabling the service layer to be unit-tested without WPF.
+`App.ConfigureServices` registers every service with `Microsoft.Extensions.DependencyInjection`. All core logic is decoupled from the UI behind interfaces, enabling the service layer to be unit-tested without the UI framework.
 
 | Service | Lifetime | Responsibility |
 |:---|:---|:---|
 | Serilog `ILogger` | Singleton | Structured logging pipeline (UI, rolling file, and bug-report sinks) |
-| `IDiskMonitorService` | Singleton | Drive throughput counters and free-space queries |
+| `IDiskMonitorService` | Singleton | Drive throughput counters (Windows performance counters; `N/A` on Linux/macOS) and free-space queries |
 | `IOrchestratorService` | Singleton | Batch pipeline: per-file dispatch for the selected files, progress, cancellation |
 | `IXisoSharpService` | Singleton | XISO/ZAR/CSO conversion via the XISOSharp library |
 | `IChdService` | Singleton | CHD conversion via the CHDSharp library (rewrites non-optimized inputs through `IXisoSharpService`, then encodes and verifies) |
@@ -123,7 +125,7 @@ Safety characteristics of the pipeline:
 Logging uses a single [Serilog](https://serilog.net/) pipeline configured in `App` with three sinks:
 
 1. **UI** (`UiLogSink`) — timestamped lines in the on-screen log pane.
-2. **File** — rolling daily log at `%LocalAppData%\XboxIsoStudio\logs\log-*.txt` (10 MB per file, 14 files retained) with level and exception details.
+2. **File** — rolling daily log under the per-user application-data folder (`%LocalAppData%\XboxIsoStudio\logs` on Windows, `~/.local/share/XboxIsoStudio/logs` or `~/Library/Application Support/XboxIsoStudio/logs` elsewhere) as `log-*.txt` (10 MB per file, 14 files retained) with level and exception details.
 3. **Bug report** (`BugReportSink`) — every event at **Warning or higher** is forwarded to the bug report API (fire-and-forget, never throws).
 
 Services inject `Serilog.ILogger` and log with structured message templates. Expected user/environmental errors are logged at Information level so they do not generate bug reports; genuine defects log at Warning/Error/Fatal.
@@ -132,7 +134,7 @@ Services inject `Serilog.ILogger` and log with structured message templates. Exp
 
 Three layers of defense:
 
-1. **Global handlers** in `App` (`AppDomain.UnhandledException`, `DispatcherUnhandledException`, `TaskScheduler.UnobservedTaskException`) log through Serilog and keep the app alive where possible; fatal shutdown paths also send a blocking report.
+1. **Global handlers** in `App` (`AppDomain.UnhandledException`, `Dispatcher.UIThread.UnhandledException`, `TaskScheduler.UnobservedTaskException`) log through Serilog and keep the app alive where possible; fatal shutdown paths also send a blocking report.
 2. **Per-operation catches** translate known failure classes (disk full, access denied, FAT32 limits, locked files, invalid images) into user-facing messages and log at an appropriate level.
 3. **Automatic bug reports** are sent by the Serilog `BugReportSink` for Warning+ events, with complete environment, error, and exception sections; expected environmental errors stay at Information level and are shown to the user instead.
 

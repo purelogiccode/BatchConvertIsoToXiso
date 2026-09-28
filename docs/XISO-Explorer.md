@@ -47,7 +47,7 @@ The list displays three columns:
 
 Drag one or more files (or whole folders) from the explorer list onto:
 
-- A Windows Explorer window,
+- Your file manager (Windows Explorer, Finder, Nautilus, …),
 - The Desktop, or
 - Any folder.
 

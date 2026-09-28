@@ -1,12 +1,14 @@
 using System.Diagnostics;
 using System.IO;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using XboxIsoStudio.Interfaces;
 using XboxIsoStudio.Models;
 using XboxIsoStudio.Services;
-using Microsoft.Win32;
 
 namespace XboxIsoStudio;
 
@@ -14,23 +16,36 @@ public partial class MainWindow
 {
     // Drag-drop state tracking
     private Point _dragStartPoint;
+    private PointerPressedEventArgs? _dragPointerArgs;
     private bool _isDragging;
 
-    private void BrowseExplorerFile_Click(object sender, RoutedEventArgs e)
+    private const double MinimumDragDistance = 4;
+
+    private async void BrowseExplorerFile_Click(object? sender, RoutedEventArgs e)
     {
-        var openFileDialog = new OpenFileDialog
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Filter = "Xbox images (*.iso;*.cso;*.zar;*.chd)|*.iso;*.cso;*.zar;*.chd|" +
-                     "Xbox ISO (*.iso)|*.iso|Compressed ISO (*.cso)|*.cso|ZAR archive (*.zar)|*.zar|" +
-                     "CHD image (*.chd)|*.chd|" +
-                     "All files (*.*)|*.*",
-            Title = "Select an Xbox image to explore"
-        };
+            Title = "Select an Xbox image to explore",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("Xbox images")
+                    { Patterns = new[] { "*.iso", "*.cso", "*.zar", "*.chd" } },
+                new FilePickerFileType("Xbox ISO") { Patterns = new[] { "*.iso" } },
+                new FilePickerFileType("Compressed ISO") { Patterns = new[] { "*.cso" } },
+                new FilePickerFileType("ZAR archive") { Patterns = new[] { "*.zar" } },
+                new FilePickerFileType("CHD image") { Patterns = new[] { "*.chd" } },
+                new FilePickerFileType("All files") { Patterns = new[] { "*" } }
+            }
+        });
 
-        if (openFileDialog.ShowDialog() != true) return;
+        if (files.Count == 0) return;
 
-        ExplorerFilePathTextBox.Text = openFileDialog.FileName;
-        InitializeExplorer(openFileDialog.FileName);
+        var selectedPath = files[0].TryGetLocalPath();
+        if (string.IsNullOrEmpty(selectedPath)) return;
+
+        ExplorerFilePathTextBox.Text = selectedPath;
+        InitializeExplorer(selectedPath);
     }
 
     private void InitializeExplorer(string imagePath)
@@ -48,7 +63,7 @@ public partial class MainWindow
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to read image: {ImagePath}", imagePath);
-            _messageBoxService.ShowError($"Failed to read image: {ex.Message}");
+            _ = _messageBoxService.ShowErrorAsync($"Failed to read image: {ex.Message}");
         }
     }
 
@@ -74,14 +89,14 @@ public partial class MainWindow
                 .ThenBy(static i => i.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            ExplorerListView.ItemsSource = uiItems;
+            ExplorerDataGrid.ItemsSource = uiItems;
             _currentInternalPath = ImagePaths.Normalize(internalPath);
             UpdateExplorerUiState();
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Error loading directory: {InternalPath}", internalPath);
-            _messageBoxService.ShowError($"Error loading directory: {ex.Message}");
+            _ = _messageBoxService.ShowErrorAsync($"Error loading directory: {ex.Message}");
         }
     }
 
@@ -91,11 +106,11 @@ public partial class MainWindow
         ExplorerPathTextBlock.Text = _currentInternalPath;
     }
 
-    private async void ExplorerListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    private async void ExplorerDataGrid_DoubleTapped(object? sender, TappedEventArgs e)
     {
         try
         {
-            if (ExplorerListView.SelectedItem is not XisoExplorerItem item) return;
+            if (ExplorerDataGrid.SelectedItem is not XisoExplorerItem item) return;
 
             if (item.IsDirectory)
             {
@@ -109,7 +124,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Error in method ExplorerListView_MouseDoubleClick");
+            _logger.Error(ex, "Error in method ExplorerDataGrid_DoubleTapped");
         }
     }
 
@@ -134,7 +149,7 @@ public partial class MainWindow
                 explorer.CopyOut(entry.FullPath, tempPath);
 
                 // Open with default application on UI thread
-                await Dispatcher.InvokeAsync(() =>
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     try
                     {
@@ -143,7 +158,7 @@ public partial class MainWindow
                     catch (Exception ex)
                     {
                         _logger.Error(ex, "Failed to open extracted file: {TempPath}", tempPath);
-                        _messageBoxService.ShowError($"Failed to open file: {ex.Message}");
+                        _ = _messageBoxService.ShowErrorAsync($"Failed to open file: {ex.Message}");
                     }
                 });
 
@@ -176,39 +191,40 @@ public partial class MainWindow
             catch (Exception ex)
             {
                 _logger.Error(ex, "Failed to extract and open file from image: {FileName}", fileName);
-                await Dispatcher.InvokeAsync(() =>
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    _messageBoxService.ShowError($"Failed to extract and open file: {ex.Message}");
+                    _ = _messageBoxService.ShowErrorAsync($"Failed to extract and open file: {ex.Message}");
                 });
             }
         }, _cts.Token);
     }
 
-    private void ExplorerListView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void ExplorerDataGrid_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         _dragStartPoint = e.GetPosition(null);
+        _dragPointerArgs = e;
     }
 
-    private async void ExplorerListView_MouseMoveAsync(object sender, MouseEventArgs e)
+    private async void ExplorerDataGrid_PointerMovedAsync(object? sender, PointerEventArgs e)
     {
         try
         {
-            if (e.LeftButton != MouseButtonState.Pressed || _isDragging) return;
+            if (_isDragging || _dragPointerArgs is null) return;
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
 
             var currentPosition = e.GetPosition(null);
             var diff = _dragStartPoint - currentPosition;
 
-            // Check if mouse has moved enough to start a drag operation
-            if (Math.Abs(diff.X) < SystemParameters.MinimumHorizontalDragDistance &&
-                Math.Abs(diff.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+            // Check if the pointer has moved enough to start a drag operation
+            if (Math.Abs(diff.X) < MinimumDragDistance && Math.Abs(diff.Y) < MinimumDragDistance) return;
 
             // Get selected file items (not directories)
-            var selectedItems = ExplorerListView.SelectedItems
+            var selectedItems = ExplorerDataGrid.SelectedItems?
                 .Cast<XisoExplorerItem>()
                 .Where(static i => !i.IsDirectory)
                 .ToList();
 
-            if (selectedItems.Count == 0) return;
+            if (selectedItems is not { Count: > 0 }) return;
 
             try
             {
@@ -238,9 +254,27 @@ public partial class MainWindow
                     }
                 });
 
-                // Start drag operation back on the UI thread
-                var data = new DataObject(DataFormats.FileDrop, tempFiles.ToArray());
-                DragDrop.DoDragDrop(ExplorerListView, data, DragDropEffects.Copy);
+                // Start drag operation with the file drop list
+                var topLevel = TopLevel.GetTopLevel(this);
+                if (topLevel is not null && tempFiles.Count > 0)
+                {
+                    var data = new DataTransfer();
+                    var addedCount = 0;
+                    foreach (var tempFile in tempFiles)
+                    {
+                        var storageItem = await topLevel.StorageProvider.TryGetFileFromPathAsync(tempFile);
+                        if (storageItem is not null)
+                        {
+                            data.Add(DataTransferItem.CreateFile(storageItem));
+                            addedCount++;
+                        }
+                    }
+
+                    if (addedCount > 0)
+                    {
+                        await DragDrop.DoDragDropAsync(_dragPointerArgs, data, DragDropEffects.Copy);
+                    }
+                }
 
                 // Cleanup temp files after drag operation completes
                 try
@@ -256,7 +290,7 @@ public partial class MainWindow
             catch (Exception ex)
             {
                 _logger.Error(ex, "Failed to prepare files for drag operation");
-                _messageBoxService.ShowError($"Failed to prepare files for drag operation: {ex.Message}");
+                _ = _messageBoxService.ShowErrorAsync($"Failed to prepare files for drag operation: {ex.Message}");
             }
             finally
             {
@@ -266,26 +300,15 @@ public partial class MainWindow
         catch (Exception ex)
         {
             _logger.Error(ex, "Drag operation failed");
-            _messageBoxService.ShowError($"Drag operation failed: {ex.Message}");
+            _ = _messageBoxService.ShowErrorAsync($"Drag operation failed: {ex.Message}");
         }
     }
 
-    private void ExplorerUpButton_Click(object sender, RoutedEventArgs e)
+    private void ExplorerUpButton_Click(object? sender, RoutedEventArgs e)
     {
         if (string.Equals(_currentInternalPath, "/", StringComparison.Ordinal)) return;
 
         LoadDirectory(ImagePaths.GetParent(_currentInternalPath));
-    }
-
-    private void ExplorerListView_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (sender is not ListView listView) return;
-
-        var remainingWidth = listView.ActualWidth - ExplorerSizeColumn.Width - ExplorerTypeColumn.Width - 10;
-        if (remainingWidth > 100)
-        {
-            ExplorerNameColumn.Width = remainingWidth;
-        }
     }
 
     private string ResolveExplorerTempDirectory(long requiredSize, string tempSubfolder)

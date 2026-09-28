@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Windows;
-using System.Windows.Threading;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
 using XboxIsoStudio.Models;
 using XboxIsoStudio.Services;
 
@@ -21,9 +21,9 @@ public partial class MainWindow
         TestFilesDataGrid.ItemsSource = _testFiles;
     }
 
-    private void SearchSubfoldersCheckBox_Changed(object sender, RoutedEventArgs e)
+    private void SearchSubfoldersCheckBox_Changed(object? sender, RoutedEventArgs e)
     {
-        if (!IsLoaded) return;
+        if (!_isUiInitialized) return;
 
         if (ReferenceEquals(sender, SearchSubfoldersConversionCheckBox))
         {
@@ -35,22 +35,22 @@ public partial class MainWindow
         }
     }
 
-    private void SelectAllConversion_Click(object sender, RoutedEventArgs e)
+    private void SelectAllConversion_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var file in _conversionFiles) file.IsSelected = true;
     }
 
-    private void DeselectAllConversion_Click(object sender, RoutedEventArgs e)
+    private void DeselectAllConversion_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var file in _conversionFiles) file.IsSelected = false;
     }
 
-    private void SelectAllTest_Click(object sender, RoutedEventArgs e)
+    private void SelectAllTest_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var file in _testFiles) file.IsSelected = true;
     }
 
-    private void DeselectAllTest_Click(object sender, RoutedEventArgs e)
+    private void DeselectAllTest_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var file in _testFiles) file.IsSelected = false;
     }
@@ -82,7 +82,7 @@ public partial class MainWindow
     ///     Scans the input folder and repopulates the given list with every supported file,
     ///     adding items in small chunks so the UI stays responsive with thousands of files.
     /// </summary>
-    private async Task LoadFileListAsync(string inputFolder, bool searchSubfolders,
+    private async Task LoadFileListAsync(string? inputFolder, bool searchSubfolders,
         ObservableCollection<FileItem> target, Func<string, bool> filter, string purpose)
     {
         try
@@ -113,14 +113,13 @@ public partial class MainWindow
                     .ToList();
             });
 
-            var dispatcher = Application.Current.Dispatcher;
-            await dispatcher.InvokeAsync(target.Clear);
+            await Dispatcher.UIThread.InvokeAsync(target.Clear);
 
             const int chunkSize = 100;
             for (var i = 0; i < files.Count; i += chunkSize)
             {
                 var chunk = files.Skip(i).Take(chunkSize).ToList();
-                await dispatcher.InvokeAsync(
+                await Dispatcher.UIThread.InvokeAsync(
                     () =>
                     {
                         foreach (var item in chunk) target.Add(item);

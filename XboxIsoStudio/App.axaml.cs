@@ -3,8 +3,10 @@ using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Windows;
-using System.Windows.Threading;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using XboxIsoStudio.Interfaces;
 using XboxIsoStudio.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +15,7 @@ using Serilog.Events;
 
 namespace XboxIsoStudio;
 
-public partial class App
+public partial class App : Application
 {
     private const string BugReportApiUrl = "https://www.purelogiccode.com/bugreport/api/send-bug-report";
     private const string BugReportApiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
@@ -24,13 +26,14 @@ public partial class App
     private IStatsService? _statsService;
     private static IServiceProvider? ServiceProvider { get; set; }
     private IMessageBoxService? _messageBoxService;
+    private IClassicDesktopStyleApplicationLifetime? _desktop;
 
     public App()
     {
         // Bootstrap Serilog before the UI starts so every message emitted during
         // construction and startup is captured. Warning and above are forwarded to the
         // Bug Report API by the BugReportSink; the service is resolved lazily because
-        // the dependency injection container is built later in OnStartup.
+        // the dependency injection container is built later during startup.
         var logPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             ApplicationName,
@@ -55,15 +58,32 @@ public partial class App
         Log.Information("XboxIsoStudio v{Version} starting", GetApplicationVersion.GetProgramVersion());
 
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-        DispatcherUnhandledException += App_DispatcherUnhandledException;
         TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
     }
 
-    protected override async void OnStartup(StartupEventArgs e)
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+    }
+
+    public override void OnFrameworkInitializationCompleted()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            _desktop = desktop;
+            desktop.Exit += OnDesktopExit;
+            Dispatcher.UIThread.UnhandledException += OnDispatcherUnhandledException;
+
+            _ = StartAsync(desktop);
+        }
+
+        base.OnFrameworkInitializationCompleted();
+    }
+
+    private async Task StartAsync(IClassicDesktopStyleApplicationLifetime desktop)
     {
         try
         {
-            base.OnStartup(e);
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
             var serviceCollection = new ServiceCollection();
@@ -80,6 +100,7 @@ public partial class App
             try
             {
                 var mainWindow = ServiceProvider.GetRequiredService<MainWindow>();
+                desktop.MainWindow = mainWindow;
                 mainWindow.Show();
 
                 // Startup cleanup is best-effort and must never delay the window: probing
@@ -99,7 +120,7 @@ public partial class App
             }
             catch (SEHException sehEx)
             {
-                // Handle font/WPF rendering issues gracefully
+                // Handle font/rendering issues gracefully
                 await HandleFontRenderingErrorAsync(sehEx);
             }
             catch (InvalidOperationException opEx) when (opEx.Message.Contains("font",
@@ -112,7 +133,7 @@ public partial class App
             }
             catch (NullReferenceException nullEx)
             {
-                // Handle UI initialization failures (e.g., ToolBar style issues)
+                // Handle UI initialization failures
                 Log.Error(nullEx, "UI initialization error during startup");
                 await ReportExceptionAsync(nullEx, "Bug OnStartup - UI Initialization Error");
             }
@@ -142,47 +163,44 @@ public partial class App
         }
     }
 
-    private Task HandleFontRenderingErrorAsync(Exception ex)
+    private async Task HandleFontRenderingErrorAsync(Exception ex)
     {
         Log.Error(ex, "Font/Rendering error during startup");
 
         var errorMessage =
             "The application encountered a font or rendering error during startup.\n\n" +
             "This issue commonly occurs when:\n" +
-            "- Running on Windows 7 or older systems\n" +
-            "- Running through Wine/Proton compatibility layers (e.g., on Steam Deck/Linux)\n" +
-            "- System fonts are missing or corrupted\n\n" +
+            "- System fonts are missing or corrupted\n" +
+            "- The graphics driver or rendering backend is unavailable\n\n" +
             "Recommended solutions:\n" +
-            "1. Ensure 'Segoe UI' and 'Arial' fonts are installed\n" +
-            "2. On Linux/Steam Deck: Install corefonts package via winetricks\n" +
-            "   (winetricks corefonts)\n" +
-            "3. Update your Wine/Proton version\n" +
+            "1. Ensure the standard system fonts are installed\n" +
+            "2. On Linux: install a font package (for example 'ttf-dejavu' or 'ttf-mscorefonts-installer')\n" +
+            "3. Update your graphics drivers\n" +
             "4. On Windows: Run 'sfc /scannow' to repair system files\n\n" +
             $"Technical details: {ex.GetType().Name}\n" +
             $"Error: {ex.Message}";
 
-        _messageBoxService?.ShowError(errorMessage);
+        if (_messageBoxService != null)
+        {
+            await _messageBoxService.ShowErrorAsync(errorMessage);
+        }
 
         // Report this critical error directly as well: the process is about to shut
         // down, so the fire-and-forget sink may not get a chance to deliver it.
         TryReportFatal("Bug OnStartup - FontRenderingError", ex);
-        Shutdown(1);
-
-        return Task.CompletedTask;
+        _desktop?.Shutdown(1);
     }
 
-    protected override void OnExit(ExitEventArgs e)
+    private void OnDesktopExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
         if (ServiceProvider is IDisposable disposable)
         {
             disposable.Dispose();
         }
 
-        base.OnExit(e);
-
         Log.CloseAndFlush();
 
-        // Safety net: if something blocks the dispatcher (e.g., a lingering message box
+        // Safety net: if something blocks the UI thread (e.g., a lingering message box
         // or a stuck async operation), force-kill the process after a few seconds so the
         // application does not remain open in the background.
         ThreadPool.QueueUserWorkItem(static _ =>
@@ -257,14 +275,19 @@ public partial class App
         }
     }
 
-    private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    private void OnDispatcherUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs e)
     {
         Log.Error(e.Exception, "Application.DispatcherUnhandledException");
         e.Handled = true;
 
-        _ = Current.Dispatcher.InvokeAsync(() =>
-            _messageBoxService?.ShowError(
-                "A critical error occurred and has been reported. The application may need to close."));
+        _ = Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            if (_messageBoxService != null)
+            {
+                await _messageBoxService.ShowErrorAsync(
+                    "A critical error occurred and has been reported. The application may need to close.");
+            }
+        });
     }
 
     private static void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
@@ -287,9 +310,11 @@ public partial class App
                 Log.Error(exception, "{Source}", source);
             }
 
-            await Current.Dispatcher.InvokeAsync(() =>
-                _messageBoxService?.ShowError(
-                    "A critical error occurred and has been reported. The application may need to close."));
+            if (_messageBoxService != null)
+            {
+                await _messageBoxService.ShowErrorAsync(
+                    "A critical error occurred and has been reported. The application may need to close.");
+            }
         }
         catch
         {

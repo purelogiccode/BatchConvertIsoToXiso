@@ -2,17 +2,17 @@
 
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-        <TargetFramework>net10.0-windows</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
-        <UseWPF>true</UseWPF>
+        <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
         <ApplicationIcon>icon\icon.ico</ApplicationIcon>
         <Authors>PureLogicCode</Authors>
         <Company>PureLogicCode.com</Company>
         <IsPackable>false</IsPackable>
-        <Version>2.9.0</Version>
-        <AssemblyVersion>2.9.0</AssemblyVersion>
-        <FileVersion>2.9.0</FileVersion>
+        <Version>3.0.0</Version>
+        <AssemblyVersion>3.0.0</AssemblyVersion>
+        <FileVersion>3.0.0</FileVersion>
         <NeutralLanguage>en</NeutralLanguage>
         <DebugType>embedded</DebugType>
         <DebugSymbols>true</DebugSymbols>
@@ -20,10 +20,11 @@
 
     <ItemGroup>
         <Content Include="icon\icon.ico" />
-        <None Update="7za.exe">
+        <!-- The bundled 7-Zip CLI fallback is Windows-only; system 7z is used on Linux/macOS. -->
+        <None Update="7za.exe" Condition="'$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('win'))">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
-        <None Update="7za_arm64.exe">
+        <None Update="7za_arm64.exe" Condition="'$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('win'))">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
     </ItemGroup>
@@ -51,12 +52,18 @@
         </PackageReference>
         <PackageReference Include="CHDSharp" Version="1.4.3" />
         <PackageReference Include="SharpCompress" Version="0.50.4" />
-        <PackageReference Include="XISOSharp" Version="1.4.0" />
+        <PackageReference Include="XISOSharp" Version="1.4.1" />
         <PackageReference Include="ZArchiveSharp" Version="1.4.0" />
+        <PackageReference Include="Avalonia" Version="12.1.3" />
+        <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
+        <PackageReference Include="Avalonia.Desktop" Version="12.1.3" />
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.3" />
+        <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.12" />
     </ItemGroup>
 
     <ItemGroup>
         <None Remove="References\**" />
+        <AvaloniaResource Remove="References\**" />
     </ItemGroup>
 
     <ItemGroup>
@@ -64,16 +71,10 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Page Remove="References\**" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <None Remove="images\about.png" />
-        <Resource Include="images\about.png" />
-        <None Remove="images\exit.png" />
-        <Resource Include="images\exit.png" />
-        <None Remove="images\logo.png" />
-        <Resource Include="images\logo.png" />
+        <AvaloniaResource Include="images\about.png" />
+        <AvaloniaResource Include="images\exit.png" />
+        <AvaloniaResource Include="images\logo.png" />
+        <AvaloniaResource Include="icon\icon.ico" />
     </ItemGroup>
 
 </Project>

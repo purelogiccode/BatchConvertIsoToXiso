@@ -58,7 +58,9 @@ public class DiskMonitorServiceTests
     public void GetAvailableFreeSpaceLocalDriveReturnsPositiveValue()
     {
         var service = CreateService();
-        var result = service.GetAvailableFreeSpace("C:\\");
+        var root = Path.GetPathRoot(Path.GetTempPath());
+        Assert.False(string.IsNullOrEmpty(root));
+        var result = service.GetAvailableFreeSpace(root);
         Assert.True(result > 0, $"Expected positive free space, got {result}");
     }
 
@@ -66,7 +68,7 @@ public class DiskMonitorServiceTests
     public void GetAvailableFreeSpaceLocalDriveSubfolderReturnsPositiveValue()
     {
         var service = CreateService();
-        var result = service.GetAvailableFreeSpace("C:\\Windows");
+        var result = service.GetAvailableFreeSpace(AppContext.BaseDirectory);
         Assert.True(result > 0, $"Expected positive free space, got {result}");
     }
 
@@ -95,13 +97,15 @@ public class DiskMonitorServiceTests
     public void FindDriveWithFreeSpaceExcludesSpecifiedDrive()
     {
         var service = CreateService();
-        const string cDrive = "C:";
+        var tempRoot = Path.GetPathRoot(Path.GetTempPath());
+        Assert.False(string.IsNullOrEmpty(tempRoot));
+        var excludedDrive = tempRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-        var result = service.FindDriveWithFreeSpace(0, cDrive);
+        var result = service.FindDriveWithFreeSpace(0, excludedDrive);
 
         if (result != null)
         {
-            Assert.DoesNotContain("C:", result, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(excludedDrive, result, StringComparison.OrdinalIgnoreCase);
         }
     }
 

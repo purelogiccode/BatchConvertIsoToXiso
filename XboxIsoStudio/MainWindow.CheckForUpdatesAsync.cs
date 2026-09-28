@@ -1,4 +1,4 @@
-﻿using System.Windows;
+﻿using XboxIsoStudio.Interfaces;
 using XboxIsoStudio.Services;
 
 namespace XboxIsoStudio;
@@ -23,11 +23,11 @@ public partial class MainWindow
                 _logger.Information("Current version: {CurrentVersion} | Available version: {LatestVersion}",
                     currentVersion, latestVersion);
 
-                var result = _messageBoxService.Show(
+                var result = await _messageBoxService.ShowAsync(
                     $"A new version ({latestVersion}) is available. Would you like to go to the download page?",
-                    "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                    "Update Available", UiMessageBoxButton.YesNo, UiMessageBoxImage.Information);
 
-                if (result == MessageBoxResult.Yes)
+                if (result == UiMessageBoxResult.Yes)
                 {
                     _urlOpener.OpenUrl(downloadUrl);
                 }

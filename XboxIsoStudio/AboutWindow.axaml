@@ -1,11 +1,11 @@
 <Window x:Class="XboxIsoStudio.AboutWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="About Xbox ISO Studio"
         Width="800"
         Height="700"
-        ResizeMode="NoResize"
-        WindowStartupLocation="CenterScreen"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
         Background="{StaticResource WindowBackgroundBrush}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <Grid Margin="15">
@@ -28,8 +28,8 @@
                 <StackPanel HorizontalAlignment="Center">
                     <Image Width="120"
                            Height="120"
-                           Source="pack://application:,,,/images/logo.png"
-                           ToolTip="Xbox ISO Studio application logo" />
+                           Source="avares://XboxIsoStudio/images/logo.png"
+                           ToolTip.Tip="Xbox ISO Studio application logo" />
                 </StackPanel>
             </Border>
 
@@ -47,7 +47,7 @@
                                Foreground="{StaticResource HeaderTextBrush}"
                                Text="Xbox ISO Studio"
                                HorizontalAlignment="Center"
-                               ToolTip="A high-performance Windows WPF utility for Xbox preservation and emulation" />
+                               ToolTip.Tip="A high-performance utility for Xbox preservation and emulation" />
                     <TextBlock Name="AppVersionTextBlock"
                                Margin="0,8,0,0"
                                Text=""
@@ -55,7 +55,7 @@
                                Foreground="{StaticResource PrimaryAccentBrush}"
                                FontWeight="SemiBold"
                                FontSize="14"
-                               ToolTip="Current application version" />
+                               ToolTip.Tip="Current application version" />
                 </StackPanel>
             </Border>
 
@@ -73,19 +73,19 @@
                                Foreground="{StaticResource TextPrimaryBrush}"
                                Text="Description"
                                Margin="0,0,0,10"
-                               ToolTip="About Xbox ISO Studio" />
-                    <TextBlock Text="A high-performance Windows WPF utility for the Xbox preservation and emulation community. This application streamlines the process of converting standard Xbox and Xbox 360 ISOs into the optimized, trimmed XISO format."
+                               ToolTip.Tip="About Xbox ISO Studio" />
+                    <TextBlock Text="A high-performance utility for the Xbox preservation and emulation community, running on Windows, Linux, and macOS. This application streamlines the process of converting standard Xbox and Xbox 360 ISOs into the optimized, trimmed XISO format."
                                Foreground="{StaticResource TextSecondaryBrush}"
                                TextWrapping="Wrap"
                                LineHeight="20"
                                Margin="0,0,0,12"
-                               ToolTip="Xbox ISO Studio converts Xbox/Xbox 360 ISOs into trimmed XISO format, saving space while preserving content" />
+                               ToolTip.Tip="Xbox ISO Studio converts Xbox/Xbox 360 ISOs into trimmed XISO format, saving space while preserving content" />
                     <TextBlock
-                        Text="Features include batch conversion powered by the XISOSharp library, integrity testing with deep scanning for ISO, CSO, and ZAR images, and an image explorer with drag-and-drop extraction."
+                        Text="Features include batch conversion powered by the XISOSharp library, integrity testing with deep scanning for ISO, CSO, ZAR, and CHD images, and an image explorer with drag-and-drop extraction."
                         Foreground="{StaticResource TextSecondaryBrush}"
                         TextWrapping="Wrap"
                         LineHeight="20"
-                        ToolTip="Key features: XISOSharp-powered batch conversion to XISO/ZAR/CSO/CHD, ISO/CSO/ZAR/CHD integrity testing with deep scan, and an image explorer with drag-and-drop extraction" />
+                        ToolTip.Tip="Key features: batch conversion to XISO/ZAR/CSO/CHD, ISO/CSO/ZAR/CHD integrity testing with deep scan, and an image explorer with drag-and-drop extraction" />
                 </StackPanel>
             </Border>
 
@@ -103,44 +103,33 @@
                                Foreground="{StaticResource TextPrimaryBrush}"
                                Text="Acknowledgements"
                                Margin="0,0,0,10"
-                               ToolTip="Open-source projects and tools used by this application" />
+                               ToolTip.Tip="Open-source projects and tools used by this application" />
                     <TextBlock Text="This application uses the following open-source projects and tools:"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                TextWrapping="Wrap"
                                Margin="0,0,0,12"
-                               ToolTip="Click any link to visit the project's GitHub repository" />
+                               ToolTip.Tip="Click any link to visit the project's GitHub repository" />
 
                     <StackPanel Margin="10,0,0,0">
-                        <TextBlock Margin="0,0,0,8" ToolTip="Visit XISOSharp on GitHub — the library that powers all XISO reading, writing, and conversion">
-                            <Hyperlink NavigateUri="https://github.com/purelogiccode/XISOSharp"
-                                       RequestNavigate="Hyperlink_RequestNavigate"
-                                       Foreground="{StaticResource LinkTextBrush}"
-                                       TextDecorations="Underline">
-                                XISOSharp
-                            </Hyperlink>
-                            <Run Text=" - XISO/XDVDFS reading, writing, and conversion library" Foreground="{StaticResource TextMutedBrush}" />
-                        </TextBlock>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8" ToolTip.Tip="Visit XISOSharp on GitHub — the library that powers all XISO reading, writing, and conversion">
+                            <Button Content="XISOSharp" Theme="{StaticResource LinkButtonStyle}" Tag="https://github.com/purelogiccode/XISOSharp" Click="Hyperlink_Click" />
+                            <TextBlock Text=" - XISO/XDVDFS reading, writing, and conversion library" Foreground="{StaticResource TextMutedBrush}" />
+                        </StackPanel>
 
-                        <TextBlock Margin="0,0,0,8" ToolTip="Visit CHDSharp on GitHub — CHD (Compressed Hunks of Data) reading and writing library">
-                            <Hyperlink NavigateUri="https://github.com/purelogiccode/CHDSharp"
-                                       RequestNavigate="Hyperlink_RequestNavigate"
-                                       Foreground="{StaticResource LinkTextBrush}"
-                                       TextDecorations="Underline">
-                                CHDSharp
-                            </Hyperlink>
-                            <Run Text=" - CHD reading, verification, and creation" Foreground="{StaticResource TextMutedBrush}" />
-                        </TextBlock>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8" ToolTip.Tip="Visit ZArchiveSharp on GitHub — ZArchive/zstd compression library">
+                            <Button Content="ZArchiveSharp" Theme="{StaticResource LinkButtonStyle}" Tag="https://github.com/purelogiccode/ZArchiveSharp" Click="Hyperlink_Click" />
+                            <TextBlock Text=" - ZArchive/zstd compression library" Foreground="{StaticResource TextMutedBrush}" />
+                        </StackPanel>
 
-                        <TextBlock Margin="0,0,0,8" ToolTip="Visit SharpCompress on GitHub — high-performance archive extraction library">
-                            <Hyperlink NavigateUri="https://github.com/adamhathcock/sharpcompress"
-                                       RequestNavigate="Hyperlink_RequestNavigate"
-                                       Foreground="{StaticResource LinkTextBrush}"
-                                       TextDecorations="Underline">
-                                SharpCompress
-                            </Hyperlink>
-                            <Run Text=" - High-performance archive extraction" Foreground="{StaticResource TextMutedBrush}" />
-                        </TextBlock>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8" ToolTip.Tip="Visit CHDSharp on GitHub — CHD (Compressed Hunks of Data) reading and writing library">
+                            <Button Content="CHDSharp" Theme="{StaticResource LinkButtonStyle}" Tag="https://github.com/purelogiccode/CHDSharp" Click="Hyperlink_Click" />
+                            <TextBlock Text=" - CHD reading, verification, and creation" Foreground="{StaticResource TextMutedBrush}" />
+                        </StackPanel>
 
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8" ToolTip.Tip="Visit SharpCompress on GitHub — high-performance archive extraction library">
+                            <Button Content="SharpCompress" Theme="{StaticResource LinkButtonStyle}" Tag="https://github.com/adamhathcock/sharpcompress" Click="Hyperlink_Click" />
+                            <TextBlock Text=" - High-performance archive extraction" Foreground="{StaticResource TextMutedBrush}" />
+                        </StackPanel>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -154,22 +143,8 @@
 
                 <!-- Links -->
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock ToolTip="Visit the official website: www.purelogiccode.com">
-                        <Hyperlink NavigateUri="https://www.purelogiccode.com"
-                                   RequestNavigate="Hyperlink_RequestNavigate"
-                                   Foreground="{StaticResource LinkTextBrush}"
-                                   TextDecorations="Underline">
-                            www.purelogiccode.com
-                        </Hyperlink>
-                    </TextBlock>
-                    <TextBlock Margin="0,4,0,0" ToolTip="Visit the project's GitHub repository">
-                        <Hyperlink NavigateUri="https://github.com/purelogiccode/XboxIsoStudio"
-                                   RequestNavigate="Hyperlink_RequestNavigate"
-                                   Foreground="{StaticResource LinkTextBrush}"
-                                   TextDecorations="Underline">
-                            GitHub Repository
-                        </Hyperlink>
-                    </TextBlock>
+                    <Button Content="www.purelogiccode.com" Theme="{StaticResource LinkButtonStyle}" HorizontalAlignment="Left" Tag="https://www.purelogiccode.com" Click="Hyperlink_Click" ToolTip.Tip="Visit the official website: www.purelogiccode.com" />
+                    <Button Content="GitHub Repository" Theme="{StaticResource LinkButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,0" Tag="https://github.com/purelogiccode/XboxIsoStudio" Click="Hyperlink_Click" ToolTip.Tip="Visit the project's GitHub repository" />
                 </StackPanel>
 
                 <!-- Close Button -->
@@ -178,8 +153,8 @@
                         Height="36"
                         Click="CloseButton_Click"
                         Content="Close"
-                        Style="{StaticResource ActionButtonStyle}"
-                        ToolTip="Close the about window" />
+                        Theme="{StaticResource ActionButtonStyle}"
+                        ToolTip.Tip="Close the about window" />
             </Grid>
         </Grid>
     </ScrollViewer>

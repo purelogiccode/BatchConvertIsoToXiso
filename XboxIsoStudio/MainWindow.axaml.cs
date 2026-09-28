@@ -1,26 +1,30 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Windows;
-using System.Windows.Threading;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
 using XboxIsoStudio.Interfaces;
 using XboxIsoStudio.Services;
 using Serilog;
 
 namespace XboxIsoStudio;
 
-public partial class MainWindow
+public partial class MainWindow : Window
 {
     private const int MaxLogLength = 100000; // Approx 1000-2000 lines depending on length
 
-    private readonly IOrchestratorService _orchestratorService;
-    private readonly IDiskMonitorService _diskMonitorService;
+    private readonly IOrchestratorService _orchestratorService = null!;
+    private readonly IDiskMonitorService _diskMonitorService = null!;
     private CancellationTokenSource _cts = new();
     private TaskCompletionSource _operationCompletedTcs = new();
-    private readonly IUpdateChecker _updateChecker;
-    private readonly ILogger _logger;
-    private readonly IMessageBoxService _messageBoxService;
-    private readonly IUrlOpener _urlOpener;
-    private readonly IScreenshotService _screenshotService;
+    private readonly IUpdateChecker _updateChecker = null!;
+    private readonly ILogger _logger = null!;
+    private readonly IMessageBoxService _messageBoxService = null!;
+    private readonly IUrlOpener _urlOpener = null!;
+    private readonly IScreenshotService _screenshotService = null!;
 
     // Summary Stats
     private readonly Stopwatch _operationStopwatch = new();
@@ -42,12 +46,19 @@ public partial class MainWindow
     private readonly Lock _explorerLock = new();
     private string _currentInternalPath = "/";
 
+    /// <summary>Set once the constructor finished so XAML-driven events can be ignored during load.</summary>
+    private bool _isUiInitialized;
+
+    public MainWindow()
+    {
+        InitializeComponent();
+    }
+
     public MainWindow(IUpdateChecker updateChecker, ILogger logger,
         IMessageBoxService messageBoxService, IUrlOpener urlOpener, IScreenshotService screenshotService,
         IOrchestratorService orchestratorService, IDiskMonitorService diskMonitorService)
+        : this()
     {
-        InitializeComponent();
-
         _updateChecker = updateChecker;
         _logger = logger.ForContext<MainWindow>();
         _messageBoxService = messageBoxService;
@@ -68,6 +79,8 @@ public partial class MainWindow
         ResetSummaryStats();
         DisplayInstructions.Initialize(_logger);
         DisplayInstructions.DisplayInitialInstructions();
+
+        _isUiInitialized = true;
     }
 
     private void MainWindow_Closed(object? sender, EventArgs e)
@@ -83,25 +96,34 @@ public partial class MainWindow
     private void OnLogMessage(object? sender, UiLogSink.LogMessageEventArgs e)
     {
         var logViewer = LogViewer;
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher == null) return;
 
-        _ = dispatcher.InvokeAsync(() =>
+        _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (logViewer.Text.Length > MaxLogLength)
+            var text = logViewer.Text ?? string.Empty;
+            if (text.Length > MaxLogLength)
             {
-                var text = logViewer.Text;
                 // Keep the last ~50% of the log, try to cut at a newline
                 var cutIndex = text.IndexOf('\n', text.Length / 2);
-                logViewer.Text = cutIndex >= 0 ? text.Substring(cutIndex + 1) : text.Substring(text.Length / 2);
+                text = cutIndex >= 0 ? text.Substring(cutIndex + 1) : text.Substring(text.Length / 2);
+                logViewer.Text = text;
             }
 
-            logViewer.AppendText($"{e.Message}{Environment.NewLine}");
-            logViewer.ScrollToEnd();
+            AppendLogText($"{e.Message}{Environment.NewLine}");
         });
     }
 
-    private async void Window_LoadedAsync(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Appends text to the log viewer and keeps the caret at the end so the view
+    /// scrolls to the newest line.
+    /// </summary>
+    private void AppendLogText(string line)
+    {
+        var logViewer = LogViewer;
+        logViewer.Text = (logViewer.Text ?? string.Empty) + line;
+        logViewer.CaretIndex = logViewer.Text.Length;
+    }
+
+    private async void Window_LoadedAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -123,37 +145,42 @@ public partial class MainWindow
         }
     }
 
-    private void Window_Closing(object sender, CancelEventArgs e)
+    private void Window_Closing(object? sender, WindowClosingEventArgs e)
     {
         try
         {
             if (_isForceClosing) return;
 
-            if (_isOperationRunning)
-            {
-                var result = _messageBoxService.Show("An operation is still running. Exit anyway?", "Warning",
-                    MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (result == MessageBoxResult.No)
-                {
-                    e.Cancel = true;
-                    return;
-                }
-
-                // Cancel the operation and prevent immediate window close
-                e.Cancel = true;
-
-                // Wait for the operation to complete in the background, then close
-                _ = WaitForOperationAndCloseAsync();
-                return;
-            }
-
-            // No operation running, safe to close immediately
-            CleanupResources();
+            // Never close synchronously: when an operation is running this handler needs
+            // an asynchronous confirmation, and Avalonia does not pump a nested loop.
+            e.Cancel = true;
+            _ = HandleClosingAsync();
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Error while closing the main window");
         }
+    }
+
+    private async Task HandleClosingAsync()
+    {
+        if (_isOperationRunning)
+        {
+            var result = await _messageBoxService.ShowAsync("An operation is still running. Exit anyway?", "Warning",
+                UiMessageBoxButton.YesNo, UiMessageBoxImage.Warning);
+            if (result != UiMessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            await WaitForOperationAndCloseAsync();
+            return;
+        }
+
+        // No operation running, safe to close immediately
+        CleanupResources();
+        _isForceClosing = true;
+        Close();
     }
 
     private async Task WaitForOperationAndCloseAsync()
@@ -180,14 +207,14 @@ public partial class MainWindow
             }
 
             // Now perform cleanup and close on the UI thread
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 _isForceClosing = true;
                 CleanupResources();
                 Close();
             });
 
-            // If the operation timed out, the dispatcher may still be blocked by a
+            // If the operation timed out, the UI thread may still be blocked by a
             // queued message box or another modal dialog. Force a process-level exit
             // after a delay as a last resort — this skips normal cleanup but prevents
             // a permanently hung process.
@@ -242,16 +269,23 @@ public partial class MainWindow
         MemoryTextBlock.Text = $"Memory: {memoryMb:F1} MB";
     }
 
-    private void ExitMenuItem_Click(object sender, RoutedEventArgs e)
+    private void ExitMenuItem_Click(object? sender, RoutedEventArgs e)
     {
-        Application.Current.Shutdown();
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
+        }
+        else
+        {
+            Environment.Exit(0);
+        }
     }
 
-    private async void Window_KeyDownAsync(object sender, System.Windows.Input.KeyEventArgs e)
+    private async void Window_KeyDownAsync(object? sender, KeyEventArgs e)
     {
         try
         {
-            if (e.Key == System.Windows.Input.Key.F8)
+            if (e.Key == Key.F8)
             {
                 e.Handled = true;
                 var filePath = await _screenshotService.CaptureActiveWindowAsync();

@@ -1,9 +1,10 @@
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
-using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Media.Imaging;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using XboxIsoStudio.Interfaces;
 using Serilog;
 
@@ -12,53 +13,6 @@ namespace XboxIsoStudio.Services;
 public class ScreenshotService : IScreenshotService
 {
     private readonly ILogger _logger;
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll")]
-    private static extern bool GetWindowRect(IntPtr hWnd, out Rect lpRect);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetDC(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDc);
-
-    [DllImport("gdi32.dll")]
-    private static extern IntPtr CreateCompatibleDC(IntPtr hdc);
-
-    [DllImport("gdi32.dll")]
-    private static extern IntPtr CreateCompatibleBitmap(IntPtr hdc, int nWidth, int nHeight);
-
-    [DllImport("gdi32.dll")]
-    private static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
-
-    [DllImport("gdi32.dll")]
-    private static extern bool BitBlt(IntPtr hdcDest, int xDest, int yDest, int wDest, int hDest,
-        IntPtr hdcSrc, int xSrc, int ySrc, uint rop);
-
-    [DllImport("gdi32.dll")]
-    private static extern bool DeleteObject(IntPtr hObject);
-
-    [DllImport("gdi32.dll")]
-    private static extern bool DeleteDC(IntPtr hdc);
-
-    [DllImport("dwmapi.dll")]
-    private static extern int
-        DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out Rect pvAttribute, int cbAttribute);
-
-    private const uint Srccopy = 0x00CC0020;
-    private const int DwmwaExtendedFrameBounds = 9;
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct Rect
-    {
-        public int Left;
-        public int Top;
-        public int Right;
-        public int Bottom;
-    }
 
     public ScreenshotService(ILogger logger)
     {
@@ -69,7 +23,7 @@ public class ScreenshotService : IScreenshotService
     {
         try
         {
-            return await Task.Run(CaptureActiveWindow);
+            return await Dispatcher.UIThread.InvokeAsync(CaptureActiveWindow);
         }
         catch (Exception ex)
         {
@@ -80,27 +34,17 @@ public class ScreenshotService : IScreenshotService
 
     private string? CaptureActiveWindow()
     {
-        var hwnd = GetForegroundWindow();
-        if (hwnd == IntPtr.Zero)
+        var window = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow;
+
+        if (window is null || !window.IsVisible)
         {
             _logger.Information("Screenshot: No active window found.");
             return null;
         }
 
-        if (!GetWindowRect(hwnd, out var rect))
-        {
-            _logger.Information("Screenshot: Failed to get window rectangle.");
-            return null;
-        }
-
-        var hr = DwmGetWindowAttribute(hwnd, DwmwaExtendedFrameBounds, out var extendedRect, Marshal.SizeOf<Rect>());
-        if (hr == 0)
-        {
-            rect = extendedRect;
-        }
-
-        var width = rect.Right - rect.Left;
-        var height = rect.Bottom - rect.Top;
+        var width = window.ClientSize.Width;
+        var height = window.ClientSize.Height;
 
         if (width <= 0 || height <= 0)
         {
@@ -108,44 +52,24 @@ public class ScreenshotService : IScreenshotService
             return null;
         }
 
-        var screenDc = GetDC(IntPtr.Zero);
-        var memDc = CreateCompatibleDC(screenDc);
-        var hBitmap = CreateCompatibleBitmap(screenDc, width, height);
-        var oldBitmap = SelectObject(memDc, hBitmap);
+        // Render at the window's device scale so the screenshot matches what is on screen.
+        var scaling = window.RenderScaling;
+        var pixelSize = new PixelSize(
+            Math.Max(1, (int)Math.Round(width * scaling)),
+            Math.Max(1, (int)Math.Round(height * scaling)));
 
-        try
-        {
-            BitBlt(memDc, 0, 0, width, height, screenDc, rect.Left, rect.Top, Srccopy);
+        using var bitmap = new RenderTargetBitmap(pixelSize, new Vector(96 * scaling, 96 * scaling));
+        bitmap.Render(window);
 
-            SelectObject(memDc, oldBitmap);
+        var screenshotsDir = Path.Combine(AppContext.BaseDirectory, "Screenshots");
+        Directory.CreateDirectory(screenshotsDir);
 
-            var bitmapSource = Imaging.CreateBitmapSourceFromHBitmap(
-                hBitmap,
-                IntPtr.Zero,
-                Int32Rect.Empty,
-                BitmapSizeOptions.FromEmptyOptions());
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+        var filePath = Path.Combine(screenshotsDir, $"Screenshot_{timestamp}.png");
 
-            var screenshotsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Screenshots");
-            Directory.CreateDirectory(screenshotsDir);
+        bitmap.Save(filePath, PngBitmapEncoderOptions.Default);
 
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
-            var filePath = Path.Combine(screenshotsDir, $"Screenshot_{timestamp}.png");
-
-            using (var fileStream = new FileStream(filePath, FileMode.Create))
-            {
-                var encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
-                encoder.Save(fileStream);
-            }
-
-            _logger.Information("Screenshot saved: {FilePath}", filePath);
-            return filePath;
-        }
-        finally
-        {
-            DeleteObject(hBitmap);
-            DeleteDC(memDc);
-            _ = ReleaseDC(IntPtr.Zero, screenDc);
-        }
+        _logger.Information("Screenshot saved: {FilePath}", filePath);
+        return filePath;
     }
 }
