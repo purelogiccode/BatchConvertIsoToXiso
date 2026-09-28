@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.InteropServices;
 using XboxIsoStudio.Interfaces;
 using Serilog;
@@ -21,7 +20,7 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
     }
 
     // P/Invoke for GetDiskFreeSpaceEx which works with UNC paths (Windows only)
-    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetDiskFreeSpaceEx(
         string lpDirectoryName,

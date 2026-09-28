@@ -265,7 +265,8 @@ public class OrchestratorServiceTests : IDisposable
         var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(),
             FileProcessingStatus.Converted);
 
-        await orchestrator.ConvertFilesAsync([selected], Path.Combine(_tempDir, "out"), true, false, false, OutputFormat.Xiso,
+        await orchestrator.ConvertFilesAsync([selected], Path.Combine(_tempDir, "out"), true, false, false,
+            OutputFormat.Xiso,
             new Progress<BatchOperationProgress>(), CloudRetrySkip, CancellationToken.None);
 
         Assert.False(File.Exists(selected));
@@ -292,7 +293,8 @@ public class OrchestratorServiceTests : IDisposable
         var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(),
             FileProcessingStatus.Converted);
 
-        await orchestrator.ConvertFilesAsync([binPath], Path.Combine(_tempDir, "out"), true, false, false, OutputFormat.Xiso,
+        await orchestrator.ConvertFilesAsync([binPath], Path.Combine(_tempDir, "out"), true, false, false,
+            OutputFormat.Xiso,
             new Progress<BatchOperationProgress>(), CloudRetrySkip, CancellationToken.None);
 
         Assert.True(File.Exists(binPath));

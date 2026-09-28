@@ -1,4 +1,3 @@
-using System.IO;
 using XboxIsoStudio.Interfaces;
 using XboxIsoStudio.Models;
 using Serilog;
@@ -297,7 +296,8 @@ public class XisoSharpService : IXisoSharpService
                     sourceForCompression = tempXiso;
                 }
 
-                if (checkIntegrity && !AuditSourceImage(sourceForCompression, fileName)) return FileProcessingStatus.Failed;
+                if (checkIntegrity && !AuditSourceImage(sourceForCompression, fileName))
+                    return FileProcessingStatus.Failed;
 
                 progress.Report(new BatchOperationProgress { StatusText = "Compressing to CSO..." });
                 var csoResult = CisoWriter.CompressToCso(sourceForCompression, outputPath, CsoCompressionLevel,
@@ -608,7 +608,7 @@ public class XisoSharpService : IXisoSharpService
             var drive = new DriveInfo(root);
             if (drive.IsReady &&
                 drive.DriveFormat.Equals("FAT32", StringComparison.OrdinalIgnoreCase) &&
-                inputFileSize > 4L * 1024 * 1024 * 1024 - 1)
+                inputFileSize > (4L * 1024 * 1024 * 1024) - 1)
             {
                 return $"The output drive '{drive.Name}' uses FAT32, which cannot store files larger than 4 GB. " +
                        $"'{Path.GetFileName(inputFile)}' is {Formatter.FormatBytes(inputFileSize)}. " +

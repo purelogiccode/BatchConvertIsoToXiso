@@ -75,6 +75,7 @@
         <AvaloniaResource Include="images\exit.png" />
         <AvaloniaResource Include="images\logo.png" />
         <AvaloniaResource Include="icon\icon.ico" />
+        <AvaloniaResource Include="icon\icon.png" />
     </ItemGroup>
 
 </Project>

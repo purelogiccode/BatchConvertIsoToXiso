@@ -1,11 +1,10 @@
 using System.Diagnostics;
-using System.IO;
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Serilog;
 using XboxIsoStudio.Interfaces;
 using XboxIsoStudio.Models;
 using XboxIsoStudio.Services;
@@ -23,29 +22,36 @@ public partial class MainWindow
 
     private async void BrowseExplorerFile_Click(object? sender, RoutedEventArgs e)
     {
-        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        try
         {
-            Title = "Select an Xbox image to explore",
-            AllowMultiple = false,
-            FileTypeFilter = new[]
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                new FilePickerFileType("Xbox images")
-                    { Patterns = new[] { "*.iso", "*.cso", "*.zar", "*.chd" } },
-                new FilePickerFileType("Xbox ISO") { Patterns = new[] { "*.iso" } },
-                new FilePickerFileType("Compressed ISO") { Patterns = new[] { "*.cso" } },
-                new FilePickerFileType("ZAR archive") { Patterns = new[] { "*.zar" } },
-                new FilePickerFileType("CHD image") { Patterns = new[] { "*.chd" } },
-                new FilePickerFileType("All files") { Patterns = new[] { "*" } }
-            }
-        });
+                Title = "Select an Xbox image to explore",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("Xbox images")
+                        { Patterns = Options },
+                    new FilePickerFileType("Xbox ISO") { Patterns = OptionsArray },
+                    new FilePickerFileType("Compressed ISO") { Patterns = OptionsArray0 },
+                    new FilePickerFileType("ZAR archive") { Patterns = OptionsArray1 },
+                    new FilePickerFileType("CHD image") { Patterns = OptionsArray2 },
+                    new FilePickerFileType("All files") { Patterns = OptionsArray3 }
+                }
+            });
 
-        if (files.Count == 0) return;
+            if (files.Count == 0) return;
 
-        var selectedPath = files[0].TryGetLocalPath();
-        if (string.IsNullOrEmpty(selectedPath)) return;
+            var selectedPath = files[0].TryGetLocalPath();
+            if (string.IsNullOrEmpty(selectedPath)) return;
 
-        ExplorerFilePathTextBox.Text = selectedPath;
-        InitializeExplorer(selectedPath);
+            ExplorerFilePathTextBox.Text = selectedPath;
+            InitializeExplorer(selectedPath);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method BrowseExplorerFile_Click");
+        }
     }
 
     private void InitializeExplorer(string imagePath)
@@ -192,9 +198,7 @@ public partial class MainWindow
             {
                 _logger.Error(ex, "Failed to extract and open file from image: {FileName}", fileName);
                 await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    _ = _messageBoxService.ShowErrorAsync($"Failed to extract and open file: {ex.Message}");
-                });
+                    _ = _messageBoxService.ShowErrorAsync($"Failed to extract and open file: {ex.Message}"));
             }
         }, _cts.Token);
     }
@@ -255,7 +259,7 @@ public partial class MainWindow
                 });
 
                 // Start drag operation with the file drop list
-                var topLevel = TopLevel.GetTopLevel(this);
+                var topLevel = GetTopLevel(this);
                 if (topLevel is not null && tempFiles.Count > 0)
                 {
                     var data = new DataTransfer();
@@ -303,6 +307,13 @@ public partial class MainWindow
             _ = _messageBoxService.ShowErrorAsync($"Drag operation failed: {ex.Message}");
         }
     }
+
+    private static readonly string[] OptionsArray3 = new[] { "*" };
+    private static readonly string[] OptionsArray2 = new[] { "*.chd" };
+    private static readonly string[] OptionsArray1 = new[] { "*.zar" };
+    private static readonly string[] OptionsArray0 = new[] { "*.cso" };
+    private static readonly string[] OptionsArray = new[] { "*.iso" };
+    private static readonly string[] Options = new[] { "*.iso", "*.cso", "*.zar", "*.chd" };
 
     private void ExplorerUpButton_Click(object? sender, RoutedEventArgs e)
     {

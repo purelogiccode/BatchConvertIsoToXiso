@@ -1,7 +1,8 @@
 <Application x:Class="XboxIsoStudio.App"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:services="clr-namespace:XboxIsoStudio.Services">
+             xmlns:services="clr-namespace:XboxIsoStudio.Services"
+             RequestedThemeVariant="Dark">
 
     <Application.Resources>
 
@@ -12,38 +13,6 @@
 
         <!-- Converter for the XIso Explorer folder/file icons -->
         <services:FolderIconConverter x:Key="FolderIconConverter" />
-
-        <!-- Header toggle template for the Expander header -->
-        <ControlTemplate x:Key="ExpanderHeaderToggleTemplate" TargetType="ToggleButton">
-            <Border Name="HeaderBorder"
-                    Background="{TemplateBinding Background}"
-                    BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="0,0,0,1"
-                    CornerRadius="6,6,0,0"
-                    Padding="{TemplateBinding Padding}">
-                <Grid ColumnDefinitions="Auto,*">
-                    <Path Name="Arrow"
-                          Grid.Column="0"
-                          Width="6"
-                          Height="10"
-                          Margin="0,0,8,0"
-                          VerticalAlignment="Center"
-                          Data="M 0 0 L 5 5 L 0 10"
-                          Stroke="{StaticResource TextPrimaryBrush}"
-                          StrokeThickness="2"
-                          RenderTransformOrigin="0.5,0.5">
-                        <Path.RenderTransform>
-                            <RotateTransform Angle="0"/>
-                        </Path.RenderTransform>
-                    </Path>
-                    <ContentPresenter Grid.Column="1"
-                                      HorizontalAlignment="Left"
-                                      VerticalAlignment="Center"
-                                      Content="{TemplateBinding Content}"
-                                      ContentTemplate="{TemplateBinding ContentTemplate}"/>
-                </Grid>
-            </Border>
-        </ControlTemplate>
 
         <!-- ==================== COLOR PALETTE ==================== -->
         <!--
@@ -357,6 +326,8 @@
 
     <Application.Styles>
         <FluentTheme />
+        <!-- DataGrid ships its own theme that must be included explicitly. -->
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
 
         <!-- ==================== DEFAULT CONTROL STYLES ==================== -->
 
@@ -478,13 +449,15 @@
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="IsExpanded" Value="True"/>
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="6">
+                            CornerRadius="6"
+                            HorizontalAlignment="Stretch">
                         <Grid RowDefinitions="Auto,*">
                             <ToggleButton Name="HeaderSite"
                                           Grid.Row="0"
@@ -494,16 +467,50 @@
                                           Cursor="Hand"
                                           Focusable="True"
                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                          HorizontalAlignment="Stretch"
                                           HorizontalContentAlignment="Left"
                                           IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}"
-                                          Padding="10,6"
-                                          CornerRadius="6,6,0,0"
-                                          Template="{StaticResource ExpanderHeaderToggleTemplate}"/>
+                                          Padding="10,6">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Name="HeaderBorder"
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{StaticResource BorderBrush}"
+                                                BorderThickness="0,0,0,1"
+                                                CornerRadius="6,6,0,0"
+                                                Padding="{TemplateBinding Padding}">
+                                            <Grid ColumnDefinitions="Auto,*">
+                                                <Path Name="Arrow"
+                                                      Grid.Column="0"
+                                                      Width="6"
+                                                      Height="10"
+                                                      Margin="0,0,8,0"
+                                                      VerticalAlignment="Center"
+                                                      Data="M 0 0 L 5 5 L 0 10"
+                                                      Stroke="{StaticResource TextPrimaryBrush}"
+                                                      StrokeThickness="2"
+                                                      RenderTransformOrigin="0.5,0.5">
+                                                    <Path.RenderTransform>
+                                                        <RotateTransform Angle="0"/>
+                                                    </Path.RenderTransform>
+                                                </Path>
+                                                <ContentPresenter Grid.Column="1"
+                                                                  HorizontalAlignment="Left"
+                                                                  VerticalAlignment="Center"
+                                                                  Content="{TemplateBinding Content}"
+                                                                  ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
                             <ContentPresenter Name="ExpandSite"
                                               Grid.Row="1"
                                               Margin="{TemplateBinding Padding}"
                                               HorizontalAlignment="Stretch"
                                               VerticalAlignment="Stretch"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
                                               IsVisible="{TemplateBinding IsExpanded}"/>
                         </Grid>
                     </Border>
@@ -546,6 +553,14 @@
             <Setter Property="Background" Value="{StaticResource ProgressBackgroundBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Height" Value="24"/>
+        </Style>
+
+        <!-- ScrollBars (dark theme) -->
+        <Style Selector="ScrollBar /template/ Thumb">
+            <Setter Property="Background" Value="{StaticResource BorderBrushLight}"/>
+        </Style>
+        <Style Selector="ScrollBar /template/ Thumb:pointerover">
+            <Setter Property="Background" Value="{StaticResource PrimaryAccentBrush}"/>
         </Style>
 
         <!-- ToolTip Style (fixes white-on-white in dark theme) -->

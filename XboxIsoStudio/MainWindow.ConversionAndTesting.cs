@@ -1,5 +1,5 @@
-using System.IO;
 using Avalonia.Interactivity;
+using Serilog;
 using XboxIsoStudio.Models;
 using XboxIsoStudio.Services;
 
@@ -9,49 +9,71 @@ public partial class MainWindow
 {
     private async void BrowseConversionInputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var inputFolder = await SelectFolderAsync("Select the folder containing ISO or archive files");
-        if (string.IsNullOrEmpty(inputFolder)) return;
-
-        if (CheckForTempPath.IsSystemTempPath(inputFolder))
+        try
         {
-            await _messageBoxService.ShowErrorAsync(
-                "The system's temporary folder or a subfolder within it cannot be selected as an input folder. Please choose a different location.");
-            return;
-        }
+            var inputFolder = await SelectFolderAsync("Select the folder containing ISO or archive files");
+            if (string.IsNullOrEmpty(inputFolder)) return;
 
-        ConversionInputFolderTextBox.Text = inputFolder;
-        _ = RefreshConversionFileListAsync();
+            if (CheckForTempPath.IsSystemTempPath(inputFolder))
+            {
+                await _messageBoxService.ShowErrorAsync(
+                    "The system's temporary folder or a subfolder within it cannot be selected as an input folder. Please choose a different location.");
+                return;
+            }
+
+            ConversionInputFolderTextBox.Text = inputFolder;
+            _ = RefreshConversionFileListAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method BrowseConversionInputButton_Click");
+        }
     }
 
     private async void BrowseConversionOutputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var outputFolder = await SelectFolderAsync("Select the output folder for converted files");
-        if (string.IsNullOrEmpty(outputFolder)) return;
-
-        if (CheckForTempPath.IsSystemTempPath(outputFolder))
+        try
         {
-            await _messageBoxService.ShowErrorAsync(
-                "The system's temporary folder or a subfolder within it cannot be selected as an output folder. Please choose a different location.");
-            return;
-        }
+            var outputFolder = await SelectFolderAsync("Select the output folder for converted files");
+            if (string.IsNullOrEmpty(outputFolder)) return;
 
-        ConversionOutputFolderTextBox.Text = outputFolder;
+            if (CheckForTempPath.IsSystemTempPath(outputFolder))
+            {
+                await _messageBoxService.ShowErrorAsync(
+                    "The system's temporary folder or a subfolder within it cannot be selected as an output folder. Please choose a different location.");
+                return;
+            }
+
+            ConversionOutputFolderTextBox.Text = outputFolder;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method BrowseConversionOutputButton_Click");
+        }
     }
 
     private async void BrowseTestInputButton_Click(object? sender, RoutedEventArgs e)
     {
-        var inputFolder = await SelectFolderAsync("Select the folder containing ISO, CSO, ZAR, or CHD files to test");
-        if (string.IsNullOrEmpty(inputFolder)) return;
-
-        if (CheckForTempPath.IsSystemTempPath(inputFolder))
+        try
         {
-            await _messageBoxService.ShowErrorAsync(
-                "The system's temporary folder or a subfolder within it cannot be selected as an input folder for testing. Please choose a different location.");
-            return;
-        }
+            var inputFolder =
+                await SelectFolderAsync("Select the folder containing ISO, CSO, ZAR, or CHD files to test");
+            if (string.IsNullOrEmpty(inputFolder)) return;
 
-        TestInputFolderTextBox.Text = inputFolder;
-        _ = RefreshTestFileListAsync();
+            if (CheckForTempPath.IsSystemTempPath(inputFolder))
+            {
+                await _messageBoxService.ShowErrorAsync(
+                    "The system's temporary folder or a subfolder within it cannot be selected as an input folder for testing. Please choose a different location.");
+                return;
+            }
+
+            TestInputFolderTextBox.Text = inputFolder;
+            _ = RefreshTestFileListAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method BrowseTestInputButton_Click");
+        }
     }
 
     private async void StartConversionButton_ClickAsync(object? sender, RoutedEventArgs e)

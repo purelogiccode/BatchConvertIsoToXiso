@@ -1,4 +1,3 @@
-using System.IO;
 using XboxIsoStudio.Interfaces;
 using XboxIsoStudio.Models;
 using Serilog;
@@ -605,8 +604,10 @@ public class OrchestratorService : IOrchestratorService
         finally
         {
             if (localTempWorkingDir != null)
+            {
                 await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(localTempWorkingDir, 5, 1000, _logger,
                     token);
+            }
         }
     }
 
@@ -815,7 +816,8 @@ public class OrchestratorService : IOrchestratorService
 
         try
         {
-            progress.Report(new BatchOperationProgress { LogMessage = "  Verifying image structure and readability..." });
+            progress.Report(
+                new BatchOperationProgress { LogMessage = "  Verifying image structure and readability..." });
 
             var passed = await _integrityService.TestIsoIntegrityAsync(pathToCheck, performDeepScan, progress, token);
 

@@ -1,6 +1,4 @@
-﻿using System.IO;
-
-namespace XboxIsoStudio.Services;
+﻿namespace XboxIsoStudio.Services;
 
 public static class CheckForTempPath
 {

@@ -1,9 +1,9 @@
 using System.Globalization;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Serilog;
 using XboxIsoStudio.Interfaces;
 using XboxIsoStudio.Models;
 using XboxIsoStudio.Services;
@@ -79,8 +79,15 @@ public partial class MainWindow
 
     private async void AboutMenuItem_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        var aboutWindow = new AboutWindow(_urlOpener, _messageBoxService, _logger);
-        await aboutWindow.ShowDialog(this);
+        try
+        {
+            var aboutWindow = new AboutWindow(_urlOpener, _messageBoxService, _logger);
+            await aboutWindow.ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error in method AboutMenuItem_Click");
+        }
     }
 
     private void DonateButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -192,10 +199,10 @@ public partial class MainWindow
                 }
 
                 await _messageBoxService.ShowAsync($"Batch {operationType.ToLowerInvariant()} completed.\n\n" +
-                                                    $"Total files processed: {_uiTotalFiles}\n" +
-                                                    $"Successfully {ConvertToPastTense.GetPastTense(operationType)}: {_uiSuccessCount} files\n" +
-                                                    $"Skipped: {_uiSkippedCount} files\n" +
-                                                    $"Failed: {_uiFailedCount} files",
+                                                   $"Total files processed: {_uiTotalFiles}\n" +
+                                                   $"Successfully {ConvertToPastTense.GetPastTense(operationType)}: {_uiSuccessCount} files\n" +
+                                                   $"Skipped: {_uiSkippedCount} files\n" +
+                                                   $"Failed: {_uiFailedCount} files",
                     $"{operationType} Complete", UiMessageBoxButton.Ok,
                     _uiFailedCount > 0 ? UiMessageBoxImage.Warning : UiMessageBoxImage.Information);
 

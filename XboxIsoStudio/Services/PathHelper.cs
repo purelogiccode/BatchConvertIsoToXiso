@@ -1,5 +1,4 @@
-﻿using System.IO;
-using XboxIsoStudio.Interfaces;
+﻿using XboxIsoStudio.Interfaces;
 using Serilog;
 
 namespace XboxIsoStudio.Services;

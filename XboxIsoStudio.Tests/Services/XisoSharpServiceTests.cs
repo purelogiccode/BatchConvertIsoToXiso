@@ -105,7 +105,8 @@ public sealed class XisoSharpServiceTests : IDisposable
         File.WriteAllText(badIso, "this is not an xiso image");
         var service = CreateService();
 
-        var status = await service.ConvertIsoAsync(badIso, Path.Combine(_tempRoot, "out"), "bad.iso", OutputFormat.Xiso, false,
+        var status = await service.ConvertIsoAsync(badIso, Path.Combine(_tempRoot, "out"), "bad.iso", OutputFormat.Xiso,
+            false,
             false,
             new Progress<BatchOperationProgress>(), CancellationToken.None);
 

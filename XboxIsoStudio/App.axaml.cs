@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.IO;
-using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 using Avalonia;
@@ -15,7 +13,7 @@ using Serilog.Events;
 
 namespace XboxIsoStudio;
 
-public partial class App : Application
+public class App : Application
 {
     private const string BugReportApiUrl = "https://www.purelogiccode.com/bugreport/api/send-bug-report";
     private const string BugReportApiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
@@ -191,7 +189,7 @@ public partial class App : Application
         _desktop?.Shutdown(1);
     }
 
-    private void OnDesktopExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
+    private static void OnDesktopExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
         if (ServiceProvider is IDisposable disposable)
         {
@@ -212,10 +210,10 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
-        services.AddHttpClient("BugReport", static client => { client.BaseAddress = new Uri(BugReportApiUrl); })
+        services.AddHttpClient("BugReport", static client => client.BaseAddress = new Uri(BugReportApiUrl))
             .ConfigurePrimaryHttpMessageHandler(static () => new SocketsHttpHandler
                 { PooledConnectionLifetime = TimeSpan.FromMinutes(10) });
-        services.AddHttpClient("Stats", static client => { client.BaseAddress = new Uri(StatsApiUrl); })
+        services.AddHttpClient("Stats", static client => client.BaseAddress = new Uri(StatsApiUrl))
             .ConfigurePrimaryHttpMessageHandler(static () => new SocketsHttpHandler
                 { PooledConnectionLifetime = TimeSpan.FromMinutes(10) });
         services.AddHttpClient("UpdateChecker")

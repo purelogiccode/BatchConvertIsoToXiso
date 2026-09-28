@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
@@ -47,7 +46,7 @@ public partial class MainWindow : Window
     private string _currentInternalPath = "/";
 
     /// <summary>Set once the constructor finished so XAML-driven events can be ignored during load.</summary>
-    private bool _isUiInitialized;
+    private readonly bool _isUiInitialized;
 
     public MainWindow()
     {

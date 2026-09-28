@@ -1,4 +1,3 @@
-using System.IO;
 using XboxIsoStudio.Interfaces;
 using XboxIsoStudio.Models;
 using ZArchiveSharp;

@@ -2,20 +2,14 @@
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="About Xbox ISO Studio"
+        Icon="avares://XboxIsoStudio/icon/icon.png"
         Width="800"
         Height="700"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource WindowBackgroundBrush}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <Grid Margin="15">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+        <Grid Margin="15" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
 
             <!-- Logo Section -->
             <Border Grid.Row="0"
@@ -135,11 +129,7 @@
             </Border>
 
             <!-- Links & Close Section -->
-            <Grid Grid.Row="4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+            <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
 
                 <!-- Links -->
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">

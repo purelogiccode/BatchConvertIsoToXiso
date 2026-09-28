@@ -1,4 +1,3 @@
-using System.IO;
 using CHDSharp;
 using CHDSharp.Encoder;
 using CHDSharp.Encoder.Models;
@@ -21,6 +20,7 @@ public class ChdService : IChdService
 {
     /// <summary>chdman <c>createdvd</c> defaults: 4096-byte hunks, 2048-byte units.</summary>
     private const uint DvdHunkBytes = 4096;
+
     private const uint DvdUnitBytes = 2048;
 
     /// <summary>chdman <c>createdvd</c> default codec list (best ratio).</summary>

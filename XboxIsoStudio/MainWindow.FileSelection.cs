@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.IO;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using XboxIsoStudio.Models;
@@ -95,14 +94,14 @@ public partial class MainWindow
 
             var files = await Task.Run(() =>
             {
-                var options = new EnumerationOptions
+                var enumerationOptions = new EnumerationOptions
                 {
                     RecurseSubdirectories = searchSubfolders,
                     IgnoreInaccessible = true,
                     AttributesToSkip = FileAttributes.System | FileAttributes.Hidden
                 };
 
-                return Directory.GetFiles(inputFolder, "*.*", options)
+                return Directory.GetFiles(inputFolder, "*.*", enumerationOptions)
                     .Where(filter)
                     .Select(file => new FileItem
                     {

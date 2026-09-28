@@ -1,4 +1,3 @@
-using System.IO;
 using CHDSharp;
 using CHDSharp.Models;
 using XboxIsoStudio.Interfaces;

@@ -1,5 +1,4 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using XboxIsoStudio.Dialogs;
 using XboxIsoStudio.Interfaces;

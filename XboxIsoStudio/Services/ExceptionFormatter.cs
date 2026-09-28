@@ -33,7 +33,7 @@ public static class ExceptionFormatter
             {
                 sb.AppendLine(CultureInfo.InvariantCulture, $"{indent}Inner Exception:");
                 exception = exception.InnerException;
-                level += 1;
+                level++;
                 continue;
             }
 

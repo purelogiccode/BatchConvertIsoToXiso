@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.IO;
 
 namespace XboxIsoStudio.Services;
 
@@ -60,6 +59,6 @@ public static class SupportedFiles
         if (lastDot < 0) return false;
 
         return int.TryParse(stem.AsSpan(lastDot + 1), NumberStyles.None, CultureInfo.InvariantCulture,
-                   out var part) && part >= 2;
+            out var part) && part >= 2;
     }
 }

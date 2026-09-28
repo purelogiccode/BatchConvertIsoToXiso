@@ -1,7 +1,5 @@
 using System.Globalization;
-using System.IO;
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -37,7 +35,7 @@ public class ScreenshotService : IScreenshotService
         var window = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
             ?.MainWindow;
 
-        if (window is null || !window.IsVisible)
+        if (window?.IsVisible != true)
         {
             _logger.Information("Screenshot: No active window found.");
             return null;

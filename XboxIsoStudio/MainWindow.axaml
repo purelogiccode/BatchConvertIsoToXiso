@@ -2,27 +2,18 @@
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Xbox ISO Studio"
+        Icon="avares://XboxIsoStudio/icon/icon.png"
         Height="850" Width="1200" MinHeight="650" MinWidth="800"
         Closing="Window_Closing"
         Loaded="Window_LoadedAsync"
         KeyDown="Window_KeyDownAsync"
         WindowStartupLocation="CenterScreen">
 
-    <Grid Background="{StaticResource WindowBackgroundBrush}">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" /> <!-- 0: Header -->
-            <RowDefinition Height="*" />    <!-- 1: Main Content -->
-            <RowDefinition Height="Auto" /> <!-- 2: StatusBar -->
-        </Grid.RowDefinitions>
+    <Grid Background="{StaticResource WindowBackgroundBrush}" RowDefinitions="Auto,*,Auto">
 
         <!-- Header (RomValidator Style) -->
         <Border Grid.Row="0" Background="{StaticResource HeaderBackgroundBrush}" Padding="15">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+            <Grid ColumnDefinitions="Auto,*,Auto">
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <TextBlock Text="Xbox ISO Studio" FontSize="20" FontWeight="Bold" Foreground="{StaticResource HeaderTextBrush}" VerticalAlignment="Center" Margin="0,0,30,0" ToolTip.Tip="Xbox ISO Studio — Xbox preservation utility" />
                     <Button x:Name="BtnNavConvert" Content="Convert" Click="NavConvert_Click" Theme="{StaticResource MenuButtonStyle}" ToolTip.Tip="Switch to the ISO to XISO batch conversion view" />
@@ -38,12 +29,7 @@
         </Border>
 
         <!-- Main Content Area -->
-        <Grid Grid.Row="1" Margin="10">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />    <!-- 0: Controls (left) + Log/Explorer (right) -->
-                <RowDefinition Height="Auto" /> <!-- 1: Stats -->
-                <RowDefinition Height="Auto" /> <!-- 2: Progress -->
-            </Grid.RowDefinitions>
+        <Grid Grid.Row="1" Margin="10" RowDefinitions="*,Auto,Auto">
 
             <Grid x:Name="ContentGrid" Grid.Row="0">
                 <Grid.ColumnDefinitions>
@@ -56,28 +42,13 @@
                 <Border x:Name="ControlsBorder" Grid.Column="0" Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="15" Margin="0,0,10,0">
                     <Grid>
                     <!-- Conversion View -->
-                    <Grid x:Name="ConvertView">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" /> <!-- 0: Source folder -->
-                            <RowDefinition Height="Auto" /> <!-- 1: Output folder -->
-                            <RowDefinition Height="Auto" /> <!-- 2: Options -->
-                            <RowDefinition Height="Auto" /> <!-- 3: File list label -->
-                            <RowDefinition Height="*" />    <!-- 4: File list -->
-                            <RowDefinition Height="Auto" /> <!-- 5: Select buttons -->
-                            <RowDefinition Height="Auto" /> <!-- 6: Start button -->
-                        </Grid.RowDefinitions>
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="150" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                    <Grid x:Name="ConvertView" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto">
+                        <Grid Margin="0,0,0,10" ColumnDefinitions="150,*,Auto">
                             <Label Content="Source Folder:" ToolTip.Tip="The folder containing ISO, ZIP, RAR, or 7z files to convert" />
                             <TextBox x:Name="ConversionInputFolderTextBox" Grid.Column="1" IsReadOnly="True" Margin="5,0" ToolTip.Tip="Select the folder containing ISO or archive files" />
                             <Button Grid.Column="2" Content="Browse..." Click="BrowseConversionInputButton_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for source folder" />
                         </Grid>
-                        <Grid Grid.Row="1" Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="150" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                        <Grid Grid.Row="1" Margin="0,0,0,10" ColumnDefinitions="150,*,Auto">
                             <Label Content="Output Folder:" ToolTip.Tip="The folder where converted files will be saved" />
                             <TextBox x:Name="ConversionOutputFolderTextBox" Grid.Column="1" IsReadOnly="True" Margin="5,0" ToolTip.Tip="Select the output folder for converted files" />
                             <Button Grid.Column="2" Content="Browse..." Click="BrowseConversionOutputButton_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for output folder" />
@@ -100,7 +71,7 @@
                         <Label Grid.Row="3" Content="Select Files to Convert:" Margin="0,5,0,0" FontWeight="SemiBold" ToolTip.Tip="Tick the files to include in the batch conversion" />
                         <DataGrid x:Name="ConversionFilesDataGrid" Grid.Row="4" MinHeight="120" Margin="0,5" AutoGenerateColumns="False" Classes="FileList" ToolTip.Tip="Files found in the source folder. Untick any file you do not want to convert.">
                             <DataGrid.Columns>
-                                <DataGridCheckBoxColumn Header="Selected" Binding="{Binding IsSelected, Mode=TwoWay}" Width="80" />
+                                <DataGridCheckBoxColumn Header="Selected" Binding="{Binding IsSelected, Mode=TwoWay}" Width="95" />
                                 <DataGridTextColumn Header="Filename" Binding="{Binding FileName}" Width="*" IsReadOnly="True" />
                                 <DataGridTextColumn Header="Size" Binding="{Binding DisplaySize}" Width="110" IsReadOnly="True" />
                             </DataGrid.Columns>
@@ -113,19 +84,8 @@
                     </Grid>
 
                     <!-- Test View (Hidden by default) -->
-                    <Grid x:Name="TestView" IsVisible="False">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" /> <!-- 0: ISO folder -->
-                            <RowDefinition Height="Auto" /> <!-- 1: Options -->
-                            <RowDefinition Height="Auto" /> <!-- 2: File list label -->
-                            <RowDefinition Height="*" />    <!-- 3: File list -->
-                            <RowDefinition Height="Auto" /> <!-- 4: Select buttons -->
-                            <RowDefinition Height="Auto" /> <!-- 5: Start button -->
-                        </Grid.RowDefinitions>
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="150" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                    <Grid x:Name="TestView" IsVisible="False" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+                        <Grid Margin="0,0,0,10" ColumnDefinitions="150,*,Auto">
                             <Label Content="Image Folder:" ToolTip.Tip="The folder containing ISO, CSO, ZAR, or CHD files to test for structural integrity" />
                             <TextBox x:Name="TestInputFolderTextBox" Grid.Column="1" IsReadOnly="True" Margin="5,0" ToolTip.Tip="Select the folder containing ISO, CSO, ZAR, or CHD files to test" />
                             <Button Grid.Column="2" Content="Browse..." Click="BrowseTestInputButton_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for image folder" />
@@ -141,7 +101,7 @@
                         <Label Grid.Row="2" Content="Select Files to Test:" Margin="0,5,0,0" FontWeight="SemiBold" ToolTip.Tip="Tick the ISO, CSO, ZAR, or CHD files to include in the integrity test" />
                         <DataGrid x:Name="TestFilesDataGrid" Grid.Row="3" MinHeight="120" Margin="0,5" AutoGenerateColumns="False" Classes="FileList" ToolTip.Tip="ISO, CSO, ZAR, and CHD files found in the folder. Untick any file you do not want to test.">
                             <DataGrid.Columns>
-                                <DataGridCheckBoxColumn Header="Selected" Binding="{Binding IsSelected, Mode=TwoWay}" Width="80" />
+                                <DataGridCheckBoxColumn Header="Selected" Binding="{Binding IsSelected, Mode=TwoWay}" Width="95" />
                                 <DataGridTextColumn Header="Filename" Binding="{Binding FileName}" Width="*" IsReadOnly="True" />
                                 <DataGridTextColumn Header="Size" Binding="{Binding DisplaySize}" Width="110" IsReadOnly="True" />
                             </DataGrid.Columns>
@@ -154,26 +114,15 @@
                     </Grid>
 
                     <!-- Explorer View: file picker with the explorer below it -->
-                    <Grid x:Name="ExplorerHeaderView" IsVisible="False">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" /> <!-- 0: File picker -->
-                            <RowDefinition Height="*" />    <!-- 1: Explorer -->
-                        </Grid.RowDefinitions>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="150" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                    <Grid x:Name="ExplorerHeaderView" IsVisible="False" RowDefinitions="Auto,*">
+                        <Grid ColumnDefinitions="150,*,Auto">
                             <Label Content="Select Image File:" ToolTip.Tip="Choose an ISO, CSO, ZAR, or CHD file to browse its internal file system" />
                             <TextBox x:Name="ExplorerFilePathTextBox" Grid.Column="1" IsReadOnly="True" Margin="5,0" ToolTip.Tip="Select an Xbox image to explore its contents" />
                             <Button Content="Browse..." Grid.Column="2" Click="BrowseExplorerFile_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for an Xbox image" />
                         </Grid>
 
                         <Border x:Name="ExplorerBorder" Grid.Row="1" Margin="0,10,0,0" BorderBrush="{StaticResource TerminalBorderBrush}" BorderThickness="2" CornerRadius="4" Background="{StaticResource TerminalBackgroundBrush}" Padding="10">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" /> <!-- Navigation Bar -->
-                                    <RowDefinition Height="*" />    <!-- File List -->
-                                </Grid.RowDefinitions>
+                            <Grid RowDefinitions="Auto,*">
 
                                 <!-- Navigation Bar -->
                                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,5">
@@ -193,7 +142,7 @@
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <StackPanel Orientation="Horizontal">
-                                                        <TextBlock Text="{Binding IsDirectory, Converter={StaticResource FolderIconConverter}}" Margin="0,0,5,0" Foreground="{StaticResource TerminalForegroundBrush}" />
+                                                        <TextBlock Text="{Binding IsDirectory, Converter={StaticResource FolderIconConverter}}" Margin="0,0,5,0" FontFamily="Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji" Foreground="{StaticResource TerminalForegroundBrush}" />
                                                         <TextBlock Text="{Binding Name}" Foreground="{StaticResource TerminalForegroundBrush}" />
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -236,16 +185,7 @@
             </Grid>
 
             <!-- 2. Stats Panel -->
-            <Grid x:Name="StatsPanel" Grid.Row="1" Margin="0,10,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <Grid x:Name="StatsPanel" Grid.Row="1" Margin="0,10,0,0" ColumnDefinitions="*,*,*,*,*,*,*">
                 <Border Grid.Column="0" Theme="{StaticResource StatsCardBorderStyle}" ToolTip.Tip="Total number of files processed in the current batch operation">
                     <StackPanel>
                         <TextBlock Text="Total Files:" Theme="{StaticResource StatsLabelStyle}"/>
@@ -297,10 +237,7 @@
             </Grid>
 
             <!-- 3. Progress Area -->
-            <Grid x:Name="ProgressAreaGrid" Grid.Row="2" Margin="0,10,0,0" IsVisible="False">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+            <Grid x:Name="ProgressAreaGrid" Grid.Row="2" Margin="0,10,0,0" IsVisible="False" ColumnDefinitions="*,Auto">
                 <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="1" Background="{StaticResource CardBackgroundBrush}">
                     <Grid>
                         <ProgressBar x:Name="ProgressBar" Height="24" Foreground="{StaticResource ProgressForegroundBrush}" Background="{StaticResource ProgressBackgroundBrush}" BorderThickness="0" ToolTip.Tip="Progress of the current batch operation" />

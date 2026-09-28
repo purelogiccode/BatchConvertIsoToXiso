@@ -9,12 +9,12 @@ namespace XboxIsoStudio.Services;
 /// </summary>
 public class FolderIconConverter : IValueConverter
 {
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         return value is true ? "📁" : "📄";
     }
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotSupportedException("FolderIconConverter is a one-way converter.");
     }
