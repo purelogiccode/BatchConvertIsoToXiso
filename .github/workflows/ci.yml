@@ -25,21 +25,21 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore CSharp_BatchConvertIsoToXiso.sln
+        run: dotnet restore CSharp_XboxIsoStudio.sln
 
       - name: Build (Release)
-        run: dotnet build CSharp_BatchConvertIsoToXiso.sln -c Release --no-restore
+        run: dotnet build CSharp_XboxIsoStudio.sln -c Release --no-restore
 
       - name: Test
-        run: dotnet test CSharp_BatchConvertIsoToXiso.sln -c Release --no-build --logger "console;verbosity=minimal"
+        run: dotnet test CSharp_XboxIsoStudio.sln -c Release --no-build --logger "console;verbosity=minimal"
 
       - name: Publish win-x64
         if: github.event_name != 'pull_request'
-        run: dotnet publish BatchConvertIsoToXiso -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o artifacts/win-x64
+        run: dotnet publish XboxIsoStudio -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o artifacts/win-x64
 
       - name: Publish win-arm64
         if: github.event_name != 'pull_request'
-        run: dotnet publish BatchConvertIsoToXiso -c Release -r win-arm64 --self-contained false -p:PublishSingleFile=true -o artifacts/win-arm64
+        run: dotnet publish XboxIsoStudio -c Release -r win-arm64 --self-contained false -p:PublishSingleFile=true -o artifacts/win-arm64
 
       - name: Upload win-x64 artifact
         if: github.event_name != 'pull_request'

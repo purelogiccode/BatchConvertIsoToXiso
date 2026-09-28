@@ -13,8 +13,8 @@ The application is a WPF (.NET 10, `net10.0-windows`) desktop app built on moder
 ## Solution Layout
 
 ```text
-CSharp_BatchConvertIsoToXiso.sln
-├── BatchConvertIsoToXiso/               Main WPF application
+CSharp_XboxIsoStudio.sln
+├── XboxIsoStudio/               Main WPF application
 │   ├── App.xaml(.cs)                    Entry point, DI composition, global error handlers
 │   ├── MainWindow.xaml(.cs)             Shell window + navigation
 │   ├── MainWindow.ConversionAndTesting.cs   Convert/Test workflows (UI layer)
@@ -43,7 +43,7 @@ CSharp_BatchConvertIsoToXiso.sln
 │       ├── StatsService.cs              Anonymous usage statistics client
 │       ├── UpdateChecker.cs             GitHub release update checks
 │       └── ...                          Formatting, path helpers, etc.
-└── BatchConvertIsoToXiso.Tests/         xUnit + Moq test suite
+└── XboxIsoStudio.Tests/         xUnit + Moq test suite
 ```
 
 Bundled helper executables (`7za.exe`, `7za_arm64.exe`) are copied to the output directory and invoked as isolated child processes. All XISO encoding and decoding is performed in-process by the `XISOSharp` NuGet package.
@@ -113,7 +113,7 @@ Safety characteristics of the pipeline:
 Logging uses a single [Serilog](https://serilog.net/) pipeline configured in `App` with three sinks:
 
 1. **UI** (`UiLogSink`) — timestamped lines in the on-screen log pane.
-2. **File** — rolling daily log at `%LocalAppData%\BatchConvertIsoToXiso\logs\log-*.txt` (10 MB per file, 14 files retained) with level and exception details.
+2. **File** — rolling daily log at `%LocalAppData%\XboxIsoStudio\logs\log-*.txt` (10 MB per file, 14 files retained) with level and exception details.
 3. **Bug report** (`BugReportSink`) — every event at **Warning or higher** is forwarded to the bug report API (fire-and-forget, never throws).
 
 Services inject `Serilog.ILogger` and log with structured message templates. Expected user/environmental errors are logged at Information level so they do not generate bug reports; genuine defects log at Warning/Error/Fatal.
@@ -140,10 +140,10 @@ Three layers of defense:
 
 ## Testing
 
-The `BatchConvertIsoToXiso.Tests` project (xUnit, Moq) covers models, services, and helper utilities:
+The `XboxIsoStudio.Tests` project (xUnit, Moq) covers models, services, and helper utilities:
 
 ```bash
-dotnet test CSharp_BatchConvertIsoToXiso.sln
+dotnet test CSharp_XboxIsoStudio.sln
 ```
 
 The suite includes service tests (e.g., `OrchestratorServiceTests`, `FileExtractorServiceTests`, `XisoSharpServiceTests`, `XisoIntegrityServiceTests`) plus model and helper coverage. Analyzers (Meziantou, Roslynator) enforce code quality on both projects.

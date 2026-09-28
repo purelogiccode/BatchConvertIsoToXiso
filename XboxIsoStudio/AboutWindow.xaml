@@ -1,0 +1,176 @@
+<Window x:Class="XboxIsoStudio.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About Xbox ISO Studio"
+        Width="800"
+        Height="700"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource WindowBackgroundBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="15">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Logo Section -->
+            <Border Grid.Row="0"
+                    Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Margin="0,0,0,15"
+                    Padding="15">
+                <StackPanel HorizontalAlignment="Center">
+                    <Image Width="120"
+                           Height="120"
+                           Source="pack://application:,,,/images/logo.png"
+                           ToolTip="Xbox ISO Studio application logo" />
+                </StackPanel>
+            </Border>
+
+            <!-- Title & Version Section -->
+            <Border Grid.Row="1"
+                    Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Margin="0,0,0,15"
+                    Padding="20">
+                <StackPanel>
+                    <TextBlock FontWeight="Bold"
+                               FontSize="22"
+                               Foreground="{StaticResource HeaderTextBrush}"
+                               Text="Xbox ISO Studio"
+                               HorizontalAlignment="Center"
+                               ToolTip="A high-performance Windows WPF utility for Xbox preservation and emulation" />
+                    <TextBlock Name="AppVersionTextBlock"
+                               Margin="0,8,0,0"
+                               Text=""
+                               HorizontalAlignment="Center"
+                               Foreground="{StaticResource PrimaryAccentBrush}"
+                               FontWeight="SemiBold"
+                               FontSize="14"
+                               ToolTip="Current application version" />
+                </StackPanel>
+            </Border>
+
+            <!-- Description Section -->
+            <Border Grid.Row="2"
+                    Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Margin="0,0,0,15"
+                    Padding="20">
+                <StackPanel>
+                    <TextBlock FontWeight="Bold"
+                               FontSize="14"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Text="Description"
+                               Margin="0,0,0,10"
+                               ToolTip="About Xbox ISO Studio" />
+                    <TextBlock Text="A high-performance Windows WPF utility for the Xbox preservation and emulation community. This application streamlines the process of converting standard Xbox and Xbox 360 ISOs into the optimized, trimmed XISO format."
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               LineHeight="20"
+                               Margin="0,0,0,12"
+                               ToolTip="Xbox ISO Studio converts Xbox/Xbox 360 ISOs into trimmed XISO format, saving space while preserving content" />
+                    <TextBlock
+                        Text="Features include batch conversion powered by the XISOSharp library, integrity testing with deep scanning for ISO, CSO, and ZAR images, and an image explorer with drag-and-drop extraction."
+                        Foreground="{StaticResource TextSecondaryBrush}"
+                        TextWrapping="Wrap"
+                        LineHeight="20"
+                        ToolTip="Key features: XISOSharp-powered batch conversion, ISO/CSO/ZAR integrity testing with deep scan, and an image explorer with drag-and-drop extraction" />
+                </StackPanel>
+            </Border>
+
+            <!-- Acknowledgements Section -->
+            <Border Grid.Row="3"
+                    Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Margin="0,0,0,15"
+                    Padding="20">
+                <StackPanel>
+                    <TextBlock FontWeight="Bold"
+                               FontSize="14"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Text="Acknowledgements"
+                               Margin="0,0,0,10"
+                               ToolTip="Open-source projects and tools used by this application" />
+                    <TextBlock Text="This application uses the following open-source projects and tools:"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12"
+                               ToolTip="Click any link to visit the project's GitHub repository" />
+
+                    <StackPanel Margin="10,0,0,0">
+                        <TextBlock Margin="0,0,0,8" ToolTip="Visit XISOSharp on GitHub — the library that powers all XISO reading, writing, and conversion">
+                            <Hyperlink NavigateUri="https://github.com/purelogiccode/XISOSharp"
+                                       RequestNavigate="Hyperlink_RequestNavigate"
+                                       Foreground="{StaticResource LinkTextBrush}"
+                                       TextDecorations="Underline">
+                                XISOSharp
+                            </Hyperlink>
+                            <Run Text=" - XISO/XDVDFS reading, writing, and conversion library" Foreground="{StaticResource TextMutedBrush}" />
+                        </TextBlock>
+
+                        <TextBlock Margin="0,0,0,8" ToolTip="Visit SharpCompress on GitHub — high-performance archive extraction library">
+                            <Hyperlink NavigateUri="https://github.com/adamhathcock/sharpcompress"
+                                       RequestNavigate="Hyperlink_RequestNavigate"
+                                       Foreground="{StaticResource LinkTextBrush}"
+                                       TextDecorations="Underline">
+                                SharpCompress
+                            </Hyperlink>
+                            <Run Text=" - High-performance archive extraction" Foreground="{StaticResource TextMutedBrush}" />
+                        </TextBlock>
+
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Links & Close Section -->
+            <Grid Grid.Row="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Links -->
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock ToolTip="Visit the official website: www.purelogiccode.com">
+                        <Hyperlink NavigateUri="https://www.purelogiccode.com"
+                                   RequestNavigate="Hyperlink_RequestNavigate"
+                                   Foreground="{StaticResource LinkTextBrush}"
+                                   TextDecorations="Underline">
+                            www.purelogiccode.com
+                        </Hyperlink>
+                    </TextBlock>
+                    <TextBlock Margin="0,4,0,0" ToolTip="Visit the project's GitHub repository">
+                        <Hyperlink NavigateUri="https://github.com/purelogiccode/XboxIsoStudio"
+                                   RequestNavigate="Hyperlink_RequestNavigate"
+                                   Foreground="{StaticResource LinkTextBrush}"
+                                   TextDecorations="Underline">
+                            GitHub Repository
+                        </Hyperlink>
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- Close Button -->
+                <Button Grid.Column="1"
+                        Width="100"
+                        Height="36"
+                        Click="CloseButton_Click"
+                        Content="Close"
+                        Style="{StaticResource ActionButtonStyle}"
+                        ToolTip="Close the about window" />
+            </Grid>
+        </Grid>
+    </ScrollViewer>
+</Window>

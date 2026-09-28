@@ -31,9 +31,9 @@
 
 The application is **fully portable** — there is no installer and no registry footprint.
 
-1. Download the latest release from the [Releases](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases) page.
-2. Extract the ZIP file to any folder on a local drive (for example `C:\Tools\BatchConvertIsoToXiso`).
-3. Run `BatchConvertIsoToXiso.exe`.
+1. Download the latest release from the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page.
+2. Extract the ZIP file to any folder on a local drive (for example `C:\Tools\XboxIsoStudio`).
+3. Run `XboxIsoStudio.exe`.
 
 > **Tip:** Avoid placing the application inside `C:\Program Files` or other protected folders. Writing to protected locations requires elevation and can prevent the application from replacing originals, moving files, or writing its logs. See [Troubleshooting — Access Denied](Troubleshooting-and-FAQ.md#access-to-the-path-is-denied).
 
@@ -45,7 +45,7 @@ After extraction, the application folder contains:
 
 | File | Purpose |
 |:---|:---|
-| `BatchConvertIsoToXiso.exe` | The main application (XISOSharp conversion engine is built in) |
+| `XboxIsoStudio.exe` | The main application (XISOSharp conversion engine is built in) |
 | `7za.exe` / `7za_arm64.exe` | 7-Zip CLI fallback used for complex or password-protected `.7z` archives |
 
 Do not delete or rename the bundled helper executables — the corresponding features will fail if they are missing.
@@ -59,7 +59,7 @@ The application targets **.NET 10.0** (Windows Desktop). If it fails to start wi
 1. Download and install the **.NET 10.0 Desktop Runtime** for your architecture from <https://dotnet.microsoft.com/download/dotnet/10.0>.
 2. Re-launch the application.
 
-Alternatively, some releases may be published as self-contained builds that bundle the runtime — check the release notes on the [Releases](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases) page.
+Alternatively, some releases may be published as self-contained builds that bundle the runtime — check the release notes on the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page.
 
 ---
 

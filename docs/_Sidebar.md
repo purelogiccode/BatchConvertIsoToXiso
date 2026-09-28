@@ -1,4 +1,4 @@
-**Batch ISO to XISO Converter**
+**Xbox ISO Studio**
 
 - [Home](index)
 - [Installation](Installation)
@@ -23,9 +23,9 @@
 
 **Releases**
 
-- [What's New](https://github.com/purelogiccode/BatchConvertIsoToXiso/blob/master/WhatsNew.md)
-- [GitHub Releases](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases)
+- [What's New](https://github.com/purelogiccode/XboxIsoStudio/blob/master/WhatsNew.md)
+- [GitHub Releases](https://github.com/purelogiccode/XboxIsoStudio/releases)
 
 ---
 
-<https://github.com/purelogiccode/BatchConvertIsoToXiso>
+<https://github.com/purelogiccode/XboxIsoStudio>

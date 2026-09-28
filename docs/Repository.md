@@ -10,11 +10,11 @@
 
 This page describes the repository itself: where things live, how releases are managed, and how to contribute.
 
-- **Repository:** <https://github.com/purelogiccode/BatchConvertIsoToXiso>
-- **Issues:** <https://github.com/purelogiccode/BatchConvertIsoToXiso/issues>
-- **Releases:** <https://github.com/purelogiccode/BatchConvertIsoToXiso/releases>
+- **Repository:** <https://github.com/purelogiccode/XboxIsoStudio>
+- **Issues:** <https://github.com/purelogiccode/XboxIsoStudio/issues>
+- **Releases:** <https://github.com/purelogiccode/XboxIsoStudio/releases>
 - **Website:** <https://www.purelogiccode.com>
-- **License:** [GNU GPL v3.0](https://github.com/purelogiccode/BatchConvertIsoToXiso/blob/master/LICENSE.txt)
+- **License:** [GNU GPL v3.0](https://github.com/purelogiccode/XboxIsoStudio/blob/master/LICENSE.txt)
 
 ---
 
@@ -34,7 +34,7 @@ This page describes the repository itself: where things live, how releases are m
 │   ├── Release-Notes.md                   Full version history
 │   ├── Repository.md                      This page
 │   └── _Sidebar.md                        Sidebar menu (GitHub wiki)
-├── BatchConvertIsoToXiso/                 Main WPF application project
+├── XboxIsoStudio/                 Main WPF application project
 │   ├── Interfaces/                        Service contracts
 │   ├── Models/                            DTOs and enums
 │   ├── Services/                          All business logic
@@ -43,9 +43,9 @@ This page describes the repository itself: where things live, how releases are m
 │   │   └── ImageExplorerFactory.cs        Explorer over ISO/CSO (XisoExplorer) or ZAR (ZArchiveReader)
 │   ├── MainWindow*.cs                     Partial classes for the main window
 │   ├── 7za.exe, 7za_arm64.exe             Bundled helper tools
-│   └── BatchConvertIsoToXiso.csproj
-├── BatchConvertIsoToXiso.Tests/           xUnit + Moq test project
-├── CSharp_BatchConvertIsoToXiso.sln       Solution file
+│   └── XboxIsoStudio.csproj
+├── XboxIsoStudio.Tests/           xUnit + Moq test project
+├── CSharp_XboxIsoStudio.sln       Solution file
 ├── global.json                            Pins the .NET SDK version
 ├── ReadMe.md                              Repository front page
 ├── WhatsNew.md                            Highlights of the latest release
@@ -56,7 +56,7 @@ This page describes the repository itself: where things live, how releases are m
 ## Branching and Releases
 
 - The primary branch is **`master`**.
-- **Releases** are tagged on GitHub and published on the [Releases](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases) page with ready-to-run ZIP archives.
+- **Releases** are tagged on GitHub and published on the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page with ready-to-run ZIP archives.
 - **Versioning:** `MAJOR.MINOR.PATCH` (currently 2.9.0). Releases are tagged `release_MAJOR.MINOR.PATCH` (for example `release_2.8.0`). The application's update checker extracts the numeric version from the latest release tag, so keep the `MAJOR.MINOR.PATCH` part intact.
 
 ## Contributing
@@ -66,7 +66,7 @@ Contributions are welcome!
 ### Reporting Bugs
 
 1. Check [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) first — many reported issues are environmental (disk space, permissions, antivirus locks) and already handled with clear messages.
-2. Search existing [issues](https://github.com/purelogiccode/BatchConvertIsoToXiso/issues) to avoid duplicates.
+2. Search existing [issues](https://github.com/purelogiccode/XboxIsoStudio/issues) to avoid duplicates.
 3. Open a new issue including:
    - Application version (visible in the About window)
    - Windows version and architecture (x64/ARM64)
@@ -77,12 +77,12 @@ Contributions are welcome!
 
 1. Fork the repository and create a feature branch from `master`.
 2. Follow the existing code style — the build enforces **Meziantou** and **Roslynator** analyzer rules as warnings; keep the build clean.
-3. Add or update tests in `BatchConvertIsoToXiso.Tests` for behavioral changes.
+3. Add or update tests in `XboxIsoStudio.Tests` for behavioral changes.
 4. Verify with:
 
    ```bash
-   dotnet build CSharp_BatchConvertIsoToXiso.sln
-   dotnet test CSharp_BatchConvertIsoToXiso.sln
+   dotnet build CSharp_XboxIsoStudio.sln
+   dotnet test CSharp_XboxIsoStudio.sln
    ```
 
 5. Open a pull request describing the motivation and the change.
@@ -109,11 +109,11 @@ When adding features, please update the relevant documentation pages in the same
 | **CI** (`.github/workflows/ci.yml`) | Push / PR to `master` | Restores, builds in Release, runs the xUnit suite, and uploads portable `win-x64` / `win-arm64` publish artifacts |
 | **Update Wiki** (`.github/workflows/wiki.yml`) | Push to `docs/**` (or manual) | Copies the documentation into the GitHub wiki and rewrites internal links. Requires a `WIKI_TOKEN` repository secret (PAT with `repo` scope); skips with a notice when the secret is absent |
 
-**GitHub Pages** is built automatically by GitHub from the `master` branch `/docs` folder and is published at <https://purelogiccode.github.io/BatchConvertIsoToXiso/> — no workflow is required for it.
+**GitHub Pages** is built automatically by GitHub from the `master` branch `/docs` folder and is published at <https://purelogiccode.github.io/XboxIsoStudio/> — no workflow is required for it.
 
 ## License
 
-This project is licensed under the **GNU General Public License v3.0** — see [LICENSE.txt](https://github.com/purelogiccode/BatchConvertIsoToXiso/blob/master/LICENSE.txt) for the full text. By contributing, you agree that your contributions are licensed under the same license.
+This project is licensed under the **GNU General Public License v3.0** — see [LICENSE.txt](https://github.com/purelogiccode/XboxIsoStudio/blob/master/LICENSE.txt) for the full text. By contributing, you agree that your contributions are licensed under the same license.
 
 ## Acknowledgements
 

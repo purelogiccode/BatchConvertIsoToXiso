@@ -25,8 +25,8 @@ dotnet --version
 ## Cloning
 
 ```bash
-git clone https://github.com/purelogiccode/BatchConvertIsoToXiso.git
-cd BatchConvertIsoToXiso
+git clone https://github.com/purelogiccode/XboxIsoStudio.git
+cd XboxIsoStudio
 ```
 
 ## Building
@@ -34,13 +34,13 @@ cd BatchConvertIsoToXiso
 Build the full solution (application + test project):
 
 ```bash
-dotnet build CSharp_BatchConvertIsoToXiso.sln
+dotnet build CSharp_XboxIsoStudio.sln
 ```
 
 Or build and run the application directly:
 
 ```bash
-dotnet run --project BatchConvertIsoToXiso
+dotnet run --project XboxIsoStudio
 ```
 
 ### Bundled Helper Tools
@@ -56,7 +56,7 @@ These are committed to the repository, so no extra download steps are needed.
 The test suite uses xUnit with Moq:
 
 ```bash
-dotnet test CSharp_BatchConvertIsoToXiso.sln
+dotnet test CSharp_XboxIsoStudio.sln
 ```
 
 The suite covers models, services (orchestrator, XISO conversion, integrity, extractor, movers, path helpers, update checker, and more).
@@ -70,20 +70,20 @@ Both projects enforce analyzer rules (**Meziantou.Analyzer**, **Roslynator**) as
 Example for a framework-dependent x64 publish:
 
 ```bash
-dotnet publish BatchConvertIsoToXiso -c Release -r win-x64 --self-contained false
+dotnet publish XboxIsoStudio -c Release -r win-x64 --self-contained false
 ```
 
 For a self-contained single-folder build (no .NET runtime requirement for end users):
 
 ```bash
-dotnet publish BatchConvertIsoToXiso -c Release -r win-x64 --self-contained true
+dotnet publish XboxIsoStudio -c Release -r win-x64 --self-contained true
 ```
 
-Use `-r win-arm64` for ARM64 builds. Ensure the bundled executables end up next to the published `BatchConvertIsoToXiso.exe`.
+Use `-r win-arm64` for ARM64 builds. Ensure the bundled executables end up next to the published `XboxIsoStudio.exe`.
 
 ## Project Notes
 
 - **Target framework:** `net10.0-windows` with `<UseWPF>true</UseWPF>`.
 - **Nullable + implicit usings** are enabled.
 - The `References/` folder (vendored sources such as the xdvdfs Rust workspace, if present) is excluded from compilation.
-- Version numbers are maintained in `BatchConvertIsoToXiso.csproj` (`AssemblyVersion` / `FileVersion`); the update checker compares against GitHub release tags.
+- Version numbers are maintained in `XboxIsoStudio.csproj` (`AssemblyVersion` / `FileVersion`); the update checker compares against GitHub release tags.

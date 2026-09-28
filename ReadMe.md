@@ -1,22 +1,22 @@
-# Batch ISO to XISO Converter
+# Xbox ISO Studio
 
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6.svg?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/XboxIsoStudio/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
-[![GitHub release](https://img.shields.io/github/v/release/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases)
-[![GitHub release date](https://img.shields.io/github/release-date/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases)
-[![Downloads](https://img.shields.io/github/downloads/purelogiccode/BatchConvertIsoToXiso/total)](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases)
-[![GitHub stars](https://img.shields.io/github/stars/purelogiccode/BatchConvertIsoToXiso?style=social)](https://github.com/purelogiccode/BatchConvertIsoToXiso/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/purelogiccode/BatchConvertIsoToXiso?style=social)](https://github.com/purelogiccode/BatchConvertIsoToXiso/forks)
-[![GitHub issues](https://img.shields.io/github/issues/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso/issues)
-[![GitHub last commit](https://img.shields.io/github/last-commit/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso/commits/master)
-[![Repo size](https://img.shields.io/github/repo-size/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso)
-[![Top language](https://img.shields.io/github/languages/top/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso)
-[![CI](https://github.com/purelogiccode/BatchConvertIsoToXiso/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/BatchConvertIsoToXiso/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-purelogiccode.github.io-blue)](https://purelogiccode.github.io/BatchConvertIsoToXiso/)
-[![Wiki](https://img.shields.io/badge/wiki-GitHub-181717?logo=github)](https://github.com/purelogiccode/BatchConvertIsoToXiso/wiki)
+[![GitHub release](https://img.shields.io/github/v/release/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio/releases)
+[![GitHub release date](https://img.shields.io/github/release-date/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio/releases)
+[![Downloads](https://img.shields.io/github/downloads/purelogiccode/XboxIsoStudio/total)](https://github.com/purelogiccode/XboxIsoStudio/releases)
+[![GitHub stars](https://img.shields.io/github/stars/purelogiccode/XboxIsoStudio?style=social)](https://github.com/purelogiccode/XboxIsoStudio/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/purelogiccode/XboxIsoStudio?style=social)](https://github.com/purelogiccode/XboxIsoStudio/forks)
+[![GitHub issues](https://img.shields.io/github/issues/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio/issues)
+[![GitHub last commit](https://img.shields.io/github/last-commit/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio/commits/master)
+[![Repo size](https://img.shields.io/github/repo-size/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio)
+[![Top language](https://img.shields.io/github/languages/top/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio)
+[![CI](https://github.com/purelogiccode/XboxIsoStudio/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/XboxIsoStudio/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-purelogiccode.github.io-blue)](https://purelogiccode.github.io/XboxIsoStudio/)
+[![Wiki](https://img.shields.io/badge/wiki-GitHub-181717?logo=github)](https://github.com/purelogiccode/XboxIsoStudio/wiki)
 [![Powered by XISOSharp](https://img.shields.io/badge/Powered%20by-XISOSharp-8A2BE2.svg)](https://github.com/purelogiccode/XISOSharp)
 [![Code analyzers](https://img.shields.io/badge/analyzers-Meziantou%20%7C%20Roslynator-blueviolet)](docs/Architecture.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/Repository.md#contributing)
@@ -44,7 +44,7 @@ A high-performance Windows WPF utility for the Xbox preservation and emulation c
 
 ## Overview
 
-**Batch ISO to XISO Converter** streamlines the process of converting standard Xbox and Xbox 360 ISOs into the optimized, trimmed **XISO** format. All encoding and decoding is delegated to the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library, which repacks the XDVDFS game partition, delivering superior performance and modern features like real-time disk write monitoring.
+**Xbox ISO Studio** streamlines the process of converting standard Xbox and Xbox 360 ISOs into the optimized, trimmed **XISO** format. All encoding and decoding is delegated to the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library, which repacks the XDVDFS game partition, delivering superior performance and modern features like real-time disk write monitoring.
 
 Whether you're managing a large collection of Xbox game backups or verifying the integrity of your dumps, this application provides a user-friendly interface with powerful batch processing capabilities.
 
@@ -54,7 +54,7 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 
 ### v2.9.0 — structured logging, file selection & output formats
 
-- **Serilog pipeline** — all logging now runs through [Serilog](https://serilog.net/): the on-screen viewer, a rolling daily log file (`%LocalAppData%\BatchConvertIsoToXiso\logs`), and automatic forwarding of every Warning-or-higher event to the bug report API.
+- **Serilog pipeline** — all logging now runs through [Serilog](https://serilog.net/): the on-screen viewer, a rolling daily log file (`%LocalAppData%\XboxIsoStudio\logs`), and automatic forwarding of every Warning-or-higher event to the bug report API.
 - **Complete bug reports** — every report includes Environment Details (app name/version, OS and Windows version, architecture, bitness, processor count, base directory, temp path), Error Details, and Exception Details (type, message, source, stack trace, including nested exceptions).
 - **Quieter and more reliable** — expected user/environmental errors log at Information level so they never generate spurious reports, and previously silent `catch` blocks now log at an appropriate level.
 - **Selectable file lists** — after choosing an input folder, the Convert and Test views list every supported file with a **Select** checkbox, file name, and size. Tick the files you want and click **Start**; only ticked files are processed.
@@ -129,9 +129,9 @@ Read the full [What's New](WhatsNew.md) or browse the [Release Notes](docs/Relea
     - **ARM64**: Fully supported.
 
 ### Steps
-1. Download the latest release from the [Releases](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases) page
+1. Download the latest release from the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page
 2. Extract the ZIP file to your desired location
-3. Run `BatchConvertIsoToXiso.exe`
+3. Run `XboxIsoStudio.exe`
 
 No installation required – the application is fully portable.
 
@@ -214,10 +214,10 @@ The application follows modern software engineering principles with a clean, mai
 Utilizes `Microsoft.Extensions.DependencyInjection` for comprehensive service management. All core logic is decoupled from the UI, enabling easier testing and modular updates.
 
 ### Logging
-Logging runs through a single [Serilog](https://serilog.net/) pipeline with three sinks: the on-screen log viewer (`UiLogSink`), a rolling daily file log (`%LocalAppData%\BatchConvertIsoToXiso\logs`), and a bug-report sink (`BugReportSink`) that forwards every **Warning-or-higher** event to the Bug Report API. Reports include complete environment, error, and exception sections; expected user/environmental errors are logged at Information level so they never generate noise.
+Logging runs through a single [Serilog](https://serilog.net/) pipeline with three sinks: the on-screen log viewer (`UiLogSink`), a rolling daily file log (`%LocalAppData%\XboxIsoStudio\logs`), and a bug-report sink (`BugReportSink`) that forwards every **Warning-or-higher** event to the Bug Report API. Reports include complete environment, error, and exception sections; expected user/environmental errors are logged at Information level so they never generate noise.
 
 ### Testing
-A comprehensive [xUnit](https://xunit.net/) test suite (`BatchConvertIsoToXiso.Tests`) covers models, services, and image services with 340+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
+A comprehensive [xUnit](https://xunit.net/) test suite (`XboxIsoStudio.Tests`) covers models, services, and image services with 340+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
 
 ### Technical Documentation
 For a deep dive into the XDVDFS format, binary file structures, and the conversion algorithm, see the [XDVDFS Technical Documentation](docs/XDVDFS-Technical-Documentation.md). The full documentation (including installation, usage, troubleshooting, architecture, and [release notes](docs/Release-Notes.md)) lives in the [docs folder](docs/index.md) and doubles as the repository wiki. Highlights of the latest release are summarized in [What's New](WhatsNew.md).
@@ -239,7 +239,7 @@ For a deep dive into the XDVDFS format, binary file structures, and the conversi
 ## Safety & Reliability
 
 - **Atomic Operations**: Converted files are verified before originals are deleted
-- **Automatic Cleanup**: [`TempFolderCleanupHelper`](BatchConvertIsoToXiso/Services/TempFolderCleanupHelper.cs) removes orphaned temporary files on startup or after crashes
+- **Automatic Cleanup**: [`TempFolderCleanupHelper`](XboxIsoStudio/Services/TempFolderCleanupHelper.cs) removes orphaned temporary files on startup or after crashes
 - **Fallback Temp Drives**: Automatically searches alternative local drives when the system temp drive lacks sufficient space for archive extraction
 - **Robust Error Handling**: Comprehensive exception handling with [Serilog](https://serilog.net/) structured logging; every Warning-or-higher event is automatically forwarded to the bug report API with full environment and exception details
 - **Network Resilience**: Full support for UNC paths and mapped network drives with automatic retry logic for transient network failures

@@ -1,4 +1,4 @@
-# What's New in Batch ISO to XISO Converter
+# What's New in Xbox ISO Studio
 
 <!-- Keep this file focused on the newest release. Full history lives in docs/Release-Notes.md. -->
 
@@ -11,7 +11,7 @@ Version 2.9.0 is the **logging & output formats release**: all logging runs thro
 ### Highlights
 
 #### Structured logging with automatic bug reports
-- All logging now runs through [Serilog](https://serilog.net/): the on-screen log viewer, a rolling daily file log (`%LocalAppData%\BatchConvertIsoToXiso\logs`), and a bug-report sink that forwards every **Warning-or-higher** event to the Bug Report API.
+- All logging now runs through [Serilog](https://serilog.net/): the on-screen log viewer, a rolling daily file log (`%LocalAppData%\XboxIsoStudio\logs`), and a bug-report sink that forwards every **Warning-or-higher** event to the Bug Report API.
 - Reports include complete Environment, Error, and Exception sections (type, message, source, and stack trace, including nested exceptions); expected user/environmental errors are logged at Information level so they never generate noise.
 
 #### Pick exactly which files to process

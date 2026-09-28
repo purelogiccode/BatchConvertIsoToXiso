@@ -130,16 +130,16 @@ Xbox and Xbox 360 images are supported; conversion repacks the game partition of
 In the system temp folder, in dedicated subfolders. They are cleaned automatically after each file and at startup (orphaned leftovers from crashes are removed too). If the temp drive lacks space, other local drives are used as fallback.
 
 **Where is the log file?**
-The app writes a rolling log to `%LocalAppData%\BatchConvertIsoToXiso\logs\log-*.txt` (10 MB per file, 14 files retained). It contains the same messages shown in the log pane, with levels and full exception details.
+The app writes a rolling log to `%LocalAppData%\XboxIsoStudio\logs\log-*.txt` (10 MB per file, 14 files retained). It contains the same messages shown in the log pane, with levels and full exception details.
 
 **Does the application collect my data?**
 It sends an anonymous usage ping and, for warnings and errors, an automatic bug report containing the message, environment details, and exception details. Expected environmental errors (disk space, network) are logged at Information level and are never reported. No personal data or file contents are collected.
 
 **How do I report a bug?**
-Warnings and errors are reported automatically with environment and exception details. For anything else, open an issue at <https://github.com/purelogiccode/BatchConvertIsoToXiso/issues> and include the relevant lines from the log pane or the log file (`%LocalAppData%\BatchConvertIsoToXiso\logs`).
+Warnings and errors are reported automatically with environment and exception details. For anything else, open an issue at <https://github.com/purelogiccode/XboxIsoStudio/issues> and include the relevant lines from the log pane or the log file (`%LocalAppData%\XboxIsoStudio\logs`).
 
 **Where do I download new versions?**
-From the [Releases](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases) page. The application checks for updates automatically and offers to open the page when a new version exists.
+From the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page. The application checks for updates automatically and offers to open the page when a new version exists.
 
 **Is there an installer?**
 No. The application is portable — extract and run (see [Installation](Installation.md)).
