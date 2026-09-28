@@ -60,17 +60,6 @@ public class DisplayInstructionsTests
     }
 
     [Fact]
-    public void DisplayInitialInstructionsLogsBchunkStatus()
-    {
-        var logger = new TestLogger();
-        DisplayInstructions.Initialize(logger.Logger);
-
-        DisplayInstructions.DisplayInitialInstructions();
-
-        Assert.True(logger.HasMessage("bchunk.exe"));
-    }
-
-    [Fact]
     public void DisplayInitialInstructionsLogsXisoSharpStatus()
     {
         var logger = new TestLogger();

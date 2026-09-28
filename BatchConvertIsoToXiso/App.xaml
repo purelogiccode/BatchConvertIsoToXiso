@@ -255,6 +255,126 @@
             </Setter>
         </Style>
 
+        <!-- Header toggle button style for collapsible Expander panels -->
+        <Style x:Key="ExpanderHeaderToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="HeaderBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="0,0,0,1"
+                                CornerRadius="6,6,0,0"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Path x:Name="Arrow"
+                                      Grid.Column="0"
+                                      Width="6"
+                                      Height="10"
+                                      Margin="0,0,8,0"
+                                      VerticalAlignment="Center"
+                                      Data="M 0 0 L 5 5 L 0 10"
+                                      Stroke="{StaticResource TextPrimaryBrush}"
+                                      StrokeThickness="2"
+                                      RenderTransformOrigin="0.5,0.5">
+                                    <Path.RenderTransform>
+                                        <RotateTransform Angle="0"/>
+                                    </Path.RenderTransform>
+                                </Path>
+                                <ContentPresenter Grid.Column="1"
+                                                  HorizontalAlignment="Left"
+                                                  VerticalAlignment="Center"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  RecognizesAccessKey="True"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Arrow" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <RotateTransform Angle="90"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="Background" Value="{StaticResource CardBackgroundHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource DisabledTextBrush}"/>
+                                <Setter TargetName="Arrow" Property="Stroke" Value="{StaticResource DisabledTextBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Default Expander Style (collapsible panels such as the Options boxes) -->
+        <Style TargetType="Expander">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="IsExpanded" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                SnapsToDevicePixels="True">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <ToggleButton x:Name="HeaderSite"
+                                              Grid.Row="0"
+                                              Background="{StaticResource HeaderBackgroundBrush}"
+                                              BorderThickness="0"
+                                              Content="{TemplateBinding Header}"
+                                              ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                              Cursor="Hand"
+                                              Focusable="True"
+                                              Foreground="{StaticResource TextPrimaryBrush}"
+                                              HorizontalContentAlignment="Left"
+                                              IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                              Padding="10,6"
+                                              Style="{StaticResource ExpanderHeaderToggleStyle}"/>
+                                <ContentPresenter x:Name="ExpandSite"
+                                                  Grid.Row="1"
+                                                  Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Stretch"
+                                                  VerticalAlignment="Stretch"
+                                                  Focusable="False"
+                                                  Visibility="Collapsed"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Default TextBox Style -->
         <Style TargetType="TextBox">
             <Setter Property="Padding" Value="10,8"/>
@@ -502,6 +622,9 @@
         <!-- Named GroupBox Style (for explicit usage) -->
         <Style x:Key="CustomGroupBoxStyle" TargetType="GroupBox" BasedOn="{StaticResource {x:Type GroupBox}}"/>
 
+        <!-- Named Expander Style (for explicit usage) -->
+        <Style x:Key="CustomExpanderStyle" TargetType="Expander" BasedOn="{StaticResource {x:Type Expander}}"/>
+
         <!-- Named CheckBox Style (for explicit usage) -->
         <Style x:Key="CustomCheckBoxStyle" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}"/>
 
@@ -575,6 +698,67 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- ==================== SELECTABLE FILE LIST ==================== -->
+        <!-- Column header style for the conversion/test file lists -->
+        <Style x:Key="FileListColumnHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{StaticResource HeaderBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+
+        <!-- Row style for the conversion/test file lists -->
+        <Style x:Key="FileListRowStyle" TargetType="DataGridRow">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource CardBackgroundHoverBrush}"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TerminalSelectedBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Cell style for the conversion/test file lists (removes the default blue selection) -->
+        <Style x:Key="FileListCellStyle" TargetType="DataGridCell">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource TerminalForegroundBrush}"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="{StaticResource TerminalForegroundBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- DataGrid style for the selectable conversion/test file lists -->
+        <Style x:Key="FileListDataGridStyle" TargetType="DataGrid">
+            <Setter Property="Background" Value="{StaticResource TerminalBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TerminalForegroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="RowBackground" Value="{StaticResource TerminalBackgroundBrush}"/>
+            <Setter Property="AlternatingRowBackground" Value="{StaticResource TerminalBorderBrush}"/>
+            <Setter Property="GridLinesVisibility" Value="None"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="RowHeight" Value="26"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="CanUserDeleteRows" Value="False"/>
+            <Setter Property="CanUserResizeRows" Value="False"/>
+            <Setter Property="SelectionMode" Value="Extended"/>
+            <Setter Property="SelectionUnit" Value="FullRow"/>
+            <Setter Property="ColumnHeaderStyle" Value="{StaticResource FileListColumnHeaderStyle}"/>
+            <Setter Property="RowStyle" Value="{StaticResource FileListRowStyle}"/>
+            <Setter Property="CellStyle" Value="{StaticResource FileListCellStyle}"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
         </Style>
 
         <!-- Stats Card Border Style -->

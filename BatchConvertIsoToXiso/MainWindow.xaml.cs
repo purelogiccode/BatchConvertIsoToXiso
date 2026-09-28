@@ -57,6 +57,8 @@ public partial class MainWindow
         _orchestratorService = orchestratorService;
         _diskMonitorService = diskMonitorService;
 
+        InitializeFileLists();
+
         // Display every Serilog event in the on-screen log viewer.
         UiLogSink.MessageLogged += OnLogMessage;
         Closed += MainWindow_Closed;

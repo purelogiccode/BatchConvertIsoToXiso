@@ -5,7 +5,6 @@ using System.Windows.Controls;
 using BatchConvertIsoToXiso.Models;
 using BatchConvertIsoToXiso.Services;
 using Microsoft.Win32;
-using System.Windows.Input;
 
 namespace BatchConvertIsoToXiso;
 
@@ -80,6 +79,11 @@ public partial class MainWindow
     {
         var aboutWindow = new AboutWindow(_urlOpener, _messageBoxService, _logger) { Owner = this };
         aboutWindow.ShowDialog();
+    }
+
+    private void DonateButton_Click(object sender, RoutedEventArgs e)
+    {
+        _urlOpener.OpenUrl("https://www.purelogiccode.com/donate");
     }
 
     private static string? SelectFolder(string description)
@@ -262,8 +266,7 @@ public partial class MainWindow
         TestView.Visibility = Visibility.Collapsed;
         ExplorerHeaderView.Visibility = Visibility.Collapsed;
 
-        LogBorder.Visibility = Visibility.Visible;
-        ExplorerBorder.Visibility = Visibility.Collapsed;
+        ShowLogPanel();
         StatsPanel.Visibility = Visibility.Visible;
 
         UpdateNavigationButtonStyles(BtnNavConvert);
@@ -275,8 +278,7 @@ public partial class MainWindow
         TestView.Visibility = Visibility.Visible;
         ExplorerHeaderView.Visibility = Visibility.Collapsed;
 
-        LogBorder.Visibility = Visibility.Visible;
-        ExplorerBorder.Visibility = Visibility.Collapsed;
+        ShowLogPanel();
         StatsPanel.Visibility = Visibility.Visible;
 
         UpdateNavigationButtonStyles(BtnNavTest);
@@ -288,11 +290,41 @@ public partial class MainWindow
         TestView.Visibility = Visibility.Collapsed;
         ExplorerHeaderView.Visibility = Visibility.Visible;
 
-        LogBorder.Visibility = Visibility.Collapsed;
-        ExplorerBorder.Visibility = Visibility.Visible;
+        HideLogPanel();
         StatsPanel.Visibility = Visibility.Collapsed;
 
         UpdateNavigationButtonStyles(BtnNavExplorer);
+    }
+
+    private GridLength _savedLogColumnWidth = new(1, GridUnitType.Star);
+    private GridLength _savedSplitterColumnWidth = new(10);
+
+    /// <summary>
+    ///     Gives the explorer the full window width by collapsing the log column.
+    /// </summary>
+    private void HideLogPanel()
+    {
+        if (LogColumn.Width.Value > 0)
+        {
+            _savedLogColumnWidth = LogColumn.Width;
+            _savedSplitterColumnWidth = SplitterColumn.Width;
+        }
+
+        LogColumn.MinWidth = 0;
+        LogColumn.Width = new GridLength(0);
+        SplitterColumn.Width = new GridLength(0);
+        LogBorder.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>
+    ///     Restores the log column and splitter to their previous widths.
+    /// </summary>
+    private void ShowLogPanel()
+    {
+        LogColumn.MinWidth = 300;
+        LogColumn.Width = _savedLogColumnWidth;
+        SplitterColumn.Width = _savedSplitterColumnWidth;
+        LogBorder.Visibility = Visibility.Visible;
     }
 
     private void UpdateNavigationButtonStyles(Button selectedButton)
@@ -335,10 +367,5 @@ public partial class MainWindow
     private void SetCurrentOperationDrive(string? driveLetter)
     {
         _diskMonitorService.StartMonitoring(driveLetter);
-    }
-
-    private void XisoSharpUrl_Click(object sender, MouseButtonEventArgs e)
-    {
-        _urlOpener.OpenUrl("https://github.com/purelogiccode/XISOSharp");
     }
 }

@@ -4,16 +4,23 @@ using BatchConvertIsoToXiso.Models;
 using Serilog;
 using XISOSharp;
 using XISOSharp.Models;
+using ZArchiveSharp.Pipeline;
 
 namespace BatchConvertIsoToXiso.Services;
 
 /// <summary>
-/// Converts Xbox ISO images to optimized XISO format using the XISOSharp library.
-/// All encoding/decoding work is delegated to the library; no external conversion
-/// binaries are used.
+/// Converts Xbox ISO images to optimized XISO, ZAR (ZArchive/zstd), or CSO (compressed ISO)
+/// using the XISOSharp library. All encoding/decoding work is delegated to the library;
+/// no external conversion binaries are used.
 /// </summary>
 public class XisoSharpService : IXisoSharpService
 {
+    /// <summary>
+    /// CISO compression level 9: LZ4 acceleration 1 — byte-identical output to
+    /// <c>xdvdfs compress</c> and the smallest CISO the library can produce.
+    /// </summary>
+    private const int CsoCompressionLevel = 9;
+
     private readonly ILogger _logger;
     private readonly IDiskMonitorService _diskMonitorService;
 
@@ -23,12 +30,12 @@ public class XisoSharpService : IXisoSharpService
         _diskMonitorService = diskMonitorService;
     }
 
-    public async Task<FileProcessingStatus> ConvertIsoToXisoAsync(string inputFile, string outputFolder,
-        string outputFileName, bool skipSystemUpdate, bool checkIntegrity, IProgress<BatchOperationProgress> progress,
-        CancellationToken token)
+    public async Task<FileProcessingStatus> ConvertIsoAsync(string inputFile, string outputFolder,
+        string outputFileName, OutputFormat outputFormat, bool skipSystemUpdate, bool checkIntegrity,
+        IProgress<BatchOperationProgress> progress, CancellationToken token)
     {
         var fileName = Path.GetFileName(inputFile);
-        _logger.Information("Converting '{FileName}' using XISOSharp...", fileName);
+        _logger.Information("Converting '{FileName}' to {OutputFormat} using XISOSharp...", fileName, outputFormat);
 
         if (!File.Exists(inputFile))
         {
@@ -48,7 +55,9 @@ public class XisoSharpService : IXisoSharpService
             return FileProcessingStatus.Failed;
         }
 
-        if (XisoReader.IsOptimizedImage(inputFile))
+        // XISO output skips images that are already optimized. Compressed formats still
+        // have to pack those images (the container is what changes).
+        if (outputFormat == OutputFormat.Xiso && XisoReader.IsOptimizedImage(inputFile))
         {
             _logger.Information("'{FileName}' is already an optimized XISO. Skipping conversion.", fileName);
             return FileProcessingStatus.AlreadyOptimized;
@@ -89,11 +98,18 @@ public class XisoSharpService : IXisoSharpService
         }
 
         return await Task.Run(
-            () => ConvertCore(inputFile, outputFolder, outputPath, skipSystemUpdate, checkIntegrity,
-                progress, token), token);
+            () => outputFormat switch
+            {
+                OutputFormat.Zar => ConvertToCompressedCore(OutputFormat.Zar, inputFile, outputPath,
+                    skipSystemUpdate, checkIntegrity, progress, token),
+                OutputFormat.Cso => ConvertToCompressedCore(OutputFormat.Cso, inputFile, outputPath,
+                    skipSystemUpdate, checkIntegrity, progress, token),
+                _ => ConvertToXisoCore(inputFile, outputFolder, outputPath, skipSystemUpdate, checkIntegrity,
+                    progress, token)
+            }, token);
     }
 
-    private FileProcessingStatus ConvertCore(string inputFile, string outputFolder,
+    private FileProcessingStatus ConvertToXisoCore(string inputFile, string outputFolder,
         string outputPath, bool skipSystemUpdate, bool checkIntegrity, IProgress<BatchOperationProgress> progress,
         CancellationToken token)
     {
@@ -113,24 +129,7 @@ public class XisoSharpService : IXisoSharpService
             Logger.ForwardInfo = message => _logger.Information("  [xiso] {Message:l}", message.TrimEnd());
             Logger.ForwardError = message => _logger.Information("  [xiso] ERROR: {Message:l}", message.TrimEnd());
 
-            var progressAdapter = new Progress<ProgressInfo>(info =>
-            {
-                switch (info.Type)
-                {
-                    case ProgressInfoType.FileCount:
-                        progress.Report(new BatchOperationProgress { StatusText = $"Packing {info.Count} files..." });
-                        break;
-                    case ProgressInfoType.FileAdded:
-                        progress.Report(new BatchOperationProgress { StatusText = $"Packing: {info.Path}" });
-                        break;
-                    case ProgressInfoType.FileProgress:
-                        progress.Report(new BatchOperationProgress { StatusText = $"Writing: {info.Path}" });
-                        break;
-                    case ProgressInfoType.FinishedPacking:
-                        progress.Report(new BatchOperationProgress { StatusText = "Finalizing output..." });
-                        break;
-                }
-            });
+            var progressAdapter = CreateRewriteProgressAdapter(progress);
 
             // Pass the computed output name explicitly so the result always matches
             // the path checked above and shown in progress output.
@@ -233,6 +232,317 @@ public class XisoSharpService : IXisoSharpService
             Logger.ForwardInfo = previousForwardInfo;
             Logger.ForwardError = previousForwardError;
         }
+    }
+
+    /// <summary>
+    /// Produces a ZAR or CSO file. ZAR streams the game-partition file tree straight into
+    /// the archive; CSO first rewrites the image to a temporary optimized XISO (CISO has no
+    /// partition-aware writer) and compresses that.
+    /// </summary>
+    private FileProcessingStatus ConvertToCompressedCore(OutputFormat outputFormat, string inputFile,
+        string outputPath, bool skipSystemUpdate, bool checkIntegrity,
+        IProgress<BatchOperationProgress> progress, CancellationToken token)
+    {
+        var fileName = Path.GetFileName(inputFile);
+        var formatName = outputFormat == OutputFormat.Zar ? "ZAR" : "CSO";
+        string? tempDir = null;
+
+        var previousRemoveSystemUpdate = Logger.RemoveSystemUpdate;
+        var previousForwardInfo = Logger.ForwardInfo;
+        var previousForwardError = Logger.ForwardError;
+
+        try
+        {
+            Logger.RemoveSystemUpdate = skipSystemUpdate;
+            Logger.ForwardInfo = message => _logger.Information("  [xiso] {Message:l}", message.TrimEnd());
+            Logger.ForwardError = message => _logger.Information("  [xiso] ERROR: {Message:l}", message.TrimEnd());
+
+            if (outputFormat == OutputFormat.Cso)
+            {
+                // CISO compresses a plain image stream; rewrite Redump/non-optimized inputs to a
+                // temporary optimized XISO first so the archive contains the game partition only
+                // and the $SystemUpdate filter applies.
+                var sourceForCompression = inputFile;
+                if (!XisoReader.IsOptimizedImage(inputFile))
+                {
+                    try
+                    {
+                        tempDir = PathHelper.ResolveTempDirectory(new FileInfo(inputFile).Length,
+                            "BatchConvertIsoToXiso_Cso", _diskMonitorService);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warning(ex,
+                            "Could not resolve a temp directory for CSO conversion of '{FileName}'; using the default temp path",
+                            fileName);
+                        tempDir = Path.Combine(Path.GetTempPath(), "BatchConvertIsoToXiso_Cso",
+                            Guid.NewGuid().ToString("N"));
+                    }
+
+                    Directory.CreateDirectory(tempDir);
+
+                    progress.Report(new BatchOperationProgress
+                        { StatusText = "Preparing XISO for compression..." });
+
+                    var rewriteResult = XisoReader.Rewrite(inputFile, tempDir, out var tempXiso, token,
+                        outputName: "source.iso", progress: CreateRewriteProgressAdapter(progress));
+                    if (rewriteResult != 0 || string.IsNullOrEmpty(tempXiso) || !File.Exists(tempXiso))
+                    {
+                        _logger.Information(
+                            "XISOSharp could not prepare '{FileName}' for CSO compression (result code {ResultCode}).",
+                            fileName, rewriteResult);
+                        return FileProcessingStatus.Failed;
+                    }
+
+                    sourceForCompression = tempXiso;
+                }
+
+                if (checkIntegrity && !AuditSourceImage(sourceForCompression, fileName)) return FileProcessingStatus.Failed;
+
+                progress.Report(new BatchOperationProgress { StatusText = "Compressing to CSO..." });
+                var csoResult = CisoWriter.CompressToCso(sourceForCompression, outputPath, CsoCompressionLevel,
+                    null, CisoWriter.VersionLz4, CreateCisoProgressAdapter(progress), token);
+                if (csoResult != 0 || !File.Exists(outputPath))
+                {
+                    _logger.Information("XISOSharp could not compress '{FileName}' to CSO (result code {ResultCode}).",
+                        fileName, csoResult);
+                    DeletePartialOutput(outputPath);
+                    return FileProcessingStatus.Failed;
+                }
+
+                _logger.Information("Successfully compressed '{FileName}' to CSO format.", fileName);
+                return FileProcessingStatus.Converted;
+            }
+
+            if (checkIntegrity && !AuditSourceImage(inputFile, fileName)) return FileProcessingStatus.Failed;
+
+            // ZAR streams the game-partition tree straight from the source image.
+            var partitionOffset = GetGamePartitionOffset(inputFile);
+            progress.Report(new BatchOperationProgress { StatusText = "Packing to ZAR..." });
+
+            bool zarResult;
+            using (var isoStream = new FileStream(inputFile, FileMode.Open, FileAccess.Read, FileShare.Read, 65536))
+            {
+                zarResult = XisoZarchive.CreateZar(isoStream, partitionOffset, outputPath, skipSystemUpdate,
+                    true, token, null, CreateZarProgressAdapter(progress));
+            }
+
+            if (!zarResult || !File.Exists(outputPath))
+            {
+                _logger.Information("XISOSharp could not pack '{FileName}' to ZAR.", fileName);
+                DeletePartialOutput(outputPath);
+                return FileProcessingStatus.Failed;
+            }
+
+            _logger.Information("Successfully packed '{FileName}' to ZAR format.", fileName);
+            return FileProcessingStatus.Converted;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Information("Conversion of '{FileName}' to {Format} was canceled. Cleaning up partial output...",
+                fileName, formatName);
+            DeletePartialOutput(outputPath);
+            throw;
+        }
+        catch (Exception ex) when (PathHelper.IsDiskSpaceError(ex))
+        {
+            DeletePartialOutput(outputPath);
+            _logger.Information(ex, "Not enough disk space to convert '{FileName}' to {Format}", fileName, formatName);
+            throw;
+        }
+        catch (Exception ex) when (PathHelper.IsDeviceIoError(ex))
+        {
+            DeletePartialOutput(outputPath);
+            _logger.Information(ex,
+                "The drive reported a hardware I/O error while converting '{FileName}' to {Format}.\n\n" +
+                "This usually means the source or output drive is failing, was disconnected, or has a hardware problem.\n" +
+                "Please check the drive connection and health (e.g. run chkdsk), then try again.", fileName,
+                formatName);
+            throw;
+        }
+        catch (Exception ex) when (PathHelper.IsNetworkError(ex))
+        {
+            DeletePartialOutput(outputPath);
+            _logger.Information(ex, "Network error while converting '{FileName}' to {Format}.\n\n" +
+                                    "Please try:\n" +
+                                    "1. Check that the network drive is still connected and accessible\n" +
+                                    "2. Copy the file to a local drive before processing\n" +
+                                    "3. Check your network connection stability", fileName, formatName);
+            throw;
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            DeletePartialOutput(outputPath);
+            _logger.Information(ex, "Drive or path not found for '{FileName}'.\n\n" +
+                                    "Please check that the drive is connected and the path exists.", fileName);
+            throw;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            DeletePartialOutput(outputPath);
+            _logger.Warning(ex, "Access denied while converting '{FileName}' to {Format}.\n\n" +
+                                "The output folder may be write-protected or require administrator rights.\n" +
+                                "Please choose a different output folder or run the application as administrator.",
+                fileName, formatName);
+            return FileProcessingStatus.Failed;
+        }
+        catch (Exception ex) when (IsInvalidImageError(ex))
+        {
+            DeletePartialOutput(outputPath);
+            _logger.Information(ex,
+                "Failed to convert '{FileName}' to {Format}. The file may not be a valid Xbox/Xbox 360 ISO image, " +
+                "may be corrupt, or contains a file too large for XISO.", fileName, formatName);
+            return FileProcessingStatus.Failed;
+        }
+        catch (Exception ex)
+        {
+            DeletePartialOutput(outputPath);
+            _logger.Error(ex, "Failed to convert '{FileName}' to {Format}", fileName, formatName);
+            return FileProcessingStatus.Failed;
+        }
+        finally
+        {
+            Logger.RemoveSystemUpdate = previousRemoveSystemUpdate;
+            Logger.ForwardInfo = previousForwardInfo;
+            Logger.ForwardError = previousForwardError;
+
+            if (tempDir != null)
+            {
+                try
+                {
+                    if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug(ex, "Could not delete temporary CSO working folder '{TempDir}'", tempDir);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Resolves the byte offset of the game partition for Redump full-disc images, mirroring the
+    /// XISOSharp CLI. Returns 0 for XISO/plain images whose partition starts at the file start.
+    /// </summary>
+    private long GetGamePartitionOffset(string inputFile)
+    {
+        var redumpType = XgdTables.GetRedumpIsoTypeBySize(new FileInfo(inputFile).Length);
+        if (redumpType < 0) return 0;
+
+        var videoType = -1;
+        try
+        {
+            using var stream = new FileStream(inputFile, FileMode.Open, FileAccess.Read, FileShare.Read, 65536);
+            videoType = XgdTables.GetVideoType(stream, redumpType);
+        }
+        catch (Exception ex)
+        {
+            // Fall back to the redump-type mapping below.
+            _logger.Debug(ex, "Could not read the video type for '{InputFile}'", inputFile);
+        }
+
+        var xisoType = XgdTables.GetXisoTypeFromVideo(videoType >= 0 ? videoType : 0);
+        if (xisoType < 0 || xisoType >= XgdTables.XisoOffset.Length)
+            xisoType = XgdTables.GetXgdType(redumpType);
+        if (xisoType < 0 || xisoType >= XgdTables.XisoOffset.Length) return 0;
+
+        return XgdTables.XisoOffset[xisoType];
+    }
+
+    /// <summary>
+    /// Validates the image that is about to be packed/compressed. Compressed outputs cannot be
+    /// audited with the XISO reader, so the structural check runs on the source image instead.
+    /// </summary>
+    private bool AuditSourceImage(string sourcePath, string fileName)
+    {
+        _logger.Information("Verifying source image integrity for '{FileName}'...", fileName);
+        var audit = XisoReader.AuditXiso(sourcePath);
+        if (!audit.IsValid)
+        {
+            _logger.Information("Source image failed structural validation: {Issues}",
+                string.Join("; ", audit.Issues));
+            return false;
+        }
+
+        _logger.Information("Source image passed validation ({FilesChecked} files, {DirsChecked} directories).",
+            audit.FilesChecked, audit.DirsChecked);
+        return true;
+    }
+
+    private static IProgress<ProgressInfo> CreateRewriteProgressAdapter(IProgress<BatchOperationProgress> progress)
+    {
+        return new Progress<ProgressInfo>(info =>
+        {
+            switch (info.Type)
+            {
+                case ProgressInfoType.FileCount:
+                    progress.Report(new BatchOperationProgress { StatusText = $"Packing {info.Count} files..." });
+                    break;
+                case ProgressInfoType.FileAdded:
+                    progress.Report(new BatchOperationProgress { StatusText = $"Packing: {info.Path}" });
+                    break;
+                case ProgressInfoType.FileProgress:
+                    progress.Report(new BatchOperationProgress { StatusText = $"Writing: {info.Path}" });
+                    break;
+                case ProgressInfoType.FinishedPacking:
+                    progress.Report(new BatchOperationProgress { StatusText = "Finalizing output..." });
+                    break;
+            }
+        });
+    }
+
+    /// <summary>
+    /// CISO progress arrives once per 2048-byte sector; report only at 5% steps so the UI is
+    /// not flooded for multi-gigabyte images.
+    /// </summary>
+    private static IProgress<ProgressInfo> CreateCisoProgressAdapter(IProgress<BatchOperationProgress> progress)
+    {
+        var totalBlocks = 0L;
+        var lastPercent = -1;
+
+        return new Progress<ProgressInfo>(info =>
+        {
+            switch (info.Type)
+            {
+                case ProgressInfoType.FileCount:
+                    totalBlocks = info.Count;
+                    progress.Report(new BatchOperationProgress
+                        { StatusText = $"Compressing {info.Count:N0} sectors..." });
+                    break;
+                case ProgressInfoType.FileAdded:
+                    if (totalBlocks <= 0) break;
+                    var percent = (int)(info.Sector * 100 / totalBlocks);
+                    if (percent < lastPercent + 5 && percent < 100) break;
+                    lastPercent = percent;
+                    progress.Report(new BatchOperationProgress { StatusText = $"Compressing: {percent}%" });
+                    break;
+                case ProgressInfoType.FinishedPacking:
+                    progress.Report(new BatchOperationProgress { StatusText = "Finalizing output..." });
+                    break;
+            }
+        });
+    }
+
+    /// <summary>
+    /// ZAR progress reports per packed file; report at 5% steps (or the current file name).
+    /// </summary>
+    private static IProgress<ZarProgress> CreateZarProgressAdapter(IProgress<BatchOperationProgress> progress)
+    {
+        var lastPercent = -1;
+
+        return new Progress<ZarProgress>(zarProgress =>
+        {
+            if (zarProgress.BytesTotal <= 0) return;
+
+            var percent = (int)(zarProgress.BytesCompleted * 100 / zarProgress.BytesTotal);
+            if (percent < lastPercent + 5 && percent < 100) return;
+
+            lastPercent = percent;
+            var text = string.IsNullOrEmpty(zarProgress.CurrentFile)
+                ? $"Packing: {percent}%"
+                : $"Packing: {zarProgress.CurrentFile}";
+            progress.Report(new BatchOperationProgress { StatusText = text });
+        });
     }
 
     /// <summary>

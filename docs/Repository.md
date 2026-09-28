@@ -41,7 +41,7 @@ This page describes the repository itself: where things live, how releases are m
 │   │   ├── XisoSharpService.cs            XISO conversion via the XISOSharp library
 │   │   └── XisoIntegrityService.cs        Integrity validation via XISOSharp
 │   ├── MainWindow*.cs                     Partial classes for the main window
-│   ├── bchunk.exe, 7za.exe                Bundled helper tools
+│   ├── 7za.exe, 7za_arm64.exe             Bundled helper tools
 │   └── BatchConvertIsoToXiso.csproj
 ├── BatchConvertIsoToXiso.Tests/           xUnit + Moq test project
 ├── CSharp_BatchConvertIsoToXiso.sln       Solution file
@@ -69,7 +69,7 @@ Contributions are welcome!
 3. Open a new issue including:
    - Application version (visible in the About window)
    - Windows version and architecture (x64/ARM64)
-   - The input format used (`.iso`, archive, or CUE/BIN)
+   - The input format used (`.iso` or archive)
    - The relevant lines from the in-application log
 
 ### Submitting Changes
@@ -117,5 +117,4 @@ This project is licensed under the **GNU General Public License v3.0** — see [
 ## Acknowledgements
 
 - **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** — XISO/XDVDFS library powering conversion, integrity testing, and exploration
-- **[bchunk](https://github.com/extramaster/bchunk)** — CUE/BIN conversion
 - **[SharpCompress](https://github.com/adamhathcock/sharpcompress)** — archive extraction

@@ -121,16 +121,6 @@
                             <Run Text=" - XISO/XDVDFS reading, writing, and conversion library" Foreground="{StaticResource TextMutedBrush}" />
                         </TextBlock>
 
-                        <TextBlock Margin="0,0,0,8" ToolTip="Visit bchunk on GitHub — CUE/BIN to ISO conversion tool">
-                            <Hyperlink NavigateUri="https://github.com/extramaster/bchunk"
-                                       RequestNavigate="Hyperlink_RequestNavigate"
-                                       Foreground="{StaticResource LinkTextBrush}"
-                                       TextDecorations="Underline">
-                                bchunk
-                            </Hyperlink>
-                            <Run Text=" - CUE/BIN to ISO conversion" Foreground="{StaticResource TextMutedBrush}" />
-                        </TextBlock>
-
                         <TextBlock Margin="0,0,0,8" ToolTip="Visit SharpCompress on GitHub — high-performance archive extraction library">
                             <Hyperlink NavigateUri="https://github.com/adamhathcock/sharpcompress"
                                        RequestNavigate="Hyperlink_RequestNavigate"

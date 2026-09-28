@@ -23,7 +23,7 @@
 | Architecture | Supported Conversion |
 |:---|:---|
 | **x64 (64-bit)** | Fully supported |
-| **ARM64** | Fully supported. CUE/BIN conversion requires the x64-only `bchunk.exe` and is disabled on ARM64 |
+| **ARM64** | Fully supported |
 
 ---
 
@@ -46,7 +46,6 @@ After extraction, the application folder contains:
 | File | Purpose |
 |:---|:---|
 | `BatchConvertIsoToXiso.exe` | The main application (XISOSharp conversion engine is built in) |
-| `bchunk.exe` | CUE/BIN to ISO converter used when `.cue`/`.bin` pairs are selected |
 | `7za.exe` / `7za_arm64.exe` | 7-Zip CLI fallback used for complex or password-protected `.7z` archives |
 
 Do not delete or rename the bundled helper executables — the corresponding features will fail if they are missing.

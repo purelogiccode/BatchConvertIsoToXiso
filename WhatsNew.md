@@ -6,24 +6,36 @@
 
 **Release date:** September 2026
 
-Version 2.9.0 is the **structured logging release**: all logging now runs through [Serilog](https://serilog.net/), and every Warning-or-higher event is automatically forwarded to the Bug Report API with complete environment and exception details.
+Version 2.9.0 is the **logging & output formats release**: all logging runs through Serilog with automatic bug reporting, the Convert and Test views now show every supported file found in the selected folder, each with a checkbox, and the Convert tab can produce optimized **XISO**, compressed **ZAR**, or compressed **CSO** output.
 
 ### Highlights
 
-#### Serilog logging pipeline
-- Three sinks: the on-screen log viewer, a rolling daily log file (`%LocalAppData%\BatchConvertIsoToXiso\logs`, 10 MB per file, 14 files retained), and automatic forwarding of every **Warning-or-higher** event to the Bug Report API.
-- The custom `ILogger`/`LoggerService` abstraction was removed — every service and window now logs through Serilog.
+#### Structured logging with automatic bug reports
+- All logging now runs through [Serilog](https://serilog.net/): the on-screen log viewer, a rolling daily file log (`%LocalAppData%\BatchConvertIsoToXiso\logs`), and a bug-report sink that forwards every **Warning-or-higher** event to the Bug Report API.
+- Reports include complete Environment, Error, and Exception sections (type, message, source, and stack trace, including nested exceptions); expected user/environmental errors are logged at Information level so they never generate noise.
 
-#### Complete, actionable bug reports
-- Every report contains **Environment Details** (date, app name/version, OS version, architecture, bitness, Windows version, processor count, base directory, temp path), **Error Details**, and **Exception Details** (type, message, source, and stack trace, including nested and aggregate exceptions).
-- The API's `environment` and `stackTrace` fields are populated as well, and fatal shutdown paths send a blocking report before the process exits.
+#### Pick exactly which files to process
+- After choosing an input folder, the Convert view lists every supported file (`.iso`, `.zip`, `.7z`, `.rar`) and the Test view lists every ISO, with a **Select** checkbox, file name, and size.
+- Use **Select All** / **Deselect All** to toggle the whole list, then click **Start** — only ticked files are processed.
+- **Search Subfolders** now rescans the list immediately when toggled, and the list refreshes automatically after each batch (for example after originals are deleted or tested files are moved to `_success`/`_failed`).
 
-#### Quieter logs, fewer false reports
-- Expected user/environmental problems (corrupt or password-protected archives, missing files, unsupported images, disk-space/network errors) are logged at Information level, so they never generate bug reports.
-- Previously silent `catch` blocks (cleanup, retries, ignored I/O failures) now log at an appropriate level, and all global exception handlers report through the same pipeline.
+#### Choose the output format
+- A new **Output Format** selector on the Convert tab produces **XISO** (default), **ZAR** (`.zar`, ZArchive/zstd — Xenia canary loads it directly), or **CSO** (`.cso`, CISO v2/LZ4, byte-identical to `xdvdfs compress`).
+- **Skip $SystemUpdate**, **Delete Originals**, and integrity checking work for all three formats — for ZAR/CSO the integrity check validates the source image that gets packed.
+
+#### Consistent, responsive lists
+- The lists use the same dark terminal styling as the rest of the app and load in chunks, so folders with thousands of files stay responsive.
+- The Convert and Test panels (folder pickers, options, and file list) now sit on the **left**, with the log viewer / XISO explorer on the **right** and a draggable splitter between them — the same layout used by the other BatchConvert tools.
+- The **Explorer** tab shows the file picker at the top with the explorer list directly below it and uses the full window width — the log panel is hidden on this tab.
+- The **Options** panel on both tabs is collapsible: click its header to hide the checkboxes and give the file list more room.
+- File names are shown relative to the selected input folder (subfolders included), and sizes are formatted for readability.
+- The engine applies the same extension filters as the lists, so the UI can never offer a file the converter cannot handle.
+
+#### CUE/BIN support removed
+- The bundled `bchunk.exe` and `.cue` input support were removed. The application now supports only `.iso` (Redump full-disc images) and already-optimized XISO files, plus archives (`.zip`, `.7z`, `.rar`). CUE/BIN images are no longer listed or converted.
 
 ### Upgrading
-No action is required. A rolling log file is now written under `%LocalAppData%\BatchConvertIsoToXiso\logs`, and bug reports are sent automatically for warnings and errors (previously only selected failures were reported). The app still requires the [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) and remains fully portable.
+No action is required for ISO/XISO users. The workflow changed slightly: previously everything found in the folder was processed automatically; now tick the files you want (all files are ticked by default). CUE/BIN images are no longer supported — convert them to ISO with another tool first. The app still requires the [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) and remains fully portable.
 
 ---
 

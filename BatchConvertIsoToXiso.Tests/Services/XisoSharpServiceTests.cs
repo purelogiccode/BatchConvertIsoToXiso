@@ -5,6 +5,7 @@ using Moq;
 using Serilog.Events;
 using XISOSharp;
 using Xunit;
+using ZArchiveSharp;
 
 namespace BatchConvertIsoToXiso.Tests.Services;
 
@@ -59,7 +60,7 @@ public sealed class XisoSharpServiceTests : IDisposable
         var service = CreateService();
         var outputFolder = Path.Combine(_tempRoot, "out");
 
-        var status = await service.ConvertIsoToXisoAsync(isoPath, outputFolder, "game.iso", false, false,
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "game.iso", OutputFormat.Xiso, false, false,
             new Progress<BatchOperationProgress>(), CancellationToken.None);
 
         Assert.Equal(FileProcessingStatus.AlreadyOptimized, status);
@@ -76,7 +77,7 @@ public sealed class XisoSharpServiceTests : IDisposable
         var existingOutput = Path.Combine(outputFolder, "game.iso");
         await File.WriteAllTextAsync(existingOutput, "existing output should survive");
 
-        var status = await service.ConvertIsoToXisoAsync(isoPath, outputFolder, "game.iso", false, false,
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "game.iso", OutputFormat.Xiso, false, false,
             new Progress<BatchOperationProgress>(), CancellationToken.None);
 
         Assert.Equal(FileProcessingStatus.AlreadyOptimized, status);
@@ -90,7 +91,7 @@ public sealed class XisoSharpServiceTests : IDisposable
         var isoPath = CreateOptimizedXiso();
         var service = CreateService();
 
-        var status = await service.ConvertIsoToXisoAsync(isoPath, _tempRoot, "game.iso", false, false,
+        var status = await service.ConvertIsoAsync(isoPath, _tempRoot, "game.iso", OutputFormat.Xiso, false, false,
             new Progress<BatchOperationProgress>(), CancellationToken.None);
 
         Assert.Equal(FileProcessingStatus.Failed, status);
@@ -104,7 +105,7 @@ public sealed class XisoSharpServiceTests : IDisposable
         File.WriteAllText(badIso, "this is not an xiso image");
         var service = CreateService();
 
-        var status = await service.ConvertIsoToXisoAsync(badIso, Path.Combine(_tempRoot, "out"), "bad.iso", false,
+        var status = await service.ConvertIsoAsync(badIso, Path.Combine(_tempRoot, "out"), "bad.iso", OutputFormat.Xiso, false,
             false,
             new Progress<BatchOperationProgress>(), CancellationToken.None);
 
@@ -129,7 +130,7 @@ public sealed class XisoSharpServiceTests : IDisposable
         var service = CreateService();
         var outputFolder = Path.Combine(_tempRoot, "out");
 
-        var status = await service.ConvertIsoToXisoAsync(isoPath, outputFolder, "game.iso", false, true,
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "game.iso", OutputFormat.Xiso, false, true,
             new Progress<BatchOperationProgress>(), CancellationToken.None);
 
         Assert.Equal(FileProcessingStatus.Converted, status);
@@ -153,7 +154,7 @@ public sealed class XisoSharpServiceTests : IDisposable
         var service = CreateService();
         var outputFolder = Path.Combine(_tempRoot, "out");
 
-        var status = await service.ConvertIsoToXisoAsync(isoPath, outputFolder, "My Game.iso", false, true,
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "My Game.iso", OutputFormat.Xiso, false, true,
             new Progress<BatchOperationProgress>(), CancellationToken.None);
 
         Assert.Equal(FileProcessingStatus.Converted, status);
@@ -179,7 +180,7 @@ public sealed class XisoSharpServiceTests : IDisposable
         var outputPath = Path.Combine(outputFolder, "game.iso");
         await File.WriteAllTextAsync(outputPath, "stale output");
 
-        var status = await service.ConvertIsoToXisoAsync(isoPath, outputFolder, "game.iso", false, true,
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "game.iso", OutputFormat.Xiso, false, true,
             new Progress<BatchOperationProgress>(), CancellationToken.None);
 
         Assert.Equal(FileProcessingStatus.Converted, status);
@@ -191,9 +192,123 @@ public sealed class XisoSharpServiceTests : IDisposable
     {
         var service = CreateService();
 
-        var status = await service.ConvertIsoToXisoAsync(Path.Combine(_tempRoot, "missing.iso"),
-            Path.Combine(_tempRoot, "out"), "missing.iso", false, false, new Progress<BatchOperationProgress>(),
+        var status = await service.ConvertIsoAsync(Path.Combine(_tempRoot, "missing.iso"),
+            Path.Combine(_tempRoot, "out"), "missing.iso", OutputFormat.Xiso, false, false,
+            new Progress<BatchOperationProgress>(),
             CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Failed, status);
+    }
+
+    private string CreateXisoWithSystemUpdate(string name)
+    {
+        var sourceDir = Path.Combine(_tempRoot, "source-su");
+        Directory.CreateDirectory(sourceDir);
+        File.WriteAllText(Path.Combine(sourceDir, "default.xbe"), "fake xbe content");
+        var updateDir = Path.Combine(sourceDir, "$SystemUpdate");
+        Directory.CreateDirectory(updateDir);
+        File.WriteAllText(Path.Combine(updateDir, "su.bin"), "system update payload");
+
+        var isoPath = Path.Combine(_tempRoot, name);
+        Assert.Equal(0, XisoWriter.PackFromDirectory(sourceDir, isoPath));
+        return isoPath;
+    }
+
+    [Fact]
+    public async Task ZarOutputPacksAlreadyOptimizedImage()
+    {
+        var isoPath = CreateOptimizedXiso();
+        var service = CreateService();
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "game.zar", OutputFormat.Zar, false, false,
+            new Progress<BatchOperationProgress>(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        var outputPath = Path.Combine(outputFolder, "game.zar");
+        Assert.True(File.Exists(outputPath));
+
+        // The archive must open and contain the game files.
+        var extractDir = Path.Combine(_tempRoot, "zar-out");
+        ZArchiveTool.Extract(outputPath, extractDir);
+        Assert.True(File.Exists(Path.Combine(extractDir, "default.xbe")));
+    }
+
+    [Fact]
+    public async Task ZarOutputWithSkipSystemUpdateExcludesUpdateFolder()
+    {
+        var isoPath = CreateXisoWithSystemUpdate("game-su.iso");
+        var service = CreateService();
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "game-su.zar", OutputFormat.Zar, true,
+            false, new Progress<BatchOperationProgress>(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        var extractDir = Path.Combine(_tempRoot, "zar-su-out");
+        ZArchiveTool.Extract(Path.Combine(outputFolder, "game-su.zar"), extractDir);
+        Assert.True(File.Exists(Path.Combine(extractDir, "default.xbe")));
+        Assert.False(Directory.Exists(Path.Combine(extractDir, "$SystemUpdate")));
+    }
+
+    [Fact]
+    public async Task CsoOutputCompressesAlreadyOptimizedImage()
+    {
+        var isoPath = CreateOptimizedXiso();
+        var service = CreateService();
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "game.cso", OutputFormat.Cso, false, false,
+            new Progress<BatchOperationProgress>(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        var outputPath = Path.Combine(outputFolder, "game.cso");
+        Assert.True(File.Exists(outputPath));
+        Assert.True(CisoReader.IsCso(outputPath));
+
+        // Round-trip: the CISO must decompress back to a valid XISO.
+        var decompressed = Path.Combine(_tempRoot, "decompressed.iso");
+        Assert.Equal(0, CisoReader.DecompressToIso(outputPath, decompressed));
+        Assert.True(XisoReader.AuditXiso(decompressed).IsValid);
+    }
+
+    [Fact]
+    public async Task CsoOutputFromNonOptimizedImageRewritesBeforeCompressing()
+    {
+        var isoPath = CreateOptimizedXiso();
+
+        // Clear the optimized tag so the CSO path exercises the temporary XISO rewrite.
+        await using (var stream = new FileStream(isoPath, FileMode.Open, FileAccess.Write, FileShare.None))
+        {
+            stream.Seek(Constants.OptimizedTagOffset, SeekOrigin.Begin);
+            stream.Write(new byte[Constants.OptimizedTagLength]);
+        }
+
+        var service = CreateService();
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "game.cso", OutputFormat.Cso, false, true,
+            new Progress<BatchOperationProgress>(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        var outputPath = Path.Combine(outputFolder, "game.cso");
+        Assert.True(File.Exists(outputPath));
+        Assert.True(CisoReader.IsCso(outputPath));
+
+        var decompressed = Path.Combine(_tempRoot, "decompressed2.iso");
+        Assert.Equal(0, CisoReader.DecompressToIso(outputPath, decompressed));
+        Assert.True(XisoReader.AuditXiso(decompressed).IsValid);
+    }
+
+    [Fact]
+    public async Task InvalidImageZarOutputReturnsFailed()
+    {
+        var badIso = Path.Combine(_tempRoot, "bad-zar.iso");
+        File.WriteAllText(badIso, "this is not an xiso image");
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(badIso, Path.Combine(_tempRoot, "out"), "bad-zar.zar",
+            OutputFormat.Zar, false, false, new Progress<BatchOperationProgress>(), CancellationToken.None);
 
         Assert.Equal(FileProcessingStatus.Failed, status);
     }

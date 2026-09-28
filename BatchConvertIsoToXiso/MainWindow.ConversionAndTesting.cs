@@ -20,11 +20,12 @@ public partial class MainWindow
         }
 
         ConversionInputFolderTextBox.Text = inputFolder;
+        _ = RefreshConversionFileListAsync();
     }
 
     private void BrowseConversionOutputButton_Click(object sender, RoutedEventArgs e)
     {
-        var outputFolder = SelectFolder("Select the output folder for converted XISO files");
+        var outputFolder = SelectFolder("Select the output folder for converted files");
         if (string.IsNullOrEmpty(outputFolder)) return;
 
         if (CheckForTempPath.IsSystemTempPath(outputFolder))
@@ -50,6 +51,7 @@ public partial class MainWindow
         }
 
         TestInputFolderTextBox.Text = inputFolder;
+        _ = RefreshTestFileListAsync();
     }
 
     private async void StartConversionButton_ClickAsync(object sender, RoutedEventArgs e)
@@ -66,7 +68,7 @@ public partial class MainWindow
 
             // Immediate visual feedback while the background thread scans the filesystem
             ProgressBar.IsIndeterminate = true;
-            ProgressTextBlock.Text = "Scanning folders for files...";
+            ProgressTextBlock.Text = "Preparing conversion...";
 
             UpdateStatus("Cleaning up temporary files...");
             await PreOperationCleanupAsync();
@@ -97,6 +99,15 @@ public partial class MainWindow
 
             if (!ValidateInputOutputFolders(inputFolder, outputFolder))
             {
+                FinalizeUiState();
+                return;
+            }
+
+            var selectedFiles = GetSelectedConversionFiles();
+            if (selectedFiles.Count == 0)
+            {
+                _messageBoxService.ShowError(
+                    "No files selected for conversion. Select a source folder and tick at least one file in the list.");
                 FinalizeUiState();
                 return;
             }
@@ -172,12 +183,18 @@ public partial class MainWindow
             _memoryTimer.Start();
             UpdateStatus("Starting batch conversion...");
 
-            await _orchestratorService.ConvertAsync(
-                inputFolder, outputFolder,
+            var outputFormat = OutputFormatXisoRadio.IsChecked == true
+                ? OutputFormat.Xiso
+                : OutputFormatZarRadio.IsChecked == true
+                    ? OutputFormat.Zar
+                    : OutputFormat.Cso;
+
+            await _orchestratorService.ConvertFilesAsync(
+                selectedFiles, outputFolder,
                 DeleteOriginalsCheckBox.IsChecked ?? false,
                 SkipSystemUpdateCheckBox.IsChecked ?? false,
                 CheckOutputIntegrityCheckBox.IsChecked ?? false,
-                SearchSubfoldersConversionCheckBox.IsChecked ?? false,
+                outputFormat,
                 progress, HandleCloudRetryRequestAsync, _cts.Token);
         }
         catch (OperationCanceledException)
@@ -202,6 +219,7 @@ public partial class MainWindow
         {
             FinalizeUiState();
             await LogOperationSummaryAsync("Conversion");
+            await RefreshConversionFileListAsync();
         }
     }
 
@@ -219,7 +237,7 @@ public partial class MainWindow
 
             // Immediate visual feedback while the background thread scans the filesystem
             ProgressBar.IsIndeterminate = true;
-            ProgressTextBlock.Text = "Scanning folders for ISOs...";
+            ProgressTextBlock.Text = "Preparing integrity test...";
 
             UpdateStatus("Cleaning up temporary files...");
             await PreOperationCleanupAsync();
@@ -235,6 +253,15 @@ public partial class MainWindow
             if (!Directory.Exists(inputFolder))
             {
                 _messageBoxService.ShowError($"The input folder no longer exists:\n{inputFolder}");
+                FinalizeUiState();
+                return;
+            }
+
+            var selectedFiles = GetSelectedTestFiles();
+            if (selectedFiles.Count == 0)
+            {
+                _messageBoxService.ShowError(
+                    "No files selected for testing. Select an ISO folder and tick at least one file in the list.");
                 FinalizeUiState();
                 return;
             }
@@ -303,11 +330,10 @@ public partial class MainWindow
             _memoryTimer.Start();
             UpdateStatus("Starting batch ISO test...");
 
-            await _orchestratorService.TestAsync(
-                inputFolder,
+            await _orchestratorService.TestFilesAsync(
+                inputFolder, selectedFiles,
                 MoveSuccessFilesCheckBox.IsChecked == true,
                 MoveFailedFilesCheckBox.IsChecked == true,
-                SearchSubfoldersTestCheckBox.IsChecked == true,
                 PerformDeepScanCheckBox.IsChecked ?? false,
                 progress, HandleCloudRetryRequestAsync, _cts.Token);
         }
@@ -333,6 +359,7 @@ public partial class MainWindow
         {
             FinalizeUiState();
             await LogOperationSummaryAsync("Test");
+            await RefreshTestFileListAsync();
         }
     }
 }

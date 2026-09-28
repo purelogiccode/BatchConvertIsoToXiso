@@ -8,7 +8,7 @@
 
 ---
 
-All ISO to XISO conversion is performed in-process by the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library. No external conversion binaries are required or bundled.
+All conversion is performed in-process by the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library. No external conversion binaries are required or bundled. The Convert tab can produce optimized **XISO**, compressed **ZAR**, or compressed **CSO** output from the same packing pipeline.
 
 ## How It Works
 
@@ -46,16 +46,22 @@ XISOSharp Output:
 - **Optional output integrity check** — the new XISO is structurally audited before being reported as successful.
 - Integrated with the application's progress reporting, cancellation, and disk monitoring.
 
+## Output Formats
+
+The Convert tab can produce three output formats from the same optimized packing pipeline:
+
+| Format | Extension | Description |
+|:---|:---|:---|
+| **XISO** (default) | `.iso` | Optimized, tightly packed XISO image. Already-optimized inputs are skipped. |
+| **ZAR** | `.zar` | ZArchive: the game-partition file tree packed with pure-C# zstd (level 6, 64 KiB blocks, raw fallback for incompressible blocks). Byte-compatible with `zarchive.exe`/xboxkit, and Xenia canary loads it directly. |
+| **CSO** | `.cso` | CISO v2 (LZ4, byte-identical to `xdvdfs compress`), written as a single file. Redump/non-optimized inputs are first repacked to a temporary optimized XISO, then compressed. |
+
+**Skip $SystemUpdate** applies to all three formats: XISO and CSO omit the folder during the
+rewrite, and ZAR excludes it from the archive tree. **Check Output Integrity** audits the newly
+created XISO, or — for ZAR/CSO, which cannot be read by the XISO auditor — the source image that is
+about to be packed.
+
 ---
-
-## CUE/BIN Support
-
-Classic disc images distributed as a `.cue` + `.bin` pair are handled automatically:
-
-1. The bundled `bchunk` tool converts the pair into a standard ISO.
-2. The ISO is then converted to XISO with XISOSharp.
-
-Both files must be present in the same folder with matching names.
 
 ## Archive Support
 

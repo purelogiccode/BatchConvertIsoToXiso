@@ -8,12 +8,12 @@
 
 ---
 
-The **XISO Explorer** tab provides a native file browser for Xbox and Xbox 360 ISO images. It reads the XDVDFS filesystem directly from the image through the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library, so you can inspect images without extracting anything.
+The **XISO Explorer** tab provides a native file browser for Xbox and Xbox 360 ISO images. It reads the XDVDFS filesystem directly from the image through the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library, so you can inspect images without extracting anything. The file picker sits at the top with the explorer list directly below it, and the explorer uses the full window width (the log panel is hidden on this tab).
 
 ## Opening an Image
 
 1. Switch to the **Explorer** tab.
-2. Click **Open ISO** (or type/paste a path into the file box) and select an Xbox ISO file.
+2. Click **Browse...** and select an Xbox ISO file.
 3. The root of the image appears in the file list.
 
 Both standard XISO files and Redump ISOs are supported — the explorer automatically locates the game partition.

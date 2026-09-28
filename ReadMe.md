@@ -52,18 +52,23 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 
 ## What's New
 
-### v2.9.0 — structured logging & smarter bug reports
+### v2.9.0 — structured logging, file selection & output formats
 
 - **Serilog pipeline** — all logging now runs through [Serilog](https://serilog.net/): the on-screen viewer, a rolling daily log file (`%LocalAppData%\BatchConvertIsoToXiso\logs`), and automatic forwarding of every Warning-or-higher event to the bug report API.
 - **Complete bug reports** — every report includes Environment Details (app name/version, OS and Windows version, architecture, bitness, processor count, base directory, temp path), Error Details, and Exception Details (type, message, source, stack trace, including nested exceptions).
 - **Quieter and more reliable** — expected user/environmental errors log at Information level so they never generate spurious reports, and previously silent `catch` blocks now log at an appropriate level.
+- **Selectable file lists** — after choosing an input folder, the Convert and Test views list every supported file with a **Select** checkbox, file name, and size. Tick the files you want and click **Start**; only ticked files are processed.
+- **Select All / Deselect All** toggle the whole list in one click, and **Search Subfolders** rescans the list immediately.
+- **Always in sync** — the list refreshes after each batch (deleted originals, files moved to `_success`/`_failed`) and uses the same extension filters as the conversion engine.
+- **Compressed output formats** — the Convert tab now produces **ZAR** (`.zar`, ZArchive/zstd, loadable in Xenia canary) and **CSO** (`.cso`, CISO v2/LZ4, byte-identical to `xdvdfs compress`) in addition to optimized XISO; pick the format in the Options panel.
+- **ISO/XISO only** — the bundled `bchunk.exe` and `.cue`/`.bin` input support were removed; supported inputs are `.iso` (Redump full-disc images or optimized XISO files) and archives (`.zip`, `.7z`, `.rar`).
 
 ### v2.8.0 — powered entirely by XISOSharp
 
 - **One conversion engine** — all ISO → XISO conversion runs in-process through [XISOSharp](https://github.com/purelogiccode/XISOSharp); the bundled `extract-xiso.exe`, `xdvdfs.exe`, and the native writer were removed (smaller download, no external processes).
 - **Integrity testing and XISO Explorer** are now backed by the same library (`AuditXiso` and `XisoExplorer`).
-- **Fixes** — the main window now appears immediately (startup drive probing no longer blocks it); cloud/OneDrive sources keep their original output name; already-optimized files no longer delete an existing output; **Replace Originals** no longer deletes originals (including archives and CUE/BIN) when a conversion was skipped; device I/O errors stop the batch with a drive-health message.
-- **Hardening** — free-space/FAT32 pre-checks, partial-output cleanup, cross-volume move fallback, locked-archive retries; CUE/BIN is skipped cleanly on ARM64.
+- **Fixes** — the main window now appears immediately (startup drive probing no longer blocks it); cloud/OneDrive sources keep their original output name; already-optimized files no longer delete an existing output; **Replace Originals** no longer deletes originals (including archives) when a conversion was skipped; device I/O errors stop the batch with a drive-health message.
+- **Hardening** — free-space/FAT32 pre-checks, partial-output cleanup, cross-volume move fallback, locked-archive retries.
 - **Bundles** — release ZIPs include `LICENSE.txt`, `ReadMe.md`, and `WhatsNew.md`.
 
 Read the full [What's New](WhatsNew.md) or browse the [Release Notes](docs/Release-Notes.md).
@@ -86,11 +91,11 @@ Read the full [What's New](WhatsNew.md) or browse the [Release Notes](docs/Relea
 ## Key Features
 
 ### 🔄 Batch Conversion
-- **XISOSharp Engine**: All ISO to XISO conversion is performed in-process by the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library — no external conversion binaries required
+- **XISOSharp Engine**: All conversion is performed in-process by the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library — no external conversion binaries required
+- **Output Formats**: Optimized **XISO** (`.iso`), **ZAR** (`.zar`, ZArchive/zstd — Xenia canary loads it directly), or **CSO** (`.cso`, CISO v2/LZ4) — selected per batch on the Convert tab
 - **Smart Processing**: Removes video partitions and padding, converting Redump ISOs to playable XISO format
 - **Archive Support**: Process `.zip`, `.7z`, and `.rar` files directly with high-performance extraction via SharpCompress, with automatic 7-Zip CLI fallback for complex `.7z` archives
 - **Encrypted Archive Detection**: Automatically detects password-protected archives and provides clear guidance for manual extraction, preventing cryptic extraction failures
-- **CUE/BIN Support**: Integrated `bchunk` support for converting classic disc images to ISO format
 - **System Update Removal**: Option to skip the `$SystemUpdate` folder for additional space savings
 - **Skip Already Optimized**: Images that already carry the optimized XISO tag are detected and skipped
 
@@ -120,7 +125,7 @@ Read the full [What's New](WhatsNew.md) or browse the [Release Notes](docs/Relea
 - **Runtime**: [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
 - **Architecture Support**:
     - **x64 (64-bit)**: Fully supported.
-    - **ARM64**: Fully supported. CUE/BIN conversion requires `bchunk.exe`, which is x64-only.
+    - **ARM64**: Fully supported.
 
 ### Steps
 1. Download the latest release from the [Releases](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases) page
@@ -193,7 +198,8 @@ XISOSharp Output:
 
 | Operation      | Supported Formats                              |
 |:---------------|:-----------------------------------------------|
-| **Conversion** | `.iso`, `.zip`, `.7z`, `.rar`, `.cue` / `.bin` |
+| **Conversion** | `.iso` (Redump or optimized XISO), `.zip`, `.7z`, `.rar` |
+| **Output**     | `.iso` (XISO), `.zar` (ZAR), `.cso` (CSO)      |
 | **Testing**    | `.iso` (Direct files)                          |
 | **Explorer**   | `.iso` (Xbox/Xbox 360 XDVDFS)                  |
 
@@ -210,7 +216,7 @@ Utilizes `Microsoft.Extensions.DependencyInjection` for comprehensive service ma
 Logging runs through a single [Serilog](https://serilog.net/) pipeline with three sinks: the on-screen log viewer (`UiLogSink`), a rolling daily file log (`%LocalAppData%\BatchConvertIsoToXiso\logs`), and a bug-report sink (`BugReportSink`) that forwards every **Warning-or-higher** event to the Bug Report API. Reports include complete environment, error, and exception sections; expected user/environmental errors are logged at Information level so they never generate noise.
 
 ### Testing
-A comprehensive [xUnit](https://xunit.net/) test suite (`BatchConvertIsoToXiso.Tests`) covers models, services, and XISO services with 27 test files and 250+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
+A comprehensive [xUnit](https://xunit.net/) test suite (`BatchConvertIsoToXiso.Tests`) covers models, services, and XISO services with 280+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
 
 ### Technical Documentation
 For a deep dive into the XDVDFS format, binary file structures, and the conversion algorithm, see the [XDVDFS Technical Documentation](docs/XDVDFS-Technical-Documentation.md). The full documentation (including installation, usage, troubleshooting, architecture, and [release notes](docs/Release-Notes.md)) lives in the [docs folder](docs/index.md) and doubles as the repository wiki. Highlights of the latest release are summarized in [What's New](WhatsNew.md).
@@ -238,7 +244,7 @@ For a deep dive into the XDVDFS format, binary file structures, and the conversi
 - **Network Resilience**: Full support for UNC paths and mapped network drives with automatic retry logic for transient network failures
 - **Cloud-Aware Retry**: Automatic retries with exponential backoff for cloud-synced files (OneDrive, etc.)
 - **Encrypted Archive Handling**: Gracefully detects password-protected and encrypted archives, providing clear user guidance instead of cryptic errors
-- **Process Isolation**: CUE/BIN conversion and archive fallback run in isolated processes with cancellation support
+- **Process Isolation**: The 7-Zip CLI fallback for archive extraction runs in an isolated process with cancellation support
 
 ---
 
@@ -246,7 +252,6 @@ For a deep dive into the XDVDFS format, binary file structures, and the conversi
 
 - **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** - XISO/XDVDFS reading, writing, and conversion library that powers all conversion, integrity testing, and exploration
 - **[Serilog](https://serilog.net/)** - Structured logging pipeline (log viewer, rolling file log, and bug report sinks)
-- **[bchunk](https://github.com/extramaster/bchunk)** - CUE/BIN to ISO conversion
 - **[SharpCompress](https://github.com/adamhathcock/sharpcompress)** - High-performance archive extraction
 
 ---

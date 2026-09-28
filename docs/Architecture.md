@@ -18,15 +18,16 @@ CSharp_BatchConvertIsoToXiso.sln
 │   ├── App.xaml(.cs)                    Entry point, DI composition, global error handlers
 │   ├── MainWindow.xaml(.cs)             Shell window + navigation
 │   ├── MainWindow.ConversionAndTesting.cs   Convert/Test workflows (UI layer)
+│   ├── MainWindow.FileSelection.cs      Folder scanning + selectable file lists (UI layer)
 │   ├── MainWindow.XIsoExplorerLogic.cs  Explorer workflows (UI layer)
-│   ├── MainWindow.ReportBugAsync.cs     In-app bug reporting entry points
 │   ├── MainWindow.CheckForUpdatesAsync.cs   Update check integration
 │   ├── MainWindow.UIHelpersAndWindowEvents.cs  UI helpers, links, window events
 │   ├── AboutWindow.xaml(.cs)            About dialog
 │   ├── Interfaces/                      One interface per service (IOrchestratorService, IXisoSharpService, ...)
-│   ├── Models/                          DTOs and enums (FileProcessingStatus, BatchOperationProgress, ...)
+│   ├── Models/                          DTOs and enums (FileProcessingStatus, FileItem, BatchOperationProgress, ...)
 │   └── Services/                        All business logic
 │       ├── OrchestratorService.cs       Batch pipeline coordination
+│       ├── SupportedFiles.cs            Extension filters shared by the UI lists and folder scans
 │       ├── XisoSharpService.cs          XISO conversion via the XISOSharp library
 │       ├── XisoIntegrityService.cs      Structural audit + deep surface scan via XISOSharp
 │       ├── FileExtractorService.cs      Archive handling (zip/7z/rar), locked-file retries
@@ -41,7 +42,7 @@ CSharp_BatchConvertIsoToXiso.sln
 └── BatchConvertIsoToXiso.Tests/         xUnit + Moq test suite
 ```
 
-Bundled helper executables (`bchunk.exe`, `7za.exe`, `7za_arm64.exe`) are copied to the output directory and invoked as isolated child processes. All XISO encoding and decoding is performed in-process by the `XISOSharp` NuGet package.
+Bundled helper executables (`7za.exe`, `7za_arm64.exe`) are copied to the output directory and invoked as isolated child processes. All XISO encoding and decoding is performed in-process by the `XISOSharp` NuGet package.
 
 ## Dependency Injection
 
@@ -51,12 +52,11 @@ Bundled helper executables (`bchunk.exe`, `7za.exe`, `7za_arm64.exe`) are copied
 |:---|:---|:---|
 | Serilog `ILogger` | Singleton | Structured logging pipeline (UI, rolling file, and bug-report sinks) |
 | `IDiskMonitorService` | Singleton | Drive throughput counters and free-space queries |
-| `IOrchestratorService` | Singleton | Batch pipeline: discovery, per-file dispatch, progress, cancellation |
-| `IXisoSharpService` | Singleton | XISO conversion via the XISOSharp library |
+| `IOrchestratorService` | Singleton | Batch pipeline: per-file dispatch for the selected files, progress, cancellation |
+| `IXisoSharpService` | Singleton | XISO/ZAR/CSO conversion via the XISOSharp library |
 | `IXisoIntegrityService` | Singleton | Structural audit + deep surface scan via XISOSharp |
 | `IFileExtractor` | Transient | Archive extraction with fallbacks and lock retries |
 | `IFileMover` | Transient | Move/copy operations with retry + backoff |
-| `IExternalToolService` | Singleton | Child-process lifecycle for bundled tools |
 | `IBugReportService` | Singleton | Sends exception reports to the developer endpoint |
 | `IStatsService` | Singleton | Anonymous usage statistics |
 | `IUpdateChecker` | Singleton | Queries the GitHub releases API |
@@ -68,16 +68,25 @@ HTTP clients are created through `IHttpClientFactory` with named clients and poo
 
 ```text
 MainWindow (Convert tab)
-   └─► OrchestratorService
-         ├─ discovers inputs (recursive option, extension filter)
-         ├─ for each file:
-         │    ├─ .cue/.bin ──► bchunk (external) ──► ISO
+   ├─ scans the input folder for supported files (SupportedFiles filter, recursive option)
+   ├─ user ticks the files to process (selectable DataGrid list)
+   └─► OrchestratorService (ConvertFilesAsync)
+         ├─ for each selected file:
          │    ├─ .zip/.7z/.rar ──► FileExtractorService ──► temp ISO ──► convert ──► cleanup
-         │    └─ .iso ──► XisoSharpService (in-process, XISOSharp library)
+         │    └─ .iso ──► XisoSharpService (in-process: XISO / ZAR / CSO)
          ├─ after each file: optional integrity check, optional original deletion,
          │   file moves (retry-aware), progress + stats updates
          └─ final summary (success/fail/skip counts, elapsed time)
 ```
+
+The requested output format flows from the UI through `ConvertFilesAsync`/`ConvertAsync` to
+`IXisoSharpService.ConvertIsoAsync`: **XISO** uses `XisoReader.Rewrite`, **ZAR** streams the
+game-partition tree via `XisoZarchive.CreateZar` (Redump partition offsets detected with
+`XgdTables`), and **CSO** repacks non-optimized inputs to a temporary XISO and calls
+`CisoWriter.CompressToCso` (CISO v2/LZ4).
+
+The folder-scanning `ConvertAsync`/`TestAsync` overloads remain available for callers that want the
+orchestrator to discover files itself; the UI always passes the explicit list of ticked files.
 
 Safety characteristics of the pipeline:
 

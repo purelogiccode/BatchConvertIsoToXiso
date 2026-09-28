@@ -24,42 +24,56 @@ Below the three views, a shared **status bar** shows a live log, progress bar, c
 
 ### 1. Select Folders
 
-- **Input folder** — the folder containing your source files. Supported inputs: `.iso`, `.cue`/`.bin` pairs, `.zip`, `.7z`, `.rar`.
+- **Input folder** — the folder containing your source files. Supported inputs: `.iso` (Redump full-disc images or optimized XISO files), `.zip`, `.7z`, `.rar`.
 - **Output folder** — the folder where converted `.iso` (XISO) files are written.
 
 > The system temporary folder (or a subfolder of it) cannot be selected as an input or output folder. The application refuses it deliberately to avoid recursive processing and cleanup conflicts.
 
-Enable **Search Subfolders** to recurse into nested directories; every matching file found is queued.
+Enable **Search Subfolders** to recurse into nested directories; the file list is rescanned immediately.
 
-### 2. Conversion Engine
+### 2. Select Files to Convert
 
-All conversion is performed in-process by the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library — there is no engine selection. XISOSharp repacks the game partition into a tightly packed, optimized XISO, and images that already carry the optimized tag are skipped automatically. See the [Conversion Methods](Conversion-Methods.md) page for details.
+Once an input folder is chosen, the **Select Files to Convert** list is filled with every supported file found (respecting **Search Subfolders**). Each row shows a **Select** checkbox, the file name relative to the input folder, and the file size.
 
-### 3. Options
+- Untick any file you do not want to process; only ticked files are converted.
+- Use **Select All** / **Deselect All** to toggle the entire list.
+- The list is refreshed automatically after each batch, so it reflects deleted originals and newly created outputs.
+
+### 3. Conversion Engine
+
+All conversion is performed in-process by the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library — there is no engine selection. Choose the **Output Format** in the Options panel:
+
+- **XISO** (default) — tightly packed, optimized XISO (`.iso`); images that already carry the optimized tag are skipped automatically.
+- **ZAR** — ZArchive (`.zar`, zstd) for direct use in Xenia canary.
+- **CSO** — compressed ISO (`.cso`, CISO v2/LZ4), compatible with the xdvdfs ecosystem.
+
+See the [Conversion Methods](Conversion-Methods.md) page for details.
+
+### 4. Options
 
 | Option | Behavior when enabled |
 |:---|:---|
+| **Output Format** | Produces `.iso` (optimized XISO), `.zar` (ZArchive/zstd), or `.cso` (CISO v2/LZ4). |
 | **Skip $SystemUpdate** | Excludes the `$SystemUpdate` folder from the output for extra space savings (~100–300 MB). |
 | **Delete Originals** | Replaces each input file with its converted version. Deletion happens **only after** the output has been produced and verified. |
-| **Check Output Integrity** | Runs a structural validation on each newly created XISO before reporting success. |
-| **Search Subfolders** | Includes ISOs found in subdirectories of the input folder. |
+| **Check Output Integrity** | Runs a structural validation on each newly created XISO before reporting success (for ZAR/CSO the source image is validated instead). |
+| **Search Subfolders** | Includes files found in subdirectories of the input folder in the list. |
 
-### 4. Start, Monitor, Cancel
+### 5. Start, Monitor, Cancel
 
 - Click **Start Conversion** to begin the batch.
 - The progress bar shows per-file and overall progress; the log pane records every action with timestamps.
 - The statistics panel updates live: **Total**, **Success**, **Failed**, **Skipped**, **Processing Time**, plus **read/write speed** with a drive-letter indicator for the currently active disk.
 - Click **Cancel** at any time. The current file operation is cancelled as soon as possible; already-converted files remain valid.
 
-### 5. What Happens to Each File
+### 6. What Happens to Each File
 
 The orchestrator decides per input file:
 
-1. **`.iso`** — converted directly with the XISOSharp engine.
-2. **`.cue`/`.bin`** — converted to ISO with the bundled `bchunk` tool, then converted normally.
-3. **`.zip` / `.7z` / `.rar`** — extracted to a temporary folder (with automatic drive fallback if the temp drive is short on space), the ISO inside is converted, then temporaries are cleaned up.
+1. **`.iso`** — converted directly with the XISOSharp engine into the selected output format (`.iso`, `.zar`, or `.cso`).
+2. **`.zip` / `.7z` / `.rar`** — extracted to a temporary folder (with automatic drive fallback if the temp drive is short on space), the ISO inside is converted, then temporaries are cleaned up.
    - Password-protected/encrypted archives are detected and **skipped with a clear message** instead of a cryptic failure.
-4. At the end, a **summary** is logged (files processed, succeeded, failed, skipped) and the operation is finalized.
+3. At the end, a **summary** is logged (files processed, succeeded, failed, skipped) and the operation is finalized.
 
 Files stored in cloud-sync folders (OneDrive, etc.) that are not hydrated locally are detected and retried automatically with exponential backoff while the cloud provider downloads them.
 
@@ -81,9 +95,10 @@ Use this view to validate ISO images without converting them.
 ### Workflow
 
 1. Select the **input folder** containing the ISOs to test.
-2. Choose any of the options above.
-3. Click **Start Test**.
-4. Review the log: each file is reported as passed or failed, with the reason for failure where applicable.
+2. Tick the files you want to test in the **Select Files to Test** list (or use **Select All** / **Deselect All**).
+3. Choose any of the options above.
+4. Click **Start Test**.
+5. Review the log: each file is reported as passed or failed, with the reason for failure where applicable.
 
 > File moves performed by the test view use the same retry logic as conversion: transient locks (antivirus scans, cloud hydration, network hiccups) are retried with exponential backoff before being reported as failures.
 

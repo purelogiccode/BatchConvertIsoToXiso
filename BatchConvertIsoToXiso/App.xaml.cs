@@ -236,8 +236,6 @@ public partial class App
             new FileMoverService(provider.GetRequiredService<ILogger>(),
                 provider.GetRequiredService<IDiskMonitorService>()));
         services.AddTransient<AboutWindow>();
-        services.AddSingleton<IExternalToolService>(static provider =>
-            new ExternalToolService(provider.GetRequiredService<ILogger>()));
         services.AddSingleton<IXisoSharpService>(static provider =>
             new XisoSharpService(provider.GetRequiredService<ILogger>(),
                 provider.GetRequiredService<IDiskMonitorService>()));

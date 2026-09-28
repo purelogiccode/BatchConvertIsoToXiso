@@ -20,9 +20,6 @@
 
     <ItemGroup>
         <Content Include="icon\icon.ico" />
-        <None Include="bchunk.exe">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
         <None Update="7za.exe">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>

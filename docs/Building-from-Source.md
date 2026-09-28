@@ -47,7 +47,6 @@ dotnet run --project BatchConvertIsoToXiso
 
 XISO conversion is performed by the `XISOSharp` NuGet package — no conversion binaries are bundled. The application project still bundles Windows helper executables that are copied to the output directory on every build:
 
-- `bchunk.exe` — CUE/BIN to ISO conversion
 - `7za.exe`, `7za_arm64.exe` — 7-Zip CLI fallback for archive extraction
 
 These are committed to the repository, so no extra download steps are needed.

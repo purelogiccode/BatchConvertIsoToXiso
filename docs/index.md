@@ -36,7 +36,7 @@ Whether you are managing a large collection of game backups, preparing files for
 
 | Area | Capabilities |
 |---|---|
-| **Batch Conversion** | XISOSharp conversion engine, archive input (`.zip`, `.7z`, `.rar`), CUE/BIN support via `bchunk`, optional `$SystemUpdate` removal, replace-originals mode, post-conversion verification |
+| **Batch Conversion** | XISOSharp conversion engine, XISO/ZAR/CSO output formats, ISO input (Redump full-disc images or optimized XISO files), archive input (`.zip`, `.7z`, `.rar`), optional `$SystemUpdate` removal, replace-originals mode, post-conversion verification |
 | **Integrity Testing** | Structural XDVDFS validation, optional deep surface scan, automatic move of passed/failed files into organized subfolders |
 | **XISO Explorer** | Native in-ISO browsing, file metadata, double-click to open, drag-and-drop extraction |
 | **Monitoring** | Real-time success/fail/skip counters, per-drive read/write speed indicators, elapsed-time tracking, memory usage |
@@ -86,7 +86,6 @@ Whether you are managing a large collection of game backups, preparing files for
 ## Acknowledgements
 
 - **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** — XISO/XDVDFS reading, writing, and conversion library that powers conversion, integrity testing, and exploration
-- **[bchunk](https://github.com/extramaster/bchunk)** — CUE/BIN to ISO conversion
 - **[SharpCompress](https://github.com/adamhathcock/sharpcompress)** — high-performance archive extraction
 
 ---
