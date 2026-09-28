@@ -13,8 +13,8 @@ The main window is organized into three views, selectable from the navigation bu
 | View | Purpose |
 |:---|:---|
 | **Convert** | Batch-convert ISOs (and archives containing ISOs) into trimmed XISO files |
-| **Test Integrity** | Validate the filesystem structure of ISO files and organize results |
-| **Explorer** | Browse the contents of an Xbox ISO without extracting it |
+| **Test Integrity** | Validate ISO, CSO, and ZAR images and organize results |
+| **Explorer** | Browse the contents of an Xbox ISO, CSO, or ZAR without extracting it |
 
 Below the three views, a shared **status bar** shows a live log, progress bar, cancel button, statistics (total / success / fail / skipped / processing time), and per-drive read/write speed indicators.
 
@@ -81,23 +81,26 @@ Files stored in cloud-sync folders (OneDrive, etc.) that are not hydrated locall
 
 ## The Test Integrity Tab
 
-Use this view to validate ISO images without converting them.
+Use this view to validate images without converting them. Supported formats:
+
+- **`.iso`** and **`.cso`** (CISO, including split `.1.cso` part sets) — a deep audit of the XDVDFS file tree, with an optional sequential sector scan.
+- **`.zar`** (ZArchive/zstd) — opens the archive (header, index, name table, file tree), walks the whole tree, and with the deep scan enabled decompresses every file to prove all blocks are readable.
 
 ### Options
 
 | Option | Behavior when enabled |
 |:---|:---|
-| **Move Passed Files** | Moves ISOs that pass validation into a `_success` subfolder |
-| **Move Failed Files** | Moves ISOs that fail validation into a `_failed` subfolder |
+| **Move Passed Files** | Moves images that pass validation into a `_success` subfolder (a split CISO's continuation parts travel with part 1) |
+| **Move Failed Files** | Moves images that fail validation into a `_failed` subfolder |
 | **Search Subfolders** | Recurses into subdirectories of the input folder |
-| **Perform Deep Scan** | Reads every sector of the image sequentially to detect physical corruption / bad sectors (slower, but thorough) |
+| **Perform Deep Scan** | Reads the entire image — every sector for ISO/CSO, every decompressed block for ZAR — to detect physical corruption / bad sectors (slower, but thorough) |
 
 ### Workflow
 
-1. Select the **input folder** containing the ISOs to test.
+1. Select the **input folder** containing the images to test.
 2. Tick the files you want to test in the **Select Files to Test** list (or use **Select All** / **Deselect All**).
 3. Choose any of the options above.
-4. Click **Start Test**.
+4. Click **Start Integrity Test**.
 5. Review the log: each file is reported as passed or failed, with the reason for failure where applicable.
 
 > File moves performed by the test view use the same retry logic as conversion: transient locks (antivirus scans, cloud hydration, network hiccups) are retried with exponential backoff before being reported as failures.
@@ -106,7 +109,7 @@ Use this view to validate ISO images without converting them.
 
 ## The Explorer Tab
 
-The built-in XISO Explorer lets you inspect the contents of an Xbox ISO without extraction. See the dedicated [XISO Explorer](XISO-Explorer.md) page for the full walkthrough.
+The built-in Image Explorer lets you inspect the contents of an Xbox `.iso`, `.cso`, or `.zar` without extraction. See the dedicated [XISO Explorer](XISO-Explorer.md) page for the full walkthrough.
 
 ---
 

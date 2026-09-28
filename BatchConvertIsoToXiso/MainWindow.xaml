@@ -26,8 +26,8 @@
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <TextBlock Text="Batch ISO to XISO" FontSize="20" FontWeight="Bold" Foreground="{StaticResource HeaderTextBrush}" VerticalAlignment="Center" Margin="0,0,30,0" ToolTip="Batch Convert ISO to XISO — Xbox preservation utility" />
                     <Button x:Name="BtnNavConvert" Content="Convert" Click="NavConvert_Click" Style="{StaticResource MenuButtonStyle}" ToolTip="Switch to the ISO to XISO batch conversion view" />
-                    <Button x:Name="BtnNavTest" Content="Test Integrity" Click="NavTest_Click" Style="{StaticResource MenuButtonStyle}" ToolTip="Switch to the ISO integrity testing view" />
-                    <Button x:Name="BtnNavExplorer" Content="Explorer" Click="NavExplorer_Click" Style="{StaticResource MenuButtonStyle}" ToolTip="Switch to the XISO file system explorer view" />
+                    <Button x:Name="BtnNavTest" Content="Test Integrity" Click="NavTest_Click" Style="{StaticResource MenuButtonStyle}" ToolTip="Switch to the image integrity testing view (ISO, CSO, ZAR)" />
+                    <Button x:Name="BtnNavExplorer" Content="Explorer" Click="NavExplorer_Click" Style="{StaticResource MenuButtonStyle}" ToolTip="Switch to the image file system explorer view (ISO, CSO, ZAR)" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
                     <Button Content="Donate" Click="DonateButton_Click" Style="{StaticResource MenuButtonStyle}" Background="{StaticResource SecondaryAccentBrush}" ToolTip="Support the development of this application — opens the PureLogicCode donation page" />
@@ -125,20 +125,20 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Label Content="ISO Folder:" ToolTip="The folder containing ISO files to test for structural integrity" />
-                            <TextBox x:Name="TestInputFolderTextBox" Grid.Column="1" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True" Margin="5,0" ToolTip="Select the folder containing ISO files to test" />
-                            <Button Grid.Column="2" Content="Browse..." Click="BrowseTestInputButton_Click" Style="{StaticResource ActionButtonStyle}" ToolTip="Browse for ISO folder" />
+                            <Label Content="Image Folder:" ToolTip="The folder containing ISO, CSO, or ZAR files to test for structural integrity" />
+                            <TextBox x:Name="TestInputFolderTextBox" Grid.Column="1" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True" Margin="5,0" ToolTip="Select the folder containing ISO, CSO, or ZAR files to test" />
+                            <Button Grid.Column="2" Content="Browse..." Click="BrowseTestInputButton_Click" Style="{StaticResource ActionButtonStyle}" ToolTip="Browse for image folder" />
                         </Grid>
                         <Expander Grid.Row="1" Header="Options" Margin="0,5,0,5" Padding="10,8" IsExpanded="True" Style="{StaticResource CustomExpanderStyle}" ToolTip="Configure integrity test behavior such as file sorting and scan depth. Click the header to collapse or expand.">
                             <StackPanel Orientation="Vertical">
-                                <CheckBox x:Name="MoveSuccessFilesCheckBox" Content="Move successfully tested ISOs to a '_success' subfolder" Margin="0,5,0,0" HorizontalAlignment="Left" IsChecked="False" ToolTip="Moves valid ISOs to a '_success' folder within the source folder" Style="{StaticResource CustomCheckBoxStyle}" />
-                                <CheckBox x:Name="MoveFailedFilesCheckBox" Content="Move failed tested ISOs to a '_failed' subfolder" Margin="0,5,0,0" HorizontalAlignment="Left" IsChecked="False" ToolTip="Moves invalid ISOs to a '_failed' folder within the source folder" Style="{StaticResource CustomCheckBoxStyle}" />
+                                <CheckBox x:Name="MoveSuccessFilesCheckBox" Content="Move successfully tested images to a '_success' subfolder" Margin="0,5,0,0" HorizontalAlignment="Left" IsChecked="False" ToolTip="Moves valid images to a '_success' folder within the source folder" Style="{StaticResource CustomCheckBoxStyle}" />
+                                <CheckBox x:Name="MoveFailedFilesCheckBox" Content="Move failed tested images to a '_failed' subfolder" Margin="0,5,0,0" HorizontalAlignment="Left" IsChecked="False" ToolTip="Moves invalid images to a '_failed' folder within the source folder" Style="{StaticResource CustomCheckBoxStyle}" />
                                 <CheckBox x:Name="SearchSubfoldersTestCheckBox" Content="Search for files in subfolders" Margin="0,5,0,0" HorizontalAlignment="Left" IsChecked="True" ToolTip="Include files found in subdirectories of the source folder" Style="{StaticResource CustomCheckBoxStyle}" Checked="SearchSubfoldersCheckBox_Changed" Unchecked="SearchSubfoldersCheckBox_Changed" />
-                                <CheckBox x:Name="PerformDeepScanCheckBox" Content="Perform deep surface scan (slower)" Margin="0,5,0,5" HorizontalAlignment="Left" IsChecked="False" ToolTip="Reads entire ISO sequentially to detect bad sectors. Unchecked performs logical file test only (faster)." Style="{StaticResource CustomCheckBoxStyle}" />
+                                <CheckBox x:Name="PerformDeepScanCheckBox" Content="Perform deep surface scan (slower)" Margin="0,5,0,5" HorizontalAlignment="Left" IsChecked="False" ToolTip="Reads the entire image (and decompresses every block for CSO/ZAR) to detect bad sectors or corrupt blocks. Unchecked performs the logical structure test only (faster)." Style="{StaticResource CustomCheckBoxStyle}" />
                             </StackPanel>
                         </Expander>
-                        <Label Grid.Row="2" Content="Select Files to Test:" Margin="0,5,0,0" FontWeight="SemiBold" ToolTip="Tick the ISO files to include in the integrity test" />
-                        <DataGrid x:Name="TestFilesDataGrid" Grid.Row="3" MinHeight="120" Margin="0,5" AutoGenerateColumns="False" Style="{StaticResource FileListDataGridStyle}" ToolTip="ISO files found in the folder. Untick any file you do not want to test.">
+                        <Label Grid.Row="2" Content="Select Files to Test:" Margin="0,5,0,0" FontWeight="SemiBold" ToolTip="Tick the ISO, CSO, or ZAR files to include in the integrity test" />
+                        <DataGrid x:Name="TestFilesDataGrid" Grid.Row="3" MinHeight="120" Margin="0,5" AutoGenerateColumns="False" Style="{StaticResource FileListDataGridStyle}" ToolTip="ISO, CSO, and ZAR files found in the folder. Untick any file you do not want to test.">
                             <DataGrid.Columns>
                                 <DataGridCheckBoxColumn Header="Selected" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="80" />
                                 <DataGridTextColumn Header="Filename" Binding="{Binding FileName}" Width="*" IsReadOnly="True" />
@@ -162,9 +162,9 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Label Content="Select XISO File:" ToolTip="Choose an XISO or ISO file to browse its internal file system" />
-                            <TextBox x:Name="ExplorerFilePathTextBox" Grid.Column="1" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True" Margin="5,0" ToolTip="Select an Xbox ISO file to explore its contents" />
-                            <Button Content="Browse..." Grid.Column="2" Click="BrowseExplorerFile_Click" Style="{StaticResource ActionButtonStyle}" ToolTip="Browse for an XISO file" />
+                            <Label Content="Select Image File:" ToolTip="Choose an ISO, CSO, or ZAR file to browse its internal file system" />
+                            <TextBox x:Name="ExplorerFilePathTextBox" Grid.Column="1" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True" Margin="5,0" ToolTip="Select an Xbox image to explore its contents" />
+                            <Button Content="Browse..." Grid.Column="2" Click="BrowseExplorerFile_Click" Style="{StaticResource ActionButtonStyle}" ToolTip="Browse for an Xbox image" />
                         </Grid>
 
                         <Border x:Name="ExplorerBorder" Grid.Row="1" Margin="0,10,0,0" BorderBrush="{StaticResource TerminalBorderBrush}" BorderThickness="2" CornerRadius="4" Background="{StaticResource TerminalBackgroundBrush}" Padding="10">
@@ -177,12 +177,12 @@
                                 <!-- Navigation Bar -->
                                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,5">
                                     <Button x:Name="ExplorerUpButton" Content="⬆ Up" Click="ExplorerUpButton_Click" Width="60" Margin="0,0,10,0" IsEnabled="False" Style="{StaticResource ActionButtonStyle}" ToolTip="Go up one directory level" />
-                                    <TextBlock Text="Current Path: " VerticalAlignment="Center" FontWeight="Bold" Foreground="{StaticResource TerminalForegroundBrush}" ToolTip="The current directory path within the XISO file system" />
+                                    <TextBlock Text="Current Path: " VerticalAlignment="Center" FontWeight="Bold" Foreground="{StaticResource TerminalForegroundBrush}" ToolTip="The current directory path within the image file system" />
                                     <TextBlock x:Name="ExplorerPathTextBlock" Text="/" VerticalAlignment="Center" Foreground="{StaticResource TerminalForegroundBrush}" />
                                 </StackPanel>
 
                                 <!-- File List -->
-                                <ListView x:Name="ExplorerListView" Grid.Row="1" SizeChanged="ExplorerListView_SizeChanged" MouseDoubleClick="ExplorerListView_MouseDoubleClick" PreviewMouseLeftButtonDown="ExplorerListView_PreviewMouseLeftButtonDown" MouseMove="ExplorerListView_MouseMoveAsync" BorderThickness="0" Background="{StaticResource TerminalBackgroundBrush}" ItemContainerStyle="{StaticResource ExplorerListViewItemStyle}" ToolTip="Double-click directories to navigate, double-click files to extract. Drag and drop files to copy them out of the XISO.">
+                                <ListView x:Name="ExplorerListView" Grid.Row="1" SizeChanged="ExplorerListView_SizeChanged" MouseDoubleClick="ExplorerListView_MouseDoubleClick" PreviewMouseLeftButtonDown="ExplorerListView_PreviewMouseLeftButtonDown" MouseMove="ExplorerListView_MouseMoveAsync" BorderThickness="0" Background="{StaticResource TerminalBackgroundBrush}" ItemContainerStyle="{StaticResource ExplorerListViewItemStyle}" ToolTip="Double-click directories to navigate, double-click files to extract. Drag and drop files to copy them out of the image.">
                                     <ListView.View>
                                         <GridView ColumnHeaderContainerStyle="{StaticResource ExplorerGridViewColumnHeaderStyle}">
                                             <GridViewColumn x:Name="ExplorerNameColumn">

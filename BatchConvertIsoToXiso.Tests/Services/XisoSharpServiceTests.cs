@@ -235,6 +235,29 @@ public sealed class XisoSharpServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ZarOutputWithIntegrityCheckAcceptsRawNonOptimizedImage()
+    {
+        var isoPath = CreateOptimizedXiso();
+
+        // Clear the optimized tag so the image is treated as a standard (non-optimized) XISO
+        await using (var stream = new FileStream(isoPath, FileMode.Open, FileAccess.Write, FileShare.None))
+        {
+            stream.Seek(Constants.OptimizedTagOffset, SeekOrigin.Begin);
+            stream.Write(new byte[Constants.OptimizedTagLength]);
+        }
+
+        var service = CreateService();
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        // The source audit must not require the optimized tag: raw dumps are packed as-is.
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "game.zar", OutputFormat.Zar, false, true,
+            new Progress<BatchOperationProgress>(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        Assert.True(File.Exists(Path.Combine(outputFolder, "game.zar")));
+    }
+
+    [Fact]
     public async Task ZarOutputWithSkipSystemUpdateExcludesUpdateFolder()
     {
         var isoPath = CreateXisoWithSystemUpdate("game-su.iso");

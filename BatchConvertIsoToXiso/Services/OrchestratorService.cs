@@ -622,15 +622,16 @@ public class OrchestratorService : IOrchestratorService
                     "Please verify the folder exists and try again.");
             }
 
-            _logger.Information("Starting ISO test. Input: {InputFolder}", inputFolder);
+            _logger.Information("Starting image test. Input: {InputFolder}", inputFolder);
 
             var enumOptions = new EnumerationOptions
                 { IgnoreInaccessible = true, RecurseSubdirectories = searchSubfolders };
 
-            List<string> isoFiles;
+            List<string> imageFiles;
             try
             {
-                isoFiles = await Task.Run(() => Directory.GetFiles(inputFolder, "*.iso", enumOptions).ToList(), token);
+                imageFiles = await Task.Run(() => Directory.GetFiles(inputFolder, "*.*", enumOptions)
+                    .Where(SupportedFiles.IsTestable).ToList(), token);
             }
             catch (DirectoryNotFoundException ex)
             {
@@ -642,15 +643,16 @@ public class OrchestratorService : IOrchestratorService
                     ex);
             }
 
-            if (isoFiles.Count == 0)
+            if (imageFiles.Count == 0)
             {
-                _logger.Information("No ISO files found in {InputFolder}", inputFolder);
+                _logger.Information("No supported image files found in {InputFolder}", inputFolder);
                 return;
             }
 
-            _logger.Information("Found {FileCount} ISO file(s) to test in {InputFolder}", isoFiles.Count, inputFolder);
+            _logger.Information("Found {FileCount} image file(s) to test in {InputFolder}", imageFiles.Count,
+                inputFolder);
 
-            await TestEntriesCoreAsync(inputFolder, isoFiles, moveSuccessful, moveFailed, performDeepScan, progress,
+            await TestEntriesCoreAsync(inputFolder, imageFiles, moveSuccessful, moveFailed, performDeepScan, progress,
                 onCloudRetryRequired, token);
         });
     }
@@ -661,42 +663,42 @@ public class OrchestratorService : IOrchestratorService
     {
         return RunWithErrorHandlingAsync("TestFilesAsync", async () =>
         {
-            var isoFiles = files.Where(SupportedFiles.IsIso).ToList();
-            if (isoFiles.Count == 0)
+            var imageFiles = files.Where(SupportedFiles.IsTestable).ToList();
+            if (imageFiles.Count == 0)
             {
-                _logger.Information("No ISO files selected for testing.");
+                _logger.Information("No supported image files selected for testing.");
                 return;
             }
 
-            _logger.Information("Starting ISO test of {FileCount} selected file(s). Input: {InputFolder}",
-                isoFiles.Count, inputFolder);
+            _logger.Information("Starting image test of {FileCount} selected file(s). Input: {InputFolder}",
+                imageFiles.Count, inputFolder);
 
-            await TestEntriesCoreAsync(inputFolder, isoFiles, moveSuccessful, moveFailed, performDeepScan, progress,
+            await TestEntriesCoreAsync(inputFolder, imageFiles, moveSuccessful, moveFailed, performDeepScan, progress,
                 onCloudRetryRequired, token);
         });
     }
 
-    private async Task TestEntriesCoreAsync(string inputFolder, IReadOnlyList<string> isoFiles, bool moveSuccessful,
+    private async Task TestEntriesCoreAsync(string inputFolder, IReadOnlyList<string> imageFiles, bool moveSuccessful,
         bool moveFailed, bool performDeepScan, IProgress<BatchOperationProgress> progress,
         Func<string, Task<CloudRetryResult>> onCloudRetryRequired, CancellationToken token)
     {
-        progress.Report(new BatchOperationProgress { TotalFiles = isoFiles.Count });
+        progress.Report(new BatchOperationProgress { TotalFiles = imageFiles.Count });
         var successFolder = Path.Combine(inputFolder, "_success");
         var failedFolder = Path.Combine(inputFolder, "_failed");
 
         var processed = 0;
         var fileIndex = 1;
 
-        foreach (var isoPath in isoFiles)
+        foreach (var imagePath in imageFiles)
         {
             token.ThrowIfCancellationRequested();
-            var fileName = Path.GetFileName(isoPath);
+            var fileName = Path.GetFileName(imagePath);
             progress.Report(new BatchOperationProgress
             {
                 StatusText = $"Testing: {fileName}", CurrentDrive = PathHelper.GetDriveLetter(Path.GetTempPath())
             });
 
-            var result = await TestSingleIsoInternalAsync(isoPath, fileIndex++, performDeepScan,
+            var result = await TestSingleIsoInternalAsync(imagePath, fileIndex++, performDeepScan,
                 onCloudRetryRequired,
                 progress, token);
 
@@ -705,23 +707,49 @@ public class OrchestratorService : IOrchestratorService
                 progress.Report(new BatchOperationProgress
                     { SuccessCount = 1, LogMessage = $"  SUCCESS: '{fileName}' passed test." });
                 if (moveSuccessful)
-                    await _fileMover.MoveTestedFileAsync(isoPath, successFolder, "successfully tested", token);
+                    await MoveTestedImageAsync(imagePath, successFolder, "successfully tested", token);
             }
             else
             {
                 progress.Report(new BatchOperationProgress
                 {
-                    FailedCount = 1, FailedPathToAdd = isoPath, LogMessage = $"  FAILURE: '{fileName}' failed test."
+                    FailedCount = 1, FailedPathToAdd = imagePath, LogMessage = $"  FAILURE: '{fileName}' failed test."
                 });
                 _logger.Information("Test failed for {FileName}", fileName);
-                if (moveFailed) await _fileMover.MoveTestedFileAsync(isoPath, failedFolder, "failed test", token);
+                if (moveFailed) await MoveTestedImageAsync(imagePath, failedFolder, "failed test", token);
             }
 
             processed++;
             progress.Report(new BatchOperationProgress { ProcessedCount = processed });
         }
 
-        _logger.Information("ISO test completed. Processed {ProcessedCount} file(s)", processed);
+        _logger.Information("Image test completed. Processed {ProcessedCount} file(s)", processed);
+    }
+
+    /// <summary>
+    /// Moves a tested image to the success/failed folder. A split CISO set is opened
+    /// through its first part (<c>game.1.cso</c>), so the continuation parts
+    /// (<c>game.2.cso</c>, …) travel with it — moving part 1 alone would break the set.
+    /// </summary>
+    private async Task MoveTestedImageAsync(string imagePath, string destinationFolder, string moveReason,
+        CancellationToken token)
+    {
+        await _fileMover.MoveTestedFileAsync(imagePath, destinationFolder, moveReason, token);
+
+        if (!imagePath.EndsWith(".1.cso", StringComparison.OrdinalIgnoreCase)) return;
+
+        // Part 1 was not moved (destination already exists or the move failed): leave the
+        // set together instead of stranding the continuation parts.
+        if (File.Exists(imagePath)) return;
+
+        var basePath = imagePath[..^".1.cso".Length];
+        for (var part = 2; ; part++)
+        {
+            var partPath = $"{basePath}.{part}.cso";
+            if (!File.Exists(partPath)) break;
+
+            await _fileMover.MoveTestedFileAsync(partPath, destinationFolder, moveReason, token);
+        }
     }
 
     private async Task<IsoTestResultStatus> TestSingleIsoInternalAsync(string isoPath, int index, bool performDeepScan,
@@ -744,8 +772,12 @@ public class OrchestratorService : IOrchestratorService
         catch (IOException)
         {
             // Likely cloud file issue, use existing copy logic
-            _logger.Debug("ISO {IsoPath} is not directly readable; copying to local temp", isoPath);
-            var simpleName = GenerateFilename.GenerateSimpleFilename(index);
+            _logger.Debug("Image {ImagePath} is not directly readable; copying to local temp", isoPath);
+
+            // The temp copy must keep the original extension: the integrity service
+            // routes by extension (plain ISO/CISO vs ZAR).
+            var simpleName = Path.ChangeExtension(GenerateFilename.GenerateSimpleFilename(index),
+                Path.GetExtension(isoPath));
             long estimatedSize = 0;
             try
             {
@@ -754,7 +786,7 @@ public class OrchestratorService : IOrchestratorService
             catch (Exception ex)
             {
                 // ignored
-                _logger.Debug(ex, "Could not determine size of ISO {IsoPath}", isoPath);
+                _logger.Debug(ex, "Could not determine size of image {ImagePath}", isoPath);
             }
 
             var tempDir = ResolveTempDirectory(estimatedSize, "BatchConvertIsoToXiso_Test");
@@ -773,7 +805,7 @@ public class OrchestratorService : IOrchestratorService
 
         try
         {
-            progress.Report(new BatchOperationProgress { LogMessage = "  Verifying ISO structure and readability..." });
+            progress.Report(new BatchOperationProgress { LogMessage = "  Verifying image structure and readability..." });
 
             var passed = await _integrityService.TestIsoIntegrityAsync(pathToCheck, performDeepScan, progress, token);
 
@@ -781,13 +813,13 @@ public class OrchestratorService : IOrchestratorService
         }
         catch (OperationCanceledException)
         {
-            _logger.Debug("ISO test canceled: {IsoPath}", isoPath);
+            _logger.Debug("Image test canceled: {ImagePath}", isoPath);
             throw;
         }
         catch (Exception ex)
         {
             progress.Report(new BatchOperationProgress { LogMessage = $"  Test Error: {ex.Message}" });
-            _logger.Information(ex, "Test failed for {IsoPath}", isoPath);
+            _logger.Information(ex, "Test failed for {ImagePath}", isoPath);
             return IsoTestResultStatus.Failed;
         }
         finally

@@ -29,7 +29,11 @@ CSharp_BatchConvertIsoToXiso.sln
 │       ├── OrchestratorService.cs       Batch pipeline coordination
 │       ├── SupportedFiles.cs            Extension filters shared by the UI lists and folder scans
 │       ├── XisoSharpService.cs          XISO conversion via the XISOSharp library
-│       ├── XisoIntegrityService.cs      Structural audit + deep surface scan via XISOSharp
+│       ├── XisoIntegrityService.cs      Structural audit + deep scan via XISOSharp / ZArchiveSharp
+│       ├── ImageExplorerFactory.cs      Opens the right IImageExplorer (XISO/CISO or ZAR)
+│       ├── XisoImageExplorer.cs         IImageExplorer over ISO/CSO via XisoExplorer
+│       ├── ZarImageExplorer.cs          IImageExplorer over ZAR via ZArchiveReader (zip-slip safe)
+│       ├── ImagePaths.cs                Shared internal-path normalization helpers
 │       ├── FileExtractorService.cs      Archive handling (zip/7z/rar), locked-file retries
 │       ├── FileMoverService.cs          File moves with network/lock retries
 │       ├── DiskMonitorService.cs        Read/write speed and free-space monitoring
@@ -54,7 +58,8 @@ Bundled helper executables (`7za.exe`, `7za_arm64.exe`) are copied to the output
 | `IDiskMonitorService` | Singleton | Drive throughput counters and free-space queries |
 | `IOrchestratorService` | Singleton | Batch pipeline: per-file dispatch for the selected files, progress, cancellation |
 | `IXisoSharpService` | Singleton | XISO/ZAR/CSO conversion via the XISOSharp library |
-| `IXisoIntegrityService` | Singleton | Structural audit + deep surface scan via XISOSharp |
+| `IXisoIntegrityService` | Singleton | Structural audit + deep scan via XISOSharp (ISO/CSO) and ZArchiveSharp (ZAR) |
+| `IImageExplorer` | Per open image | Explorer over ISO/CSO (`XisoExplorer`) or ZAR (`ZArchiveReader`), built by `ImageExplorerFactory` |
 | `IFileExtractor` | Transient | Archive extraction with fallbacks and lock retries |
 | `IFileMover` | Transient | Move/copy operations with retry + backoff |
 | `IBugReportService` | Singleton | Sends exception reports to the developer endpoint |
@@ -87,6 +92,13 @@ game-partition tree via `XisoZarchive.CreateZar` (Redump partition offsets detec
 
 The folder-scanning `ConvertAsync`/`TestAsync` overloads remain available for callers that want the
 orchestrator to discover files itself; the UI always passes the explicit list of ticked files.
+
+The test pipeline (`TestAsync`/`TestFilesAsync` → `IXisoIntegrityService`) dispatches by extension:
+`.iso` and `.cso` (single or split `.1.cso`) go through `XisoReader.AuditXiso(...,
+requireOptimizedTag: false)` and, with the deep scan enabled, a sequential read of the whole
+decompressed image; `.zar` is opened, tree-walked, and (deep scan) fully decompressed through
+`ZArchiveReader`. Split CISO continuation parts are hidden from the list and move together with
+part 1.
 
 Safety characteristics of the pipeline:
 
@@ -121,7 +133,8 @@ Three layers of defense:
 | `FileProcessingStatus` | Per-file outcome (success/failed/skipped/…) |
 | `BatchOperationProgress` | Progress snapshot used for UI updates |
 | `IsoTestResultStatus` | Test-view outcome states |
-| `XisoExplorerItem` | Row model for the explorer list |
+| `ImageEntry` | One file/directory inside an image or archive (name, path, size, type) |
+| `XisoExplorerItem` | Row model for the explorer list (wraps an `ImageEntry`) |
 | `GitHubReleaseInfo` | Deserialized GitHub release payload |
 | `CloudRetryResult` | Result of a cloud-hydration retry |
 

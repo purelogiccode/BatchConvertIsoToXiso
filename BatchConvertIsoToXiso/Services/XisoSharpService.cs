@@ -456,12 +456,19 @@ public class XisoSharpService : IXisoSharpService
     private bool AuditSourceImage(string sourcePath, string fileName)
     {
         _logger.Information("Verifying source image integrity for '{FileName}'...", fileName);
-        var audit = XisoReader.AuditXiso(sourcePath);
+        // Source images may be raw (non-optimized) dumps; only the filesystem structure
+        // is validated, not the optimized tag (which is written during conversion).
+        var audit = XisoReader.AuditXiso(sourcePath, requireOptimizedTag: false);
         if (!audit.IsValid)
         {
             _logger.Information("Source image failed structural validation: {Issues}",
                 string.Join("; ", audit.Issues));
             return false;
+        }
+
+        if (!audit.IsOptimized)
+        {
+            _logger.Information("Source image is not optimized (raw ISO); the tag is written during conversion.");
         }
 
         _logger.Information("Source image passed validation ({FilesChecked} files, {DirsChecked} directories).",

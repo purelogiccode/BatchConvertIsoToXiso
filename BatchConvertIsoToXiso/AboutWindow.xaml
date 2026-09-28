@@ -81,11 +81,11 @@
                                Margin="0,0,0,12"
                                ToolTip="Batch Convert ISO to XISO converts Xbox/Xbox 360 ISOs into trimmed XISO format, saving space while preserving content" />
                     <TextBlock
-                        Text="Features include batch conversion powered by the XISOSharp library, integrity testing with deep surface scanning and XISO file exploration with drag-and-drop extraction."
+                        Text="Features include batch conversion powered by the XISOSharp library, integrity testing with deep scanning for ISO, CSO, and ZAR images, and an image explorer with drag-and-drop extraction."
                         Foreground="{StaticResource TextSecondaryBrush}"
                         TextWrapping="Wrap"
                         LineHeight="20"
-                        ToolTip="Key features: XISOSharp-powered batch conversion, ISO integrity testing with deep scan, and XISO file explorer with drag-and-drop extraction" />
+                        ToolTip="Key features: XISOSharp-powered batch conversion, ISO/CSO/ZAR integrity testing with deep scan, and an image explorer with drag-and-drop extraction" />
                 </StackPanel>
             </Border>
 

@@ -5,7 +5,6 @@ using System.Windows.Threading;
 using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Services;
 using Serilog;
-using XISOSharp;
 
 namespace BatchConvertIsoToXiso;
 
@@ -38,8 +37,8 @@ public partial class MainWindow
     private int _totalProcessedFiles;
     private readonly HashSet<string> _failedFilePaths = new(StringComparer.OrdinalIgnoreCase);
 
-    // XIso Explorer State
-    private XisoExplorer? _explorer;
+    // Image Explorer State
+    private IImageExplorer? _explorer;
     private readonly Lock _explorerLock = new();
     private string _currentInternalPath = "/";
 

@@ -21,7 +21,7 @@
 [![Code analyzers](https://img.shields.io/badge/analyzers-Meziantou%20%7C%20Roslynator-blueviolet)](docs/Architecture.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/Repository.md#contributing)
 
-A high-performance Windows WPF utility for the Xbox preservation and emulation community. Convert, verify, and explore Xbox and Xbox 360 ISO files, powered by the XISOSharp library.
+A high-performance Windows WPF utility for the Xbox preservation and emulation community. Convert, verify, and explore Xbox and Xbox 360 images (ISO, CSO, and ZAR), powered by the XISOSharp library.
 
 ---
 
@@ -100,14 +100,15 @@ Read the full [What's New](WhatsNew.md) or browse the [Release Notes](docs/Relea
 - **Skip Already Optimized**: Images that already carry the optimized XISO tag are detected and skipped
 
 ### ✅ Integrity Testing
-- **Structural Validation**: Deep traversal of the XDVDFS file tree to ensure filesystem validity
-- **Deep Surface Scan**: Optional sequential sector reading to detect physical data corruption or bad sectors
+- **Structural Validation**: Deep traversal of the XDVDFS file tree (ISO and CSO) or the ZAR archive tree to ensure file system validity
+- **Deep Surface Scan**: Optional sequential read of the entire image — every sector for ISO/CSO, every decompressed block for ZAR — to detect physical data corruption or bad sectors
+- **All Output Formats**: Test the optimized `.iso`, `.cso`, and `.zar` files this app produces (split `.1.cso` part sets are recognized too)
 - **Batch Organization**: Automatically organize "Passed" or "Failed" images into dedicated subfolders
 
-### 🔍 XISO Explorer
-- **Native Browsing**: Open any Xbox ISO to browse files and directories without extraction
+### 🔍 Image Explorer
+- **Native Browsing**: Open any Xbox ISO, CSO, or ZAR to browse files and directories without extraction
 - **Metadata View**: View file sizes, attributes, and directory structures directly in the UI
-- **Double-Click to Open**: Open files directly from the ISO with their default associated applications
+- **Double-Click to Open**: Open files directly from the image with their default associated applications
 - **Drag & Drop Extraction**: Drag files out of the explorer to extract them to any folder (Windows Explorer, Desktop, etc.)
 
 ### 📊 Advanced Monitoring
@@ -149,15 +150,15 @@ No installation required – the application is fully portable.
     - **Check Output Integrity**: Structurally validate each converted XISO before reporting success
 5. Click **"Convert"** to start the batch process
 
-### Testing ISO Integrity
-1. Switch to the **"Test ISO"** tab
-2. Select your input folder containing ISO files
+### Testing Image Integrity
+1. Switch to the **"Test Integrity"** tab
+2. Select your input folder containing `.iso`, `.cso`, or `.zar` files
 3. Enable **"Move Passed Files"** and/or **"Move Failed Files"** to organize results
-4. Click **"Test ISOs"** to begin validation
+4. Click **"Start Integrity Test"** to begin validation
 
-### Exploring XISO Contents
-1. Switch to the **"XISO Explorer"** tab
-2. Click **"Open ISO"** and select an Xbox ISO file
+### Exploring Image Contents
+1. Switch to the **"Explorer"** tab
+2. Click **"Browse..."** and select an Xbox `.iso`, `.cso`, or `.zar` file
 3. Browse the file tree to view contents without extraction
 4. **Open Files**: Double-click any file to open it with its default application
 5. **Extract Files**: Drag and drop files from the explorer to Windows Explorer, Desktop, or any folder to extract them
@@ -200,8 +201,8 @@ XISOSharp Output:
 |:---------------|:-----------------------------------------------|
 | **Conversion** | `.iso` (Redump or optimized XISO), `.zip`, `.7z`, `.rar` |
 | **Output**     | `.iso` (XISO), `.zar` (ZAR), `.cso` (CSO)      |
-| **Testing**    | `.iso` (Direct files)                          |
-| **Explorer**   | `.iso` (Xbox/Xbox 360 XDVDFS)                  |
+| **Testing**    | `.iso`, `.cso` (CISO, incl. split `.1.cso` part sets), `.zar` (ZAR) |
+| **Explorer**   | `.iso`, `.cso` (CISO), `.zar` (ZAR)            |
 
 ---
 
@@ -216,7 +217,7 @@ Utilizes `Microsoft.Extensions.DependencyInjection` for comprehensive service ma
 Logging runs through a single [Serilog](https://serilog.net/) pipeline with three sinks: the on-screen log viewer (`UiLogSink`), a rolling daily file log (`%LocalAppData%\BatchConvertIsoToXiso\logs`), and a bug-report sink (`BugReportSink`) that forwards every **Warning-or-higher** event to the Bug Report API. Reports include complete environment, error, and exception sections; expected user/environmental errors are logged at Information level so they never generate noise.
 
 ### Testing
-A comprehensive [xUnit](https://xunit.net/) test suite (`BatchConvertIsoToXiso.Tests`) covers models, services, and XISO services with 280+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
+A comprehensive [xUnit](https://xunit.net/) test suite (`BatchConvertIsoToXiso.Tests`) covers models, services, and image services with 340+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
 
 ### Technical Documentation
 For a deep dive into the XDVDFS format, binary file structures, and the conversion algorithm, see the [XDVDFS Technical Documentation](docs/XDVDFS-Technical-Documentation.md). The full documentation (including installation, usage, troubleshooting, architecture, and [release notes](docs/Release-Notes.md)) lives in the [docs folder](docs/index.md) and doubles as the repository wiki. Highlights of the latest release are summarized in [What's New](WhatsNew.md).

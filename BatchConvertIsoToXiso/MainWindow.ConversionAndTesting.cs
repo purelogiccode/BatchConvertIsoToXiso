@@ -40,7 +40,7 @@ public partial class MainWindow
 
     private void BrowseTestInputButton_Click(object sender, RoutedEventArgs e)
     {
-        var inputFolder = SelectFolder("Select the folder containing ISO files to test");
+        var inputFolder = SelectFolder("Select the folder containing ISO, CSO, or ZAR files to test");
         if (string.IsNullOrEmpty(inputFolder)) return;
 
         if (CheckForTempPath.IsSystemTempPath(inputFolder))
@@ -261,7 +261,7 @@ public partial class MainWindow
             if (selectedFiles.Count == 0)
             {
                 _messageBoxService.ShowError(
-                    "No files selected for testing. Select an ISO folder and tick at least one file in the list.");
+                    "No files selected for testing. Select an image folder and tick at least one file in the list.");
                 FinalizeUiState();
                 return;
             }
@@ -328,7 +328,7 @@ public partial class MainWindow
             _operationStopwatch.Restart();
             _processingTimer.Start();
             _memoryTimer.Start();
-            UpdateStatus("Starting batch ISO test...");
+            UpdateStatus("Starting batch image test...");
 
             await _orchestratorService.TestFilesAsync(
                 inputFolder, selectedFiles,

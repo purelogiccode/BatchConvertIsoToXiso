@@ -331,6 +331,53 @@ public class OrchestratorServiceTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(_tempDir, "_success")));
     }
 
+    [Theory]
+    [InlineData("game.cso")]
+    [InlineData("game.1.cso")]
+    [InlineData("game.zar")]
+    public async Task TestFilesAsyncTestsCsoAndZarImages(string fileName)
+    {
+        var imagePath = CreateTempFile(fileName, "image data");
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(),
+            FileProcessingStatus.Converted, integrityResult: true);
+
+        await orchestrator.TestFilesAsync(_tempDir, [imagePath], true, false, false,
+            new Progress<BatchOperationProgress>(), CloudRetrySkip, CancellationToken.None);
+
+        Assert.True(File.Exists(Path.Combine(_tempDir, "_success", fileName)));
+    }
+
+    [Fact]
+    public async Task TestFilesAsyncSkipsSplitCisoContinuationParts()
+    {
+        var part2 = CreateTempFile("game.2.cso", "part 2");
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(),
+            FileProcessingStatus.Converted, integrityResult: true);
+
+        await orchestrator.TestFilesAsync(_tempDir, [part2], true, false, false,
+            new Progress<BatchOperationProgress>(), CloudRetrySkip, CancellationToken.None);
+
+        Assert.True(File.Exists(part2));
+        Assert.False(Directory.Exists(Path.Combine(_tempDir, "_success")));
+    }
+
+    [Fact]
+    public async Task TestFilesAsyncMovesSplitCisoPartsWithFirstPart()
+    {
+        var part1 = CreateTempFile("game.1.cso", "part 1");
+        var part2 = CreateTempFile("game.2.cso", "part 2");
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(),
+            FileProcessingStatus.Converted, integrityResult: true);
+
+        await orchestrator.TestFilesAsync(_tempDir, [part1], true, false, false,
+            new Progress<BatchOperationProgress>(), CloudRetrySkip, CancellationToken.None);
+
+        Assert.True(File.Exists(Path.Combine(_tempDir, "_success", "game.1.cso")));
+        Assert.True(File.Exists(Path.Combine(_tempDir, "_success", "game.2.cso")));
+        Assert.False(File.Exists(part1));
+        Assert.False(File.Exists(part2));
+    }
+
     [Fact]
     public async Task ConvertFilesAsyncZarOutputPassesZarFormatAndExtension()
     {

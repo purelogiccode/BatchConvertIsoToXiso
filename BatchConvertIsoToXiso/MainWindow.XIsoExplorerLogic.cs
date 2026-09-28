@@ -3,10 +3,10 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Models;
 using BatchConvertIsoToXiso.Services;
 using Microsoft.Win32;
-using XISOSharp;
 
 namespace BatchConvertIsoToXiso;
 
@@ -20,8 +20,10 @@ public partial class MainWindow
     {
         var openFileDialog = new OpenFileDialog
         {
-            Filter = "Xbox ISO files (*.iso)|*.iso|All files (*.*)|*.*",
-            Title = "Select an Xbox ISO to explore"
+            Filter = "Xbox images (*.iso;*.cso;*.zar)|*.iso;*.cso;*.zar|" +
+                     "Xbox ISO (*.iso)|*.iso|Compressed ISO (*.cso)|*.cso|ZAR archive (*.zar)|*.zar|" +
+                     "All files (*.*)|*.*",
+            Title = "Select an Xbox image to explore"
         };
 
         if (openFileDialog.ShowDialog() != true) return;
@@ -30,28 +32,28 @@ public partial class MainWindow
         InitializeExplorer(openFileDialog.FileName);
     }
 
-    private void InitializeExplorer(string isoPath)
+    private void InitializeExplorer(string imagePath)
     {
         try
         {
             lock (_explorerLock)
             {
                 _explorer?.Dispose();
-                _explorer = new XisoExplorer(isoPath, new XisoExplorerOptions { KeepOpen = true });
+                _explorer = ImageExplorerFactory.Open(imagePath);
             }
 
             LoadDirectory("/");
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to read XISO: {IsoPath}", isoPath);
-            _messageBoxService.ShowError($"Failed to read XISO: {ex.Message}");
+            _logger.Error(ex, "Failed to read image: {ImagePath}", imagePath);
+            _messageBoxService.ShowError($"Failed to read image: {ex.Message}");
         }
     }
 
     private void LoadDirectory(string internalPath)
     {
-        XisoExplorer explorer;
+        IImageExplorer explorer;
         lock (_explorerLock)
         {
             if (_explorer == null) return;
@@ -66,13 +68,13 @@ public partial class MainWindow
                     Name = e.Name,
                     IsDirectory = e.IsDirectory,
                     SizeFormatted = e.IsDirectory ? "" : Formatter.FormatBytes(e.Size),
-                    Node = e
+                    Entry = e
                 }).OrderByDescending(static i => i.IsDirectory)
                 .ThenBy(static i => i.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             ExplorerListView.ItemsSource = uiItems;
-            _currentInternalPath = XisoExplorer.Normalize(internalPath);
+            _currentInternalPath = ImagePaths.Normalize(internalPath);
             UpdateExplorerUiState();
         }
         catch (Exception ex)
@@ -96,12 +98,12 @@ public partial class MainWindow
 
             if (item.IsDirectory)
             {
-                LoadDirectory(item.Node.FullPath);
+                LoadDirectory(item.Entry.FullPath);
             }
             else
             {
                 // Open the file with the default application
-                await OpenFileFromIso(item.Node, item.Name);
+                await OpenFileFromImage(item.Entry, item.Name);
             }
         }
         catch (Exception ex)
@@ -110,25 +112,25 @@ public partial class MainWindow
         }
     }
 
-    private async Task OpenFileFromIso(ExplorerNode node, string fileName)
+    private async Task OpenFileFromImage(ImageEntry entry, string fileName)
     {
         await Task.Run(async () =>
         {
             try
             {
-                var tempFolder = ResolveExplorerTempDirectory(node.Size, "XisoExplorer");
+                var tempFolder = ResolveExplorerTempDirectory(entry.Size, "ImageExplorer");
                 Directory.CreateDirectory(tempFolder);
                 var tempPath = Path.Combine(tempFolder, fileName);
 
                 // Extract file to temp location
-                XisoExplorer explorer;
+                IImageExplorer explorer;
                 lock (_explorerLock)
                 {
                     if (_explorer == null) return;
                     explorer = _explorer;
                 }
 
-                explorer.CopyOut(node.FullPath, tempPath);
+                explorer.CopyOut(entry.FullPath, tempPath);
 
                 // Open with default application on UI thread
                 await Dispatcher.InvokeAsync(() =>
@@ -172,7 +174,7 @@ public partial class MainWindow
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Failed to extract and open file from ISO: {FileName}", fileName);
+                _logger.Error(ex, "Failed to extract and open file from image: {FileName}", fileName);
                 await Dispatcher.InvokeAsync(() =>
                 {
                     _messageBoxService.ShowError($"Failed to extract and open file: {ex.Message}");
@@ -211,8 +213,8 @@ public partial class MainWindow
             {
                 _isDragging = true;
                 // Extract files to temp folder for drag operation
-                var totalSize = selectedItems.Sum(static i => i.Node.Size);
-                var tempFolder = ResolveExplorerTempDirectory(totalSize, "XisoExplorer_DragDrop");
+                var totalSize = selectedItems.Sum(static i => i.Entry.Size);
+                var tempFolder = ResolveExplorerTempDirectory(totalSize, "ImageExplorer_DragDrop");
                 Directory.CreateDirectory(tempFolder);
 
                 var tempFiles = new List<string>();
@@ -220,7 +222,7 @@ public partial class MainWindow
                 // Perform extraction asynchronously to avoid UI freeze
                 await Task.Run(() =>
                 {
-                    XisoExplorer explorer;
+                    IImageExplorer explorer;
                     lock (_explorerLock)
                     {
                         if (_explorer == null) return;
@@ -230,7 +232,7 @@ public partial class MainWindow
                     foreach (var item in selectedItems)
                     {
                         var tempPath = Path.Combine(tempFolder, item.Name);
-                        explorer.CopyOut(item.Node.FullPath, tempPath);
+                        explorer.CopyOut(item.Entry.FullPath, tempPath);
                         tempFiles.Add(tempPath);
                     }
                 });
@@ -271,14 +273,7 @@ public partial class MainWindow
     {
         if (string.Equals(_currentInternalPath, "/", StringComparison.Ordinal)) return;
 
-        LoadDirectory(GetParentPath(_currentInternalPath));
-    }
-
-    private static string GetParentPath(string internalPath)
-    {
-        var normalized = XisoExplorer.Normalize(internalPath);
-        var lastSlash = normalized.LastIndexOf('/');
-        return lastSlash <= 0 ? "/" : normalized[..lastSlash];
+        LoadDirectory(ImagePaths.GetParent(_currentInternalPath));
     }
 
     private void ExplorerListView_SizeChanged(object sender, SizeChangedEventArgs e)

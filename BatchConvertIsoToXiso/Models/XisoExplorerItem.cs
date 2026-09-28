@@ -1,6 +1,4 @@
-﻿using XISOSharp;
-
-namespace BatchConvertIsoToXiso.Models;
+﻿namespace BatchConvertIsoToXiso.Models;
 
 public class XisoExplorerItem
 {
@@ -10,5 +8,5 @@ public class XisoExplorerItem
     public bool IsDirectory { get; init; }
 
     // ReSharper disable once NullableWarningSuppressionIsUsed
-    public ExplorerNode Node { get; init; } = null!;
+    public ImageEntry Entry { get; init; } = null!;
 }

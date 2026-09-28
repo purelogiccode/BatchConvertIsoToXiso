@@ -4,13 +4,15 @@ using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Models;
 using Serilog;
 using XISOSharp;
+using ZArchiveSharp;
 
 namespace BatchConvertIsoToXiso.Services;
 
 /// <summary>
-/// Validates XISO images using the XISOSharp library: a deep structural audit of the
-/// XDVDFS directory tree, plus an optional sequential surface scan that reads every
-/// sector to detect physical media errors.
+/// Validates Xbox images using the XISOSharp and ZArchiveSharp libraries: a deep
+/// structural audit of the XDVDFS directory tree (plain ISO and CISO) or the ZAR
+/// archive tree, plus an optional sequential surface/deep scan that reads all data
+/// (every sector or decompressed block) to detect media or decompression errors.
 /// </summary>
 public class XisoIntegrityService : IXisoIntegrityService
 {
@@ -30,6 +32,11 @@ public class XisoIntegrityService : IXisoIntegrityService
 
             try
             {
+                if (Path.GetExtension(isoPath).Equals(".zar", StringComparison.OrdinalIgnoreCase))
+                {
+                    return TestZarIntegrity(isoPath, performDeepScan, progress, token);
+                }
+
                 _logger.Information("Starting structural integrity test for: {FileName}", fileName);
                 _logger.Information(
                     "Note: This verifies filesystem structure and readability, not data checksums.");
@@ -41,16 +48,15 @@ public class XisoIntegrityService : IXisoIntegrityService
                 }
 
                 // 2. Logical structure test: deep audit of the XDVDFS directory tree.
-                // The audit also reports a missing optimized tag; raw (unconverted) dumps
-                // legitimately lack it, so that entry is informational, not a failure.
+                // The audit does not require the optimized tag; raw (unconverted) dumps
+                // legitimately lack it, and the tag state is reported via IsOptimized.
                 _logger.Information("Validating XDVDFS directory structure...");
-                var audit = XisoReader.AuditXiso(isoPath);
-                var issues = audit.Issues.Where(static issue => !IsOptimizationNotice(issue)).ToList();
+                var audit = XisoReader.AuditXiso(isoPath, requireOptimizedTag: false);
 
-                if (issues.Count > 0)
+                if (audit.Issues.Count > 0)
                 {
                     _logger.Information("Structural validation failed for {FileName}:", fileName);
-                    foreach (var issue in issues)
+                    foreach (var issue in audit.Issues)
                     {
                         _logger.Information("  - {Issue:l}", issue);
                     }
@@ -58,7 +64,7 @@ public class XisoIntegrityService : IXisoIntegrityService
                     return false;
                 }
 
-                if (issues.Count != audit.Issues.Count)
+                if (!audit.IsOptimized)
                 {
                     _logger.Information(
                         "Image is not optimized (raw ISO); the optimized tag is written during conversion.");
@@ -100,13 +106,140 @@ public class XisoIntegrityService : IXisoIntegrityService
     }
 
     /// <summary>
-    /// The library's audit flags a missing optimized tag as an issue. Raw Redump-style
-    /// ISOs are never optimized, so the tag is not part of filesystem integrity: the
-    /// test accepts them while still failing on any structural defect.
+    /// Validates a ZAR archive (ZArchive/zstd): opens the container (header, offset
+    /// records, name table and file tree), walks the whole tree, and with
+    /// <paramref name="performDeepScan"/> decompresses every file to prove all blocks
+    /// are readable. ZAR holds compressed blocks, so there is no separate surface scan.
     /// </summary>
-    private static bool IsOptimizationNotice(string issue)
+    private bool TestZarIntegrity(string zarPath, bool performDeepScan,
+        IProgress<BatchOperationProgress> progress, CancellationToken token)
     {
-        return issue.StartsWith("Optimized tag not found", StringComparison.Ordinal);
+        var fileName = Path.GetFileName(zarPath);
+        _logger.Information("Starting structural integrity test for: {FileName}", fileName);
+        _logger.Information(
+            "Note: This verifies archive structure and readability, not data checksums.");
+
+        _logger.Information("Validating ZAR archive structure...");
+        using var reader = ZArchiveReader.TryOpen(zarPath, out var failure);
+        if (reader is null)
+        {
+            _logger.Information("ZAR archive could not be opened ({Failure}): {FileName}", failure, fileName);
+            return false;
+        }
+
+        var files = new List<ZarFileEntry>();
+        var directoryCount = 0;
+        WalkZarDirectory(reader, ZArchiveReader.RootNode, "/", files, ref directoryCount, token);
+
+        _logger.Information(
+            "ZAR structure is valid ({FilesChecked} files, {DirsChecked} directories, {TotalSize} uncompressed).",
+            files.Count, directoryCount, Formatter.FormatBytes((long)Math.Min(reader.TotalUncompressedSize,
+                (ulong)long.MaxValue)));
+
+        if (!performDeepScan)
+        {
+            return true;
+        }
+
+        _logger.Information("Performing deep scan (decompressing all archive data)...");
+        var buffer = ArrayPool<byte>.Shared.Rent(4 * 1024 * 1024);
+        try
+        {
+            // Saturating total computed by the reader (no archive I/O).
+            var totalBytes = reader.TotalUncompressedSize;
+            ulong bytesRead = 0;
+            var lastReportedPercent = -1;
+
+            foreach (var file in files)
+            {
+                using var stream = reader.OpenRead(file.Node);
+                var expected = file.Size;
+                ulong fileRead = 0;
+                while (fileRead < expected)
+                {
+                    token.ThrowIfCancellationRequested();
+
+                    var toRead = (int)Math.Min((ulong)buffer.Length, expected - fileRead);
+                    var read = stream.Read(buffer, 0, toRead);
+                    if (read == 0)
+                    {
+                        // EntryStream reports a failed block as a short read, so a
+                        // zero-length read before the entry's end is corrupt data.
+                        _logger.Information(
+                            "Deep scan failed: {Path} is truncated or contains a corrupt block at offset {Offset}.",
+                            file.Path, fileRead);
+                        return false;
+                    }
+
+                    fileRead += (ulong)read;
+                    bytesRead += (ulong)read;
+
+                    if (totalBytes != 0)
+                    {
+                        var percent = (int)(bytesRead * 100 / totalBytes);
+                        if (percent > lastReportedPercent)
+                        {
+                            lastReportedPercent = percent;
+                            progress.Report(new BatchOperationProgress { StatusText = $"Deep scan: {percent}%" });
+                        }
+                    }
+                }
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+
+        _logger.Information("ZAR deep scan completed successfully.");
+        return true;
+    }
+
+    /// <summary>A file discovered by the ZAR tree walk.</summary>
+    private readonly record struct ZarFileEntry(uint Node, string Path, ulong Size);
+
+    /// <summary>
+    /// Recursion depth cap for the ZAR walk, mirroring
+    /// <c>ZArchiveSharp.Pipeline.ZarPackEngine.MaxExtractDepth</c> so a crafted archive
+    /// fails catchably instead of overflowing the stack.
+    /// </summary>
+    private const int MaxZarWalkDepth = 1024;
+
+    /// <summary>
+    /// Recursively walks the ZAR file tree, collecting every file with its node handle
+    /// and full path. Directories whose stored names cannot be decoded are skipped by
+    /// the reader, mirroring its mount/host behavior.
+    /// </summary>
+    private static void WalkZarDirectory(ZArchiveReader reader, uint directoryNode, string directoryPath,
+        List<ZarFileEntry> files, ref int directoryCount, CancellationToken token, int depth = 0)
+    {
+        if (depth > MaxZarWalkDepth)
+        {
+            throw new InvalidDataException(
+                $"ZAR archive directory nesting exceeds the supported depth ({MaxZarWalkDepth}).");
+        }
+
+        var count = reader.GetDirEntryCount(directoryNode);
+        for (uint i = 0; i < count; i++)
+        {
+            token.ThrowIfCancellationRequested();
+
+            if (!reader.TryGetDirEntry(directoryNode, i, out var childNode, out var entry)) continue;
+
+            var path = string.Equals(directoryPath, "/", StringComparison.Ordinal)
+                ? "/" + entry.Name
+                : directoryPath + "/" + entry.Name;
+
+            if (entry.IsDirectory)
+            {
+                directoryCount++;
+                WalkZarDirectory(reader, childNode, path, files, ref directoryCount, token, depth + 1);
+            }
+            else
+            {
+                files.Add(new ZarFileEntry(childNode, path, entry.Size));
+            }
+        }
     }
 
     private bool PerformSurfaceScan(string isoPath, IProgress<BatchOperationProgress> progress, CancellationToken token)

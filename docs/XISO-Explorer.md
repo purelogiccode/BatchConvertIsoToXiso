@@ -8,15 +8,19 @@
 
 ---
 
-The **XISO Explorer** tab provides a native file browser for Xbox and Xbox 360 ISO images. It reads the XDVDFS filesystem directly from the image through the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library, so you can inspect images without extracting anything. The file picker sits at the top with the explorer list directly below it, and the explorer uses the full window width (the log panel is hidden on this tab).
+The **Explorer** tab provides a native file browser for Xbox and Xbox 360 images and archives. It reads the XDVDFS filesystem directly from ISO/CSO images through the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library, and the ZAR archive tree through ZArchiveSharp, so you can inspect images without extracting anything. The file picker sits at the top with the explorer list directly below it, and the explorer uses the full window width (the log panel is hidden on this tab).
 
 ## Opening an Image
 
 1. Switch to the **Explorer** tab.
-2. Click **Browse...** and select an Xbox ISO file.
+2. Click **Browse...** and select a `.iso`, `.cso`, or `.zar` file.
 3. The root of the image appears in the file list.
 
-Both standard XISO files and Redump ISOs are supported — the explorer automatically locates the game partition.
+Supported inputs:
+
+- **`.iso`** — standard XISO and Redump ISOs; the explorer automatically locates the game partition.
+- **`.cso`** — CISO containers (single file or a split `.1.cso` part set); the game partition is read through the decompressed view.
+- **`.zar`** — ZAR archives (ZArchive/zstd); the game tree is read directly from the compressed container.
 
 ## Browsing
 
@@ -50,8 +54,13 @@ The selected items are extracted from the ISO to the drop target. This is the qu
 
 ## Notes and Limitations
 
-- The explorer operates read-only; it never modifies the source ISO.
-- Very deep directory trees are handled iteratively by XISOSharp (no recursion limits).
-- Images that fail XDVDFS validation are rejected with a clear error rather than showing unreliable content.
-- Conversion, integrity testing, and exploration all use the same XISOSharp library, so what you see
+- The explorer operates read-only; it never modifies the source image.
+- Very deep directory trees are handled iteratively by XISOSharp (no recursion limits); the ZAR tree
+  walk is bounded at 1024 levels, mirroring ZArchiveSharp's extractor.
+- Images that fail XDVDFS validation (or ZAR archives with a damaged header/index/tree) are rejected
+  with a clear error rather than showing unreliable content.
+- Extracting entries from a ZAR archive validates every entry name and refuses unsafe names
+  (`..`, separators, drive-qualified or device names), so a crafted archive cannot write outside the
+  chosen destination.
+- Conversion, integrity testing, and exploration all use the same libraries, so what you see
   here reflects exactly what the other views process.

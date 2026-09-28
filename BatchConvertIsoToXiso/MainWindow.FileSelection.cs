@@ -75,7 +75,7 @@ public partial class MainWindow
     private Task RefreshTestFileListAsync()
     {
         return LoadFileListAsync(TestInputFolderTextBox.Text, SearchSubfoldersTestCheckBox.IsChecked == true,
-            _testFiles, SupportedFiles.IsIso, "testing");
+            _testFiles, SupportedFiles.IsTestable, "testing");
     }
 
     /// <summary>

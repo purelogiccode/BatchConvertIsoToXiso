@@ -129,6 +129,86 @@ public sealed class XisoIntegrityServiceTests : IDisposable
         Assert.False(passed);
     }
 
+    private string CreateCiso(string name = "game.cso")
+    {
+        var isoPath = CreateOptimizedXiso($"{Path.GetFileNameWithoutExtension(name)}.iso");
+        var csoPath = Path.Combine(_tempRoot, name);
+        Assert.Equal(0, CisoWriter.CompressToCso(isoPath, csoPath));
+        return csoPath;
+    }
+
+    private string CreateZar(string name = "game.zar")
+    {
+        var isoPath = CreateOptimizedXiso($"{Path.GetFileNameWithoutExtension(name)}.iso");
+        var zarPath = Path.Combine(_tempRoot, name);
+        Assert.True(XisoZarchive.CreateZar(isoPath, zarPath, quiet: true));
+        return zarPath;
+    }
+
+    [Fact]
+    public async Task ValidCisoPassesStructuralTest()
+    {
+        var csoPath = CreateCiso();
+        var service = CreateService();
+
+        var passed = await service.TestIsoIntegrityAsync(csoPath, false, new Progress<BatchOperationProgress>(),
+            CancellationToken.None);
+
+        Assert.True(passed);
+    }
+
+    [Fact]
+    public async Task ValidCisoPassesDeepScan()
+    {
+        var csoPath = CreateCiso();
+        var service = CreateService();
+
+        var passed = await service.TestIsoIntegrityAsync(csoPath, true, new Progress<BatchOperationProgress>(),
+            CancellationToken.None);
+
+        Assert.True(passed);
+    }
+
+    [Fact]
+    public async Task ValidZarPassesStructuralTest()
+    {
+        var zarPath = CreateZar();
+        var service = CreateService();
+
+        var passed = await service.TestIsoIntegrityAsync(zarPath, false, new Progress<BatchOperationProgress>(),
+            CancellationToken.None);
+
+        Assert.True(passed);
+        Assert.True(_logger.HasMessage("ZAR structure is valid"));
+    }
+
+    [Fact]
+    public async Task ValidZarPassesDeepScan()
+    {
+        var zarPath = CreateZar();
+        var service = CreateService();
+
+        var passed = await service.TestIsoIntegrityAsync(zarPath, true, new Progress<BatchOperationProgress>(),
+            CancellationToken.None);
+
+        Assert.True(passed);
+        Assert.True(_logger.HasMessage("ZAR deep scan completed successfully"));
+    }
+
+    [Fact]
+    public async Task InvalidZarFailsWithoutBugReport()
+    {
+        var badZar = Path.Combine(_tempRoot, "bad.zar");
+        File.WriteAllText(badZar, "this is not a zar archive");
+        var service = CreateService();
+
+        var passed = await service.TestIsoIntegrityAsync(badZar, false, new Progress<BatchOperationProgress>(),
+            CancellationToken.None);
+
+        Assert.False(passed);
+        Assert.DoesNotContain(_logger.Events, e => e.Level >= LogEventLevel.Warning);
+    }
+
     [Fact]
     public async Task InvalidImageFailsWithoutBugReport()
     {

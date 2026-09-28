@@ -39,7 +39,8 @@ This page describes the repository itself: where things live, how releases are m
 │   ├── Models/                            DTOs and enums
 │   ├── Services/                          All business logic
 │   │   ├── XisoSharpService.cs            XISO conversion via the XISOSharp library
-│   │   └── XisoIntegrityService.cs        Integrity validation via XISOSharp
+│   │   ├── XisoIntegrityService.cs        Integrity validation via XISOSharp / ZArchiveSharp
+│   │   └── ImageExplorerFactory.cs        Explorer over ISO/CSO (XisoExplorer) or ZAR (ZArchiveReader)
 │   ├── MainWindow*.cs                     Partial classes for the main window
 │   ├── 7za.exe, 7za_arm64.exe             Bundled helper tools
 │   └── BatchConvertIsoToXiso.csproj
@@ -69,7 +70,7 @@ Contributions are welcome!
 3. Open a new issue including:
    - Application version (visible in the About window)
    - Windows version and architecture (x64/ARM64)
-   - The input format used (`.iso` or archive)
+   - The input format used (`.iso`, `.cso`, `.zar`, or archive)
    - The relevant lines from the in-application log
 
 ### Submitting Changes
