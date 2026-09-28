@@ -149,8 +149,10 @@ public static class PathHelper
             return true;
 
         // "device" can appear in non-network errors like "The device is not ready" (ERROR_NOT_READY)
+        // or a hardware "I/O device error" (ERROR_IO_DEVICE); neither is a network failure.
         if (message.Contains("device", StringComparison.OrdinalIgnoreCase) &&
-            !message.Contains("device is not ready", StringComparison.OrdinalIgnoreCase))
+            !message.Contains("device is not ready", StringComparison.OrdinalIgnoreCase) &&
+            !MatchesDeviceIoPatterns(message))
         {
             return true;
         }

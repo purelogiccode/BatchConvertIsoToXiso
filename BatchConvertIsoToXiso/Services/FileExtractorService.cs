@@ -391,7 +391,7 @@ public class FileExtractorService : IFileExtractor
 
             await ExecuteWithRetryAsync(() =>
                 {
-                    return Task.Run(() =>
+                    return Task.Run(async () =>
                     {
                         try
                         {
@@ -463,7 +463,7 @@ public class FileExtractorService : IFileExtractor
                                     Directory.CreateDirectory(Path.GetDirectoryName(fullDestPath) ??
                                                               throw new InvalidOperationException(
                                                                   "fullDestPath cannot be null"));
-                                    using var fs = new FileStream(fullDestPath, FileMode.Create, FileAccess.Write);
+                                    await using var fs = new FileStream(fullDestPath, FileMode.Create, FileAccess.Write);
                                     entry.WriteTo(fs);
                                 }
                             }
@@ -488,32 +488,11 @@ public class FileExtractorService : IFileExtractor
                                     notSupportedEx);
                             }
 
-                            // Use synchronous extraction since we're already in Task.Run
-                            var args = $"x \"{archivePath}\" -o\"{extractionPath}\" -y";
-                            var exeDir = Path.GetDirectoryName(_sevenZipExePath) ??
-                                         AppDomain.CurrentDomain.BaseDirectory;
-                            using var process = new Process();
-                            process.StartInfo = new ProcessStartInfo
-                            {
-                                FileName = _sevenZipExePath,
-                                Arguments = args,
-                                WorkingDirectory = exeDir,
-                                RedirectStandardOutput = true,
-                                RedirectStandardError = true,
-                                UseShellExecute = false,
-                                CreateNoWindow = true
-                            };
-
-                            process.Start();
-                            var stderrTask = process.StandardError.ReadToEndAsync();
-                            _ = process.StandardOutput.ReadToEnd();
-                            process.WaitForExit();
-                            var stderr = stderrTask.GetAwaiter().GetResult();
-
-                            if (process.ExitCode != 0)
+                            // Hand off to the shared async helper so the process observes cancellation.
+                            if (!await TryExtractWithSevenZipCliAsync(archivePath, extractionPath, token))
                             {
                                 throw new IOException(
-                                    $"7-Zip CLI extraction failed with exit code {process.ExitCode}: {stderr}",
+                                    $"Unsupported archive: 7-Zip CLI extraction failed for '{archiveFileName}'.",
                                     notSupportedEx);
                             }
 

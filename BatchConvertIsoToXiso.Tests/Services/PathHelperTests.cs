@@ -121,6 +121,18 @@ public class PathHelperTests
         Assert.True(PathHelper.IsNetworkError(ex));
     }
 
+    [Theory]
+    [InlineData("The request could not be performed because of an I/O device error.")]
+    [InlineData("Impossibile eseguire la richiesta a causa di un errore di dispositivo I/O.")]
+    [InlineData("Die Anforderung konnte wegen eines E/A-Gerätefehlers nicht ausgeführt werden.")]
+    [InlineData("La demande n'a pas pu être exécutée en raison d'une erreur de périphérique d'E/S.")]
+    [InlineData("No se pudo realizar la solicitud debido a un error de dispositivo de E/S.")]
+    public void IsNetworkErrorDeviceIoErrorReturnsFalse(string message)
+    {
+        var ex = new IOException(message);
+        Assert.False(PathHelper.IsNetworkError(ex));
+    }
+
     [Fact]
     public void IsNetworkErrorChecksInnerException()
     {

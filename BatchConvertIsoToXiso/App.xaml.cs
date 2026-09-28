@@ -45,12 +45,6 @@ public partial class App
             _logger = ServiceProvider.GetRequiredService<ILogger>();
             _statsService = ServiceProvider.GetRequiredService<IStatsService>();
 
-            // Startup cleanup
-            if (_logger != null)
-            {
-                await TempFolderCleanupHelper.CleanupBatchConvertTempFoldersAsync(_logger);
-            }
-
             _ = _statsService?.SendStatsAsync();
 
             // Create and show the main window with enhanced error handling
@@ -58,6 +52,25 @@ public partial class App
             {
                 var mainWindow = ServiceProvider.GetRequiredService<MainWindow>();
                 mainWindow.Show();
+
+                // Startup cleanup is best-effort and must never delay the window: probing
+                // idle drives can block for many seconds, so run it after the window is
+                // visible and off the UI thread.
+                if (_logger != null)
+                {
+                    var logger = _logger;
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await TempFolderCleanupHelper.CleanupBatchConvertTempFoldersAsync(logger);
+                        }
+                        catch
+                        {
+                            // Cleanup is best-effort; never crash startup because of it.
+                        }
+                    });
+                }
             }
             catch (SEHException sehEx)
             {

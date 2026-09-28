@@ -1,4 +1,7 @@
+using BatchConvertIsoToXiso.Interfaces;
+using BatchConvertIsoToXiso.Models;
 using BatchConvertIsoToXiso.Services;
+using Moq;
 using Xunit;
 
 namespace BatchConvertIsoToXiso.Tests.Services;
@@ -259,6 +262,137 @@ public class OrchestratorServiceTests : IDisposable
 
         Assert.Single(result);
         Assert.Contains("game.bin", result[0], StringComparison.OrdinalIgnoreCase);
+    }
+
+    #endregion
+
+    #region Delete Originals Tests
+
+    private static OrchestratorService CreateOrchestrator(
+        Mock<IFileExtractor> extractor,
+        Mock<IExternalToolService> externalTool,
+        FileProcessingStatus conversionStatus)
+    {
+        var bugReport = new Mock<IBugReportService>();
+        var diskMonitor = new Mock<IDiskMonitorService>();
+        diskMonitor.Setup(static d => d.GetAvailableFreeSpace(It.IsAny<string>())).Returns(long.MaxValue);
+        var fileMover = new Mock<IFileMover>();
+        var integrity = new Mock<IXisoIntegrityService>();
+
+        var xisoSharp = new Mock<IXisoSharpService>();
+        xisoSharp.Setup(static s => s.ConvertIsoToXisoAsync(It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(),
+                It.IsAny<IProgress<BatchOperationProgress>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(conversionStatus);
+
+        return new OrchestratorService(externalTool.Object, extractor.Object, fileMover.Object, bugReport.Object,
+            integrity.Object, xisoSharp.Object, diskMonitor.Object);
+    }
+
+    private static Task<CloudRetryResult> CloudRetrySkip(string fileName)
+    {
+        return Task.FromResult(CloudRetryResult.Skip);
+    }
+
+    private Task RunConvertAsync(OrchestratorService orchestrator, bool deleteOriginals)
+    {
+        return orchestrator.ConvertAsync(_tempDir, Path.Combine(_tempDir, "out"), deleteOriginals, false, false,
+            false, new Progress<BatchOperationProgress>(), CloudRetrySkip, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task ConvertAsyncDeleteOriginalsRemovesOriginalAfterSuccessfulConversion()
+    {
+        var isoPath = CreateTempFile("game.iso", "iso data");
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), new Mock<IExternalToolService>(),
+            FileProcessingStatus.Converted);
+
+        await RunConvertAsync(orchestrator, true);
+
+        Assert.False(File.Exists(isoPath));
+    }
+
+    [Fact]
+    public async Task ConvertAsyncDeleteOriginalsKeepsOriginalWhenAlreadyOptimized()
+    {
+        var isoPath = CreateTempFile("game.iso", "iso data");
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), new Mock<IExternalToolService>(),
+            FileProcessingStatus.AlreadyOptimized);
+
+        await RunConvertAsync(orchestrator, true);
+
+        Assert.True(File.Exists(isoPath));
+    }
+
+    [Fact]
+    public async Task ConvertAsyncDeleteOriginalsKeepsArchiveWhenEveryEntryIsSkipped()
+    {
+        var archivePath = CreateTempFile("games.zip", "archive data");
+        var extractor = new Mock<IFileExtractor>();
+        extractor.Setup(static e => e.GetArchiveInfoAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((100L, 1));
+        extractor.Setup(static e => e.ExtractArchiveAsync(It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, string extractionPath, CancellationToken _) =>
+            {
+                Directory.CreateDirectory(extractionPath);
+                File.WriteAllText(Path.Combine(extractionPath, "game.iso"), "iso data");
+                return true;
+            });
+        var orchestrator = CreateOrchestrator(extractor, new Mock<IExternalToolService>(),
+            FileProcessingStatus.AlreadyOptimized);
+
+        await RunConvertAsync(orchestrator, true);
+
+        Assert.True(File.Exists(archivePath));
+    }
+
+    [Fact]
+    public async Task ConvertAsyncDeleteOriginalsKeepsCueAndBinWhenConversionIsSkipped()
+    {
+        var binPath = CreateTempFile("game.bin", "bin data");
+        var cuePath = CreateTempFile("game.cue", "FILE \"game.bin\" BINARY\n  TRACK 01 MODE1/2352\n");
+        var externalTool = new Mock<IExternalToolService>();
+        externalTool.Setup(static t => t.ConvertCueBinToIsoAsync(It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, string tempDir, CancellationToken _) =>
+            {
+                Directory.CreateDirectory(tempDir);
+                var tempIso = Path.Combine(tempDir, "game.iso");
+                File.WriteAllText(tempIso, "iso data");
+                return tempIso;
+            });
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), externalTool,
+            FileProcessingStatus.AlreadyOptimized);
+
+        await RunConvertAsync(orchestrator, true);
+
+        Assert.True(File.Exists(cuePath));
+        Assert.True(File.Exists(binPath));
+    }
+
+    [Fact]
+    public async Task ConvertAsyncDeleteOriginalsRemovesCueAndBinAfterSuccessfulConversion()
+    {
+        var binPath = CreateTempFile("game.bin", "bin data");
+        var cuePath = CreateTempFile("game.cue", "FILE \"game.bin\" BINARY\n  TRACK 01 MODE1/2352\n");
+        var externalTool = new Mock<IExternalToolService>();
+        externalTool.Setup(static t => t.ConvertCueBinToIsoAsync(It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, string tempDir, CancellationToken _) =>
+            {
+                Directory.CreateDirectory(tempDir);
+                var tempIso = Path.Combine(tempDir, "game.iso");
+                File.WriteAllText(tempIso, "iso data");
+                return tempIso;
+            });
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), externalTool,
+            FileProcessingStatus.Converted);
+
+        await RunConvertAsync(orchestrator, true);
+
+        Assert.False(File.Exists(cuePath));
+        Assert.False(File.Exists(binPath));
     }
 
     #endregion

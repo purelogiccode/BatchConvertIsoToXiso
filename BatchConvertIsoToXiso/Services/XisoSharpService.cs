@@ -25,7 +25,7 @@ public class XisoSharpService : IXisoSharpService
     }
 
     public async Task<FileProcessingStatus> ConvertIsoToXisoAsync(string inputFile, string outputFolder,
-        bool skipSystemUpdate, bool checkIntegrity, IProgress<BatchOperationProgress> progress,
+        string outputFileName, bool skipSystemUpdate, bool checkIntegrity, IProgress<BatchOperationProgress> progress,
         CancellationToken token)
     {
         var fileName = Path.GetFileName(inputFile);
@@ -37,7 +37,7 @@ public class XisoSharpService : IXisoSharpService
             return FileProcessingStatus.Failed;
         }
 
-        var outputFileName = Path.GetFileNameWithoutExtension(inputFile) + ".iso";
+        outputFileName = Path.GetFileName(outputFileName);
         var outputPath = Path.Combine(outputFolder, outputFileName);
 
         // XISOSharp reads the source and writes the output directly; converting a file
@@ -71,6 +71,22 @@ public class XisoSharpService : IXisoSharpService
         {
             _logger.LogMessage($"[ERROR] Could not create the output folder '{outputFolder}': {ex.Message}");
             return FileProcessingStatus.Failed;
+        }
+
+        // Remove any pre-existing output so the conversion starts from a clean file. This runs
+        // only after the already-optimized check above, so skipping a file never deletes an
+        // existing result in the output folder.
+        if (File.Exists(outputPath))
+        {
+            try
+            {
+                File.Delete(outputPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogMessage($"[ERROR] Could not delete the existing output file '{outputFileName}': {ex.Message}");
+                return FileProcessingStatus.Failed;
+            }
         }
 
         return await Task.Run(

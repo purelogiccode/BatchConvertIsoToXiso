@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Models;
 using XISOSharp;
@@ -344,7 +345,10 @@ public class OrchestratorService : IOrchestratorService
         else if (internalSuccess) progress.Report(new BatchOperationProgress { SuccessCount = 1 });
         else progress.Report(new BatchOperationProgress { SkippedCount = 1 });
 
-        if (deleteOriginal && extracted && !internalFail)
+        // Only remove the archive when at least one file was actually converted and nothing
+        // failed. If every entry was skipped (for example already-optimized images), deleting
+        // the archive would destroy the only copy of the content.
+        if (deleteOriginal && extracted && internalSuccess && !internalFail)
         {
             try
             {
@@ -372,6 +376,17 @@ public class OrchestratorService : IOrchestratorService
         ProcessingContext context, List<string> tempFolders, IProgress<BatchOperationProgress> progress,
         Func<string, Task<CloudRetryResult>> cloudRetry, CancellationToken token)
     {
+        // bchunk.exe is x64-only; the ARM64 bundle intentionally does not ship it.
+        if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
+        {
+            progress.Report(new BatchOperationProgress
+            {
+                LogMessage =
+                    $"Skipping '{Path.GetFileName(cuePath)}': CUE/BIN conversion requires the x64-only bchunk.exe, which is not supported on ARM64."
+            });
+            return FileProcessingStatus.Skipped;
+        }
+
         long estimatedCueSize = 0;
         try
         {
@@ -416,7 +431,10 @@ public class OrchestratorService : IOrchestratorService
             {
                 var status = await ConvertFileInternalAsync(tempIso, outputFolder, false, context.GlobalFileIndex++,
                     skipUpdate, checkIntegrity, progress, cloudRetry, token);
-                if (deleteOriginal && status != FileProcessingStatus.Failed)
+
+                // Remove the CUE/BIN sources only when a converted file was actually produced;
+                // a skipped conversion must never delete the originals.
+                if (deleteOriginal && status == FileProcessingStatus.Converted)
                 {
                     try
                     {
@@ -465,7 +483,6 @@ public class OrchestratorService : IOrchestratorService
         {
             // Handle cloud files first: copy to local temp when the source is not directly readable
             var sourcePath = inputFile;
-            var isTempFile = false;
 
             try
             {
@@ -515,7 +532,6 @@ public class OrchestratorService : IOrchestratorService
                 }
 
                 sourcePath = localTempIsoPath;
-                isTempFile = true;
             }
 
             Directory.CreateDirectory(outputFolder);
@@ -535,39 +551,26 @@ public class OrchestratorService : IOrchestratorService
                 return FileProcessingStatus.Failed;
             }
 
-            // Remove any pre-existing output so the conversion starts from a clean file
-            if (File.Exists(destinationPath))
-            {
-                try
-                {
-                    File.Delete(destinationPath);
-                }
-                catch (Exception ex)
-                {
-                    progress.Report(new BatchOperationProgress
-                    {
-                        LogMessage = $"Error: Could not delete existing output file '{outputFileName}': {ex.Message}"
-                    });
-                    return FileProcessingStatus.Failed;
-                }
-            }
-
             progress.Report(new BatchOperationProgress
             {
                 LogMessage = $"File '{originalFileName}': Converting to optimized XISO with XISOSharp...",
                 CurrentDrive = PathHelper.GetDriveLetter(outputFolder)
             });
 
-            var status = await _xisoSharpService.ConvertIsoToXisoAsync(sourcePath, outputFolder, skipSystemUpdate,
-                checkIntegrity, progress, token);
+            // Pass the user-visible output name explicitly: the working copy may be a
+            // temporary file, but the converted result must keep the original name.
+            var status = await _xisoSharpService.ConvertIsoToXisoAsync(sourcePath, outputFolder, outputFileName,
+                skipSystemUpdate, checkIntegrity, progress, token);
 
             if (status == FileProcessingStatus.AlreadyOptimized) return FileProcessingStatus.Skipped;
             if (status != FileProcessingStatus.Converted) return FileProcessingStatus.Failed;
 
-            if (deleteOriginal && !isTempFile)
+            if (deleteOriginal)
             {
                 try
                 {
+                    // Even when the conversion ran from a temporary working copy (cloud files),
+                    // the user-visible original is the file that "Replace Originals" must remove.
                     File.Delete(inputFile);
                     progress.Report(new BatchOperationProgress
                         { LogMessage = $"Deleted original: {originalFileName}" });
