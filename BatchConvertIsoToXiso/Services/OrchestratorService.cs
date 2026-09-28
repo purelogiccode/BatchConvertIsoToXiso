@@ -2,6 +2,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Models;
+using Serilog;
 using XISOSharp;
 
 namespace BatchConvertIsoToXiso.Services;
@@ -11,7 +12,7 @@ public class OrchestratorService : IOrchestratorService
     private readonly IExternalToolService _externalToolService;
     private readonly IFileExtractor _fileExtractor;
     private readonly IFileMover _fileMover;
-    private readonly IBugReportService _bugReportService;
+    private readonly ILogger _logger;
     private readonly IXisoIntegrityService _integrityService;
     private readonly IXisoSharpService _xisoSharpService;
     private readonly IDiskMonitorService _diskMonitorService;
@@ -25,7 +26,7 @@ public class OrchestratorService : IOrchestratorService
         IExternalToolService externalToolService,
         IFileExtractor fileExtractor,
         IFileMover fileMover,
-        IBugReportService bugReportService,
+        ILogger logger,
         IXisoIntegrityService integrityService,
         IXisoSharpService xisoSharpService,
         IDiskMonitorService diskMonitorService)
@@ -33,7 +34,7 @@ public class OrchestratorService : IOrchestratorService
         _externalToolService = externalToolService;
         _fileExtractor = fileExtractor;
         _fileMover = fileMover;
-        _bugReportService = bugReportService;
+        _logger = logger.ForContext<OrchestratorService>();
         _integrityService = integrityService;
         _xisoSharpService = xisoSharpService;
         _diskMonitorService = diskMonitorService;
@@ -52,176 +53,232 @@ public class OrchestratorService : IOrchestratorService
         Func<string, Task<CloudRetryResult>> onCloudRetryRequired,
         CancellationToken token)
     {
-        if (!Directory.Exists(inputFolder))
-        {
-            throw new IOException(
-                $"The input folder does not exist or is not accessible: '{inputFolder}'\n\n" +
-                "Possible causes:\n" +
-                "• The folder was deleted, moved, or renamed\n" +
-                "• The folder is on a network drive that is disconnected\n" +
-                "• The folder is a cloud placeholder (OneDrive, Dropbox) that hasn't been synced\n" +
-                "• The path contains characters that are not supported by the file system\n\n" +
-                "Please verify the folder exists and try again.");
-        }
-
-        var enumOptions = new EnumerationOptions
-        {
-            IgnoreInaccessible = true,
-            RecurseSubdirectories = searchSubfolders
-        };
-
-        List<string> topLevelEntries = [];
-        const int maxRetries = 3;
-        for (var attempt = 1; attempt <= maxRetries; attempt++)
-        {
-            try
-            {
-                topLevelEntries = await Task.Run(() => Directory.GetFiles(inputFolder, "*.*", enumOptions)
-                    .Where(static f =>
-                    {
-                        var ext = Path.GetExtension(f).ToLowerInvariant();
-                        return ext is ".iso" or ".zip" or ".7z" or ".rar" or ".cue";
-                    }).ToList(), token);
-                break;
-            }
-            catch (DirectoryNotFoundException ex)
-            {
-                throw new IOException(
-                    $"The input folder was not found: '{inputFolder}'\n\n" +
-                    "The folder may have been deleted, moved, or is a cloud placeholder that hasn't been synced.\n" +
-                    $"Original error: {ex.Message}",
-                    ex);
-            }
-            catch (IOException) when (attempt < maxRetries)
-            {
-                await Task.Delay(attempt * 2000, token);
-            }
-        }
-
-        if (topLevelEntries.Count == 0) return;
-
-        progress.Report(new BatchOperationProgress { TotalFiles = topLevelEntries.Count });
-
-        var tempFoldersToCleanUp = new List<string>();
-        var context = new ProcessingContext();
-        var topLevelProcessed = 0;
-
         try
         {
-            foreach (var entryPath in topLevelEntries)
+            if (!Directory.Exists(inputFolder))
             {
-                token.ThrowIfCancellationRequested();
+                throw new IOException(
+                    $"The input folder does not exist or is not accessible: '{inputFolder}'\n\n" +
+                    "Possible causes:\n" +
+                    "• The folder was deleted, moved, or renamed\n" +
+                    "• The folder is on a network drive that is disconnected\n" +
+                    "• The folder is a cloud placeholder (OneDrive, Dropbox) that hasn't been synced\n" +
+                    "• The path contains characters that are not supported by the file system\n\n" +
+                    "Please verify the folder exists and try again.");
+            }
 
-                // Check file existence on a background thread to avoid blocking UI for cloud/slow files
-                var fileExists = await Task.Run(() => File.Exists(entryPath), token);
-                if (!fileExists)
-                {
-                    progress.Report(new BatchOperationProgress
-                    {
-                        LogMessage = $"Error: Source file not found: {entryPath}. Skipping.", FailedCount = 1,
-                        FailedPathToAdd = entryPath
-                    });
-                    topLevelProcessed++;
-                    progress.Report(new BatchOperationProgress { ProcessedCount = topLevelProcessed });
-                    continue;
-                }
+            _logger.Information("Starting conversion. Input: {InputFolder}, Output: {OutputFolder}", inputFolder,
+                outputFolder);
 
-                var fileName = Path.GetFileName(entryPath);
-                var extension = Path.GetExtension(entryPath).ToLowerInvariant();
-                progress.Report(new BatchOperationProgress
-                    { StatusText = $"Processing: {fileName}", CurrentDrive = PathHelper.GetDriveLetter(entryPath) });
+            var enumOptions = new EnumerationOptions
+            {
+                IgnoreInaccessible = true,
+                RecurseSubdirectories = searchSubfolders
+            };
 
+            List<string> topLevelEntries = [];
+            const int maxRetries = 3;
+            for (var attempt = 1; attempt <= maxRetries; attempt++)
+            {
                 try
                 {
-                    switch (extension)
-                    {
-                        case ".iso":
-                            var isoStatus = await ConvertFileInternalAsync(entryPath, outputFolder, deleteOriginals,
-                                context.GlobalFileIndex++, skipSystemUpdate, checkIntegrity, progress,
-                                onCloudRetryRequired, token);
-                            ReportStatus(isoStatus, entryPath, progress);
-                            break;
-
-                        case ".zip" or ".7z" or ".rar":
-                            await ProcessArchiveAsync(entryPath, outputFolder, deleteOriginals, skipSystemUpdate,
-                                checkIntegrity, context, tempFoldersToCleanUp, progress, onCloudRetryRequired, token);
-                            break;
-
-                        case ".cue":
-                            await ProcessCueAsync(entryPath, outputFolder, deleteOriginals, skipSystemUpdate,
-                                checkIntegrity, context, tempFoldersToCleanUp, progress, onCloudRetryRequired, token);
-                            break;
-                    }
+                    topLevelEntries = await Task.Run(() => Directory.GetFiles(inputFolder, "*.*", enumOptions)
+                        .Where(static f =>
+                        {
+                            var ext = Path.GetExtension(f).ToLowerInvariant();
+                            return ext is ".iso" or ".zip" or ".7z" or ".rar" or ".cue";
+                        }).ToList(), token);
+                    break;
                 }
-                catch (OperationCanceledException)
+                catch (DirectoryNotFoundException ex)
                 {
-                    throw;
+                    _logger.Information(ex, "Input folder not found: {InputFolder}", inputFolder);
+                    throw new IOException(
+                        $"The input folder was not found: '{inputFolder}'\n\n" +
+                        "The folder may have been deleted, moved, or is a cloud placeholder that hasn't been synced.\n" +
+                        $"Original error: {ex.Message}",
+                        ex);
                 }
-                catch (Exception ex) when (PathHelper.IsDiskSpaceError(ex))
+                catch (IOException ex) when (attempt < maxRetries)
                 {
-                    // Stop the batch — no point continuing without disk space
-                    progress.Report(new BatchOperationProgress
-                    {
-                        LogMessage =
-                            "ERROR: Not enough disk space on the output drive. Batch operation stopped. Please free up disk space and try again.",
-                        FailedCount = 1,
-                        FailedPathToAdd = entryPath
-                    });
-                    throw;
+                    _logger.Information(ex, "Folder scan attempt {Attempt}/{MaxRetries} failed; retrying", attempt,
+                        maxRetries);
+                    await Task.Delay(attempt * 2000, token);
                 }
-                catch (Exception ex) when (IsFatalEnvironmentalError(ex))
-                {
-                    // Stop the batch — no point continuing if the output drive or network is disconnected
-                    progress.Report(new BatchOperationProgress
-                    {
-                        LogMessage =
-                            $"FATAL ERROR: The output device or path is not available: {ex.Message}. Batch operation stopped.",
-                        FailedCount = 1,
-                        FailedPathToAdd = entryPath
-                    });
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    // Provide user-friendly message for corrupt archives
-                    string logMessage;
-                    if (ex.Message.Contains("End of stream reached", StringComparison.OrdinalIgnoreCase))
-                    {
-                        logMessage =
-                            $"ERROR: {fileName} appears to be corrupt or incomplete. The file may have been damaged during download or transfer. Please re-download the archive and try again.";
-                    }
-                    else
-                    {
-                        logMessage = $"Critical error processing {fileName}: {ex.Message}";
-                    }
-
-                    progress.Report(new BatchOperationProgress
-                        { LogMessage = logMessage, FailedCount = 1, FailedPathToAdd = entryPath });
-
-                    // Filter environmental errors (disconnected drives, network issues, etc.)
-                    var isEnvironmentalError = IsFatalEnvironmentalError(ex) || PathHelper.IsNetworkError(ex);
-
-                    // Filter common archive errors (corruption, incomplete downloads, etc.)
-                    var isArchiveError = ex.Message.Contains("Data error", StringComparison.OrdinalIgnoreCase) ||
-                                         ex.Message.Contains("Invalid archive", StringComparison.OrdinalIgnoreCase) ||
-                                         ex.Message.Contains("Unsupported archive",
-                                             StringComparison.OrdinalIgnoreCase) ||
-                                         ex.Message.Contains("End of stream reached",
-                                             StringComparison.OrdinalIgnoreCase);
-
-                    if (!isEnvironmentalError && !isArchiveError)
-                    {
-                        _ = _bugReportService.SendBugReportAsync($"Orchestrator error on {fileName}", ex);
-                    }
-                }
-
-                topLevelProcessed++;
-                progress.Report(new BatchOperationProgress { ProcessedCount = topLevelProcessed });
             }
+
+            if (topLevelEntries.Count == 0)
+            {
+                _logger.Information("No convertible files found in {InputFolder}", inputFolder);
+                return;
+            }
+
+            _logger.Information("Found {FileCount} file(s) to process in {InputFolder}", topLevelEntries.Count,
+                inputFolder);
+
+            progress.Report(new BatchOperationProgress { TotalFiles = topLevelEntries.Count });
+
+            var tempFoldersToCleanUp = new List<string>();
+            var context = new ProcessingContext();
+            var topLevelProcessed = 0;
+
+            try
+            {
+                foreach (var entryPath in topLevelEntries)
+                {
+                    token.ThrowIfCancellationRequested();
+
+                    // Check file existence on a background thread to avoid blocking UI for cloud/slow files
+                    var fileExists = await Task.Run(() => File.Exists(entryPath), token);
+                    if (!fileExists)
+                    {
+                        progress.Report(new BatchOperationProgress
+                        {
+                            LogMessage = $"Error: Source file not found: {entryPath}. Skipping.", FailedCount = 1,
+                            FailedPathToAdd = entryPath
+                        });
+                        _logger.Information("Source file not found, skipping: {FilePath}", entryPath);
+                        topLevelProcessed++;
+                        progress.Report(new BatchOperationProgress { ProcessedCount = topLevelProcessed });
+                        continue;
+                    }
+
+                    var fileName = Path.GetFileName(entryPath);
+                    var extension = Path.GetExtension(entryPath).ToLowerInvariant();
+                    progress.Report(new BatchOperationProgress
+                    {
+                        StatusText = $"Processing: {fileName}", CurrentDrive = PathHelper.GetDriveLetter(entryPath)
+                    });
+
+                    try
+                    {
+                        switch (extension)
+                        {
+                            case ".iso":
+                                var isoStatus = await ConvertFileInternalAsync(entryPath, outputFolder, deleteOriginals,
+                                    context.GlobalFileIndex++, skipSystemUpdate, checkIntegrity, progress,
+                                    onCloudRetryRequired, token);
+                                ReportStatus(isoStatus, entryPath, progress);
+                                break;
+
+                            case ".zip" or ".7z" or ".rar":
+                                await ProcessArchiveAsync(entryPath, outputFolder, deleteOriginals, skipSystemUpdate,
+                                    checkIntegrity, context, tempFoldersToCleanUp, progress, onCloudRetryRequired,
+                                    token);
+                                break;
+
+                            case ".cue":
+                                await ProcessCueAsync(entryPath, outputFolder, deleteOriginals, skipSystemUpdate,
+                                    checkIntegrity, context, tempFoldersToCleanUp, progress, onCloudRetryRequired,
+                                    token);
+                                break;
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _logger.Debug("Conversion canceled while processing {FileName}", fileName);
+                        throw;
+                    }
+                    catch (Exception ex) when (PathHelper.IsDiskSpaceError(ex))
+                    {
+                        // Stop the batch — no point continuing without disk space
+                        progress.Report(new BatchOperationProgress
+                        {
+                            LogMessage =
+                                "ERROR: Not enough disk space on the output drive. Batch operation stopped. Please free up disk space and try again.",
+                            FailedCount = 1,
+                            FailedPathToAdd = entryPath
+                        });
+                        _logger.Information(ex, "Not enough disk space; batch conversion stopped on {FileName}",
+                            fileName);
+                        throw;
+                    }
+                    catch (Exception ex) when (IsFatalEnvironmentalError(ex))
+                    {
+                        // Stop the batch — no point continuing if the output drive or network is disconnected
+                        progress.Report(new BatchOperationProgress
+                        {
+                            LogMessage =
+                                $"FATAL ERROR: The output device or path is not available: {ex.Message}. Batch operation stopped.",
+                            FailedCount = 1,
+                            FailedPathToAdd = entryPath
+                        });
+                        _logger.Information(ex,
+                            "Output device or path unavailable; batch conversion stopped on {FileName}",
+                            fileName);
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Provide user-friendly message for corrupt archives
+                        string logMessage;
+                        if (ex.Message.Contains("End of stream reached", StringComparison.OrdinalIgnoreCase))
+                        {
+                            logMessage =
+                                $"ERROR: {fileName} appears to be corrupt or incomplete. The file may have been damaged during download or transfer. Please re-download the archive and try again.";
+                        }
+                        else
+                        {
+                            logMessage = $"Critical error processing {fileName}: {ex.Message}";
+                        }
+
+                        progress.Report(new BatchOperationProgress
+                            { LogMessage = logMessage, FailedCount = 1, FailedPathToAdd = entryPath });
+
+                        // Filter environmental errors (disconnected drives, network issues, etc.)
+                        var isEnvironmentalError = IsFatalEnvironmentalError(ex) || PathHelper.IsNetworkError(ex);
+
+                        // Filter common archive errors (corruption, incomplete downloads, etc.)
+                        var isArchiveError = ex.Message.Contains("Data error", StringComparison.OrdinalIgnoreCase) ||
+                                             ex.Message.Contains("Invalid archive",
+                                                 StringComparison.OrdinalIgnoreCase) ||
+                                             ex.Message.Contains("Unsupported archive",
+                                                 StringComparison.OrdinalIgnoreCase) ||
+                                             ex.Message.Contains("End of stream reached",
+                                                 StringComparison.OrdinalIgnoreCase);
+
+                        if (!isEnvironmentalError && !isArchiveError)
+                        {
+                            _logger.Error(ex, "Orchestrator error on {FileName}", fileName);
+                        }
+                        else
+                        {
+                            _logger.Information(ex, "Handled processing error on {FileName}", fileName);
+                        }
+                    }
+
+                    topLevelProcessed++;
+                    progress.Report(new BatchOperationProgress { ProcessedCount = topLevelProcessed });
+                }
+            }
+            finally
+            {
+                await CleanupTempFoldersAsync(tempFoldersToCleanUp, progress, token);
+            }
+
+            _logger.Information("Batch conversion completed. Processed {ProcessedCount} of {TotalFiles} file(s)",
+                topLevelProcessed, topLevelEntries.Count);
         }
-        finally
+        catch (OperationCanceledException)
         {
-            await CleanupTempFoldersAsync(tempFoldersToCleanUp, progress, token);
+            _logger.Debug("OrchestratorService.ConvertAsync canceled");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // The caller (MainWindow) is responsible for reporting unexpected failures;
+            // log here with context but avoid duplicate bug reports.
+            if (PathHelper.IsDiskSpaceError(ex) || PathHelper.IsNetworkError(ex) || IsFatalEnvironmentalError(ex) ||
+                ex is IOException)
+            {
+                _logger.Information(ex, "OrchestratorService.ConvertAsync stopped due to an environmental error");
+            }
+            else
+            {
+                _logger.Information(ex, "OrchestratorService.ConvertAsync failed");
+            }
+
+            throw;
         }
     }
 
@@ -249,11 +306,13 @@ public class OrchestratorService : IOrchestratorService
         }
         catch (OperationCanceledException)
         {
+            _logger.Debug("Archive processing canceled: {ArchivePath}", archivePath);
             throw;
         }
         catch (IOException ex) when (ex.Message.Contains("not enough space", StringComparison.OrdinalIgnoreCase) ||
                                      ex.Message.Contains("Not enough disk space", StringComparison.OrdinalIgnoreCase))
         {
+            _logger.Information(ex, "Not enough disk space to extract archive: {ArchivePath}", archivePath);
             throw;
         }
         catch (Exception ex)
@@ -261,6 +320,7 @@ public class OrchestratorService : IOrchestratorService
             // If we can't analyze the archive, fall back to default temp and let ExtractArchiveAsync handle it
             progress.Report(new BatchOperationProgress
                 { LogMessage = $"Could not analyze archive: {ex.Message}. Using default temp path." });
+            _logger.Warning(ex, "Could not analyze archive {ArchivePath}; using default temp path", archivePath);
             tempDir = Path.Combine(Path.GetTempPath(), "BatchConvertIsoToXiso_Extract", Guid.NewGuid().ToString());
         }
 
@@ -315,28 +375,33 @@ public class OrchestratorService : IOrchestratorService
         catch (OperationCanceledException)
         {
             // Re-throw cancellation exceptions to stop the batch
+            _logger.Debug("Archive extraction canceled: {ArchivePath}", archivePath);
             throw;
         }
         catch (Exception ex) when (PathHelper.IsDiskSpaceError(ex))
         {
             // Stop the batch — no point continuing without disk space
+            _logger.Information(ex, "Not enough disk space while extracting archive: {ArchivePath}", archivePath);
             throw;
         }
         catch (Exception ex) when (IsFatalEnvironmentalError(ex))
         {
             // Stop the batch — no point continuing if the output drive or network is disconnected
+            _logger.Information(ex, "Output device or path unavailable while extracting archive: {ArchivePath}",
+                archivePath);
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Mark as failed, but don't stop the batch processing
             // Error has already been logged by the FileExtractor
+            _logger.Debug(ex, "Archive processing failed for {ArchivePath}; continuing batch", archivePath);
             internalFail = true;
             extracted = false;
         }
         finally
         {
-            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempDir, 3, 1000, null, token);
+            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempDir, 3, 1000, _logger, token);
             tempFolders.Remove(tempDir);
         }
 
@@ -354,9 +419,10 @@ public class OrchestratorService : IOrchestratorService
             {
                 File.Delete(archivePath);
             }
-            catch
+            catch (Exception ex)
             {
                 /* ignore */
+                _logger.Debug(ex, "Could not delete original archive {ArchivePath}", archivePath);
             }
         }
     }
@@ -391,7 +457,7 @@ public class OrchestratorService : IOrchestratorService
         try
         {
             estimatedCueSize = new FileInfo(cuePath).Length;
-            var binFiles = GetReferencedBinFilesFromCue(cuePath);
+            var binFiles = GetReferencedBinFilesFromCue(cuePath, _logger);
             foreach (var binFile in binFiles)
             {
                 if (File.Exists(binFile))
@@ -400,9 +466,10 @@ public class OrchestratorService : IOrchestratorService
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
             // If we can't estimate, fall back to default temp path
+            _logger.Debug(ex, "Could not estimate size of CUE/BIN files for {CuePath}", cuePath);
         }
 
         string tempCueDir;
@@ -413,12 +480,14 @@ public class OrchestratorService : IOrchestratorService
         catch (IOException ex) when (ex.Message.Contains("not enough space", StringComparison.OrdinalIgnoreCase) ||
                                      ex.Message.Contains("Not enough disk space", StringComparison.OrdinalIgnoreCase))
         {
+            _logger.Information(ex, "Not enough disk space to convert CUE/BIN: {CuePath}", cuePath);
             throw;
         }
         catch (Exception ex)
         {
             progress.Report(new BatchOperationProgress
                 { LogMessage = $"Could not resolve temp directory for CUE: {ex.Message}. Using default temp path." });
+            _logger.Warning(ex, "Could not resolve temp directory for CUE {CuePath}; using default temp path", cuePath);
             tempCueDir = Path.Combine(Path.GetTempPath(), "BatchConvertIsoToXiso_CueBin", Guid.NewGuid().ToString());
         }
 
@@ -440,7 +509,7 @@ public class OrchestratorService : IOrchestratorService
                     {
                         // Parse the CUE file to find and delete only the referenced BIN files
                         // This MUST be done before deleting the CUE file
-                        var referencedBinFiles = GetReferencedBinFilesFromCue(cuePath);
+                        var referencedBinFiles = GetReferencedBinFilesFromCue(cuePath, _logger);
 
                         // Delete only the specific CUE file being processed
                         File.Delete(cuePath);
@@ -453,9 +522,10 @@ public class OrchestratorService : IOrchestratorService
                             }
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
                         // ignored
+                        _logger.Debug(ex, "Could not delete original CUE/BIN files for {CuePath}", cuePath);
                     }
                 }
 
@@ -466,7 +536,7 @@ public class OrchestratorService : IOrchestratorService
         }
         finally
         {
-            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempCueDir, 3, 1000, null, token);
+            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempCueDir, 3, 1000, _logger, token);
             tempFolders.Remove(tempCueDir);
         }
     }
@@ -495,6 +565,8 @@ public class OrchestratorService : IOrchestratorService
             }
             catch (IOException)
             {
+                _logger.Debug("File {FileName} is not directly readable; copying to a local temp file",
+                    originalFileName);
                 try
                 {
                     var fileSize = new FileInfo(inputFile).Length;
@@ -502,6 +574,8 @@ public class OrchestratorService : IOrchestratorService
                 }
                 catch (IOException ex) when (PathHelper.IsDiskSpaceError(ex))
                 {
+                    _logger.Information(ex, "Not enough disk space while preparing conversion of {FileName}",
+                        originalFileName);
                     throw;
                 }
                 catch (Exception ex)
@@ -511,6 +585,9 @@ public class OrchestratorService : IOrchestratorService
                         LogMessage =
                             $"Could not resolve temp directory for copy: {ex.Message}. Falling back to default temp path."
                     });
+                    _logger.Warning(ex,
+                        "Could not resolve temp directory for copying {FileName}; using default temp path",
+                        originalFileName);
                     localTempWorkingDir = Path.Combine(Path.GetTempPath(), "BatchConvertIsoToXiso_Convert",
                         Guid.NewGuid().ToString());
                 }
@@ -579,6 +656,7 @@ public class OrchestratorService : IOrchestratorService
                 {
                     progress.Report(new BatchOperationProgress
                         { LogMessage = $"Warning: Could not delete original {originalFileName}: {ex.Message}" });
+                    _logger.Warning(ex, "Could not delete original file {FileName}", originalFileName);
                 }
             }
 
@@ -587,7 +665,7 @@ public class OrchestratorService : IOrchestratorService
         finally
         {
             if (localTempWorkingDir != null)
-                await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(localTempWorkingDir, 5, 1000, null,
+                await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(localTempWorkingDir, 5, 1000, _logger,
                     token);
         }
     }
@@ -600,72 +678,111 @@ public class OrchestratorService : IOrchestratorService
         bool performDeepScan, IProgress<BatchOperationProgress> progress,
         Func<string, Task<CloudRetryResult>> onCloudRetryRequired, CancellationToken token)
     {
-        if (!Directory.Exists(inputFolder))
-        {
-            throw new IOException(
-                $"The input folder does not exist or is not accessible: '{inputFolder}'\n\n" +
-                "Possible causes:\n" +
-                "• The folder was deleted, moved, or renamed\n" +
-                "• The folder is on a network drive that is disconnected\n" +
-                "• The folder is a cloud placeholder (OneDrive, Dropbox) that hasn't been synced\n" +
-                "• The path contains characters that are not supported by the file system\n\n" +
-                "Please verify the folder exists and try again.");
-        }
-
-        var enumOptions = new EnumerationOptions
-            { IgnoreInaccessible = true, RecurseSubdirectories = searchSubfolders };
-
-        List<string> isoFiles;
         try
         {
-            isoFiles = await Task.Run(() => Directory.GetFiles(inputFolder, "*.iso", enumOptions).ToList(), token);
-        }
-        catch (DirectoryNotFoundException ex)
-        {
-            throw new IOException(
-                $"The input folder was not found: '{inputFolder}'\n\n" +
-                "The folder may have been deleted, moved, or is a cloud placeholder that hasn't been synced.\n" +
-                $"Original error: {ex.Message}",
-                ex);
-        }
-
-        if (isoFiles.Count == 0) return;
-
-        progress.Report(new BatchOperationProgress { TotalFiles = isoFiles.Count });
-        var successFolder = Path.Combine(inputFolder, "_success");
-        var failedFolder = Path.Combine(inputFolder, "_failed");
-
-        var processed = 0;
-        var fileIndex = 1;
-
-        foreach (var isoPath in isoFiles)
-        {
-            token.ThrowIfCancellationRequested();
-            var fileName = Path.GetFileName(isoPath);
-            progress.Report(new BatchOperationProgress
-                { StatusText = $"Testing: {fileName}", CurrentDrive = PathHelper.GetDriveLetter(Path.GetTempPath()) });
-
-            var result = await TestSingleIsoInternalAsync(isoPath, fileIndex++, performDeepScan, onCloudRetryRequired,
-                progress, token);
-
-            if (result == IsoTestResultStatus.Passed)
+            if (!Directory.Exists(inputFolder))
             {
+                throw new IOException(
+                    $"The input folder does not exist or is not accessible: '{inputFolder}'\n\n" +
+                    "Possible causes:\n" +
+                    "• The folder was deleted, moved, or renamed\n" +
+                    "• The folder is on a network drive that is disconnected\n" +
+                    "• The folder is a cloud placeholder (OneDrive, Dropbox) that hasn't been synced\n" +
+                    "• The path contains characters that are not supported by the file system\n\n" +
+                    "Please verify the folder exists and try again.");
+            }
+
+            _logger.Information("Starting ISO test. Input: {InputFolder}", inputFolder);
+
+            var enumOptions = new EnumerationOptions
+                { IgnoreInaccessible = true, RecurseSubdirectories = searchSubfolders };
+
+            List<string> isoFiles;
+            try
+            {
+                isoFiles = await Task.Run(() => Directory.GetFiles(inputFolder, "*.iso", enumOptions).ToList(), token);
+            }
+            catch (DirectoryNotFoundException ex)
+            {
+                _logger.Information(ex, "Input folder not found: {InputFolder}", inputFolder);
+                throw new IOException(
+                    $"The input folder was not found: '{inputFolder}'\n\n" +
+                    "The folder may have been deleted, moved, or is a cloud placeholder that hasn't been synced.\n" +
+                    $"Original error: {ex.Message}",
+                    ex);
+            }
+
+            if (isoFiles.Count == 0)
+            {
+                _logger.Information("No ISO files found in {InputFolder}", inputFolder);
+                return;
+            }
+
+            _logger.Information("Found {FileCount} ISO file(s) to test in {InputFolder}", isoFiles.Count, inputFolder);
+
+            progress.Report(new BatchOperationProgress { TotalFiles = isoFiles.Count });
+            var successFolder = Path.Combine(inputFolder, "_success");
+            var failedFolder = Path.Combine(inputFolder, "_failed");
+
+            var processed = 0;
+            var fileIndex = 1;
+
+            foreach (var isoPath in isoFiles)
+            {
+                token.ThrowIfCancellationRequested();
+                var fileName = Path.GetFileName(isoPath);
                 progress.Report(new BatchOperationProgress
-                    { SuccessCount = 1, LogMessage = $"  SUCCESS: '{fileName}' passed test." });
-                if (moveSuccessful)
-                    await _fileMover.MoveTestedFileAsync(isoPath, successFolder, "successfully tested", token);
+                {
+                    StatusText = $"Testing: {fileName}", CurrentDrive = PathHelper.GetDriveLetter(Path.GetTempPath())
+                });
+
+                var result = await TestSingleIsoInternalAsync(isoPath, fileIndex++, performDeepScan,
+                    onCloudRetryRequired,
+                    progress, token);
+
+                if (result == IsoTestResultStatus.Passed)
+                {
+                    progress.Report(new BatchOperationProgress
+                        { SuccessCount = 1, LogMessage = $"  SUCCESS: '{fileName}' passed test." });
+                    if (moveSuccessful)
+                        await _fileMover.MoveTestedFileAsync(isoPath, successFolder, "successfully tested", token);
+                }
+                else
+                {
+                    progress.Report(new BatchOperationProgress
+                    {
+                        FailedCount = 1, FailedPathToAdd = isoPath, LogMessage = $"  FAILURE: '{fileName}' failed test."
+                    });
+                    _logger.Information("Test failed for {FileName}", fileName);
+                    if (moveFailed) await _fileMover.MoveTestedFileAsync(isoPath, failedFolder, "failed test", token);
+                }
+
+                processed++;
+                progress.Report(new BatchOperationProgress { ProcessedCount = processed });
+            }
+
+            _logger.Information("ISO test completed. Processed {ProcessedCount} file(s)", processed);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Debug("OrchestratorService.TestAsync canceled");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // The caller (MainWindow) is responsible for reporting unexpected failures;
+            // log here with context but avoid duplicate bug reports.
+            if (PathHelper.IsDiskSpaceError(ex) || PathHelper.IsNetworkError(ex) || IsFatalEnvironmentalError(ex) ||
+                ex is IOException)
+            {
+                _logger.Information(ex, "OrchestratorService.TestAsync stopped due to an environmental error");
             }
             else
             {
-                progress.Report(new BatchOperationProgress
-                {
-                    FailedCount = 1, FailedPathToAdd = isoPath, LogMessage = $"  FAILURE: '{fileName}' failed test."
-                });
-                if (moveFailed) await _fileMover.MoveTestedFileAsync(isoPath, failedFolder, "failed test", token);
+                _logger.Information(ex, "OrchestratorService.TestAsync failed");
             }
 
-            processed++;
-            progress.Report(new BatchOperationProgress { ProcessedCount = processed });
+            throw;
         }
     }
 
@@ -689,15 +806,17 @@ public class OrchestratorService : IOrchestratorService
         catch (IOException)
         {
             // Likely cloud file issue, use existing copy logic
+            _logger.Debug("ISO {IsoPath} is not directly readable; copying to local temp", isoPath);
             var simpleName = GenerateFilename.GenerateSimpleFilename(index);
             long estimatedSize = 0;
             try
             {
                 estimatedSize = new FileInfo(isoPath).Length;
             }
-            catch
+            catch (Exception ex)
             {
                 // ignored
+                _logger.Debug(ex, "Could not determine size of ISO {IsoPath}", isoPath);
             }
 
             var tempDir = ResolveTempDirectory(estimatedSize, "BatchConvertIsoToXiso_Test");
@@ -724,11 +843,13 @@ public class OrchestratorService : IOrchestratorService
         }
         catch (OperationCanceledException)
         {
+            _logger.Debug("ISO test canceled: {IsoPath}", isoPath);
             throw;
         }
         catch (Exception ex)
         {
             progress.Report(new BatchOperationProgress { LogMessage = $"  Test Error: {ex.Message}" });
+            _logger.Information(ex, "Test failed for {IsoPath}", isoPath);
             return IsoTestResultStatus.Failed;
         }
         finally
@@ -740,9 +861,10 @@ public class OrchestratorService : IOrchestratorService
                     // ReSharper disable once NullableWarningSuppressionIsUsed
                     Directory.Delete(Path.GetDirectoryName(tempCloudCopy)!, true);
                 }
-                catch
+                catch (Exception ex)
                 {
                     /* ignore cleanup errors */
+                    _logger.Debug(ex, "Could not delete test temp copy {TempPath}", tempCloudCopy);
                 }
             }
         }
@@ -787,7 +909,7 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
-    private static async Task<bool> CopyFileWithCloudRetryAsync(string source, string dest,
+    private async Task<bool> CopyFileWithCloudRetryAsync(string source, string dest,
         Func<string, Task<CloudRetryResult>> cloudRetry, IProgress<BatchOperationProgress> progress,
         CancellationToken token)
     {
@@ -811,16 +933,21 @@ public class OrchestratorService : IOrchestratorService
                     LogMessage =
                         $"Network error detected, retrying in {delayMs}ms... (attempt {networkRetryCount}/{maxNetworkRetries})"
                 });
+                _logger.Information(ex,
+                    "Network error copying {Source}; retrying in {DelayMs}ms (attempt {Attempt}/{MaxRetries})", source,
+                    delayMs, networkRetryCount, maxNetworkRetries);
                 await Task.Delay(delayMs, token);
             }
             catch (IOException ex) when (ex.Message.Contains("cloud operation", StringComparison.OrdinalIgnoreCase))
             {
+                _logger.Debug(ex, "Cloud operation required while copying {Source}", source);
                 var result = await cloudRetry(Path.GetFileName(source));
                 switch (result)
                 {
                     case CloudRetryResult.Retry:
                         continue;
                     case CloudRetryResult.Cancel:
+                        _logger.Debug("Cloud retry canceled by the user for {Source}", source);
                         throw new OperationCanceledException();
                     default:
                         return false;
@@ -828,17 +955,27 @@ public class OrchestratorService : IOrchestratorService
             }
             catch (OperationCanceledException)
             {
+                _logger.Debug("File copy canceled: {Source}", source);
                 throw;
             }
             catch (Exception ex)
             {
                 progress.Report(new BatchOperationProgress { LogMessage = $"Copy failed: {ex.Message}" });
+                if (PathHelper.IsDiskSpaceError(ex) || PathHelper.IsNetworkError(ex) || IsFatalEnvironmentalError(ex))
+                {
+                    _logger.Information(ex, "Copy failed for {Source} due to an environmental error", source);
+                }
+                else
+                {
+                    _logger.Warning(ex, "Copy failed for {Source}", source);
+                }
+
                 return false;
             }
         }
     }
 
-    private static async Task CleanupTempFoldersAsync(List<string> folders, IProgress<BatchOperationProgress> progress,
+    private async Task CleanupTempFoldersAsync(List<string> folders, IProgress<BatchOperationProgress> progress,
         CancellationToken token)
     {
         if (folders.Count == 0) return;
@@ -846,7 +983,7 @@ public class OrchestratorService : IOrchestratorService
         progress.Report(new BatchOperationProgress { LogMessage = "Cleaning up temporary folders..." });
         foreach (var folder in folders.ToList())
         {
-            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(folder, 5, 1000, null, token);
+            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(folder, 5, 1000, _logger, token);
         }
     }
 
@@ -859,8 +996,9 @@ public class OrchestratorService : IOrchestratorService
     /// CUE files contain lines like: FILE "filename.bin" BINARY
     /// </summary>
     /// <param name="cuePath">Path to the CUE file</param>
+    /// <param name="logger">Optional logger used to report parsing failures.</param>
     /// <returns>List of full paths to referenced BIN files</returns>
-    internal static List<string> GetReferencedBinFilesFromCue(string cuePath)
+    internal static List<string> GetReferencedBinFilesFromCue(string cuePath, ILogger? logger = null)
     {
         var binFiles = new List<string>();
         var cueFolder = Path.GetDirectoryName(cuePath);
@@ -893,9 +1031,10 @@ public class OrchestratorService : IOrchestratorService
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
             // If parsing fails, return empty list
+            logger?.Debug(ex, "Could not parse CUE file {CuePath}", cuePath);
         }
 
         return binFiles;

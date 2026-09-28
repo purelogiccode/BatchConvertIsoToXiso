@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Models;
+using Serilog;
 
 namespace BatchConvertIsoToXiso.Services;
 
@@ -14,16 +15,18 @@ public partial class UpdateChecker : IUpdateChecker
 
     private readonly HttpClient _httpClient;
     private readonly string _currentVersion;
+    private readonly ILogger _logger;
 
-    public UpdateChecker(HttpClient httpClient)
-        : this(httpClient, GetApplicationVersion.GetProgramVersion())
+    public UpdateChecker(HttpClient httpClient, ILogger logger)
+        : this(httpClient, GetApplicationVersion.GetProgramVersion(), logger)
     {
     }
 
-    internal UpdateChecker(HttpClient httpClient, string currentVersion)
+    internal UpdateChecker(HttpClient httpClient, string currentVersion, ILogger logger)
     {
         _httpClient = httpClient;
         _currentVersion = currentVersion;
+        _logger = logger.ForContext<UpdateChecker>();
         _httpClient.Timeout = TimeSpan.FromSeconds(15);
         _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("BatchConvertIsoToXiso",
             currentVersion));
@@ -56,14 +59,16 @@ public partial class UpdateChecker : IUpdateChecker
                 return (true, latestVersion.ToString(), releaseInfo.HtmlUrl);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.Warning(ex, "Failed to check for updates.");
             return (false, null, null);
         }
 
         return (false, null, null);
     }
 
-    [GeneratedRegex(@"\d+(\.\d+){1,3}", RegexOptions.None | RegexOptions.ExplicitCapture, matchTimeoutMilliseconds: 1000)]
+    [GeneratedRegex(@"\d+(\.\d+){1,3}", RegexOptions.None | RegexOptions.ExplicitCapture,
+        matchTimeoutMilliseconds: 1000)]
     private static partial Regex MyRegex();
 }

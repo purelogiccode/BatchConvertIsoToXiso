@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using BatchConvertIsoToXiso.Interfaces;
+using Serilog;
 
 namespace BatchConvertIsoToXiso.Services;
 
@@ -11,12 +12,14 @@ public class StatsService : IStatsService
     private readonly HttpClient _httpClient;
     private readonly string _apiUrl;
     private readonly string _applicationId;
+    private readonly ILogger _logger;
 
-    public StatsService(HttpClient httpClient, string apiUrl, string apiKey, string applicationId)
+    public StatsService(HttpClient httpClient, string apiUrl, string apiKey, string applicationId, ILogger logger)
     {
         _apiUrl = apiUrl;
         _applicationId = applicationId;
         _httpClient = httpClient;
+        _logger = logger.ForContext<StatsService>();
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
     }
 
@@ -31,9 +34,10 @@ public class StatsService : IStatsService
             using var response = await _httpClient.PostAsync(_apiUrl, content);
             response.EnsureSuccessStatusCode();
         }
-        catch
+        catch (Exception ex)
         {
-            // Silently ignore network or other errors during startup stats reporting
+            // Stats failures are best-effort and must not be forwarded as bug reports
+            _logger.Debug(ex, "Failed to send startup statistics.");
         }
     }
 }

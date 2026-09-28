@@ -44,6 +44,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "Failed to read XISO: {IsoPath}", isoPath);
             _messageBoxService.ShowError($"Failed to read XISO: {ex.Message}");
         }
     }
@@ -76,6 +77,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "Error loading directory: {InternalPath}", internalPath);
             _messageBoxService.ShowError($"Error loading directory: {ex.Message}");
         }
     }
@@ -104,7 +106,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            await _bugReportService.SendBugReportAsync("Error in method ExplorerListView_MouseDoubleClick", ex);
+            _logger.Error(ex, "Error in method ExplorerListView_MouseDoubleClick");
         }
     }
 
@@ -137,6 +139,7 @@ public partial class MainWindow
                     }
                     catch (Exception ex)
                     {
+                        _logger.Error(ex, "Failed to open extracted file: {TempPath}", tempPath);
                         _messageBoxService.ShowError($"Failed to open file: {ex.Message}");
                     }
                 });
@@ -149,9 +152,10 @@ public partial class MainWindow
                     {
                         if (File.Exists(tempPath)) File.Delete(tempPath);
                     }
-                    catch
+                    catch (Exception cleanupEx)
                     {
                         /* in use */
+                        _logger.Debug(cleanupEx, "Could not delete extracted temp file: {TempPath}", tempPath);
                     }
 
                     try
@@ -159,14 +163,16 @@ public partial class MainWindow
                         var dir = Path.GetDirectoryName(tempPath);
                         if (dir != null && Directory.Exists(dir)) Directory.Delete(dir, true);
                     }
-                    catch
+                    catch (Exception cleanupEx)
                     {
                         /* ignore cleanup failures */
+                        _logger.Debug(cleanupEx, "Could not delete extracted temp folder for: {TempPath}", tempPath);
                     }
                 });
             }
             catch (Exception ex)
             {
+                _logger.Error(ex, "Failed to extract and open file from ISO: {FileName}", fileName);
                 await Dispatcher.InvokeAsync(() =>
                 {
                     _messageBoxService.ShowError($"Failed to extract and open file: {ex.Message}");
@@ -238,13 +244,15 @@ public partial class MainWindow
                 {
                     Directory.Delete(tempFolder, true);
                 }
-                catch
+                catch (Exception cleanupEx)
                 {
                     // Ignore cleanup errors
+                    _logger.Debug(cleanupEx, "Could not delete drag-and-drop temp folder: {TempFolder}", tempFolder);
                 }
             }
             catch (Exception ex)
             {
+                _logger.Error(ex, "Failed to prepare files for drag operation");
                 _messageBoxService.ShowError($"Failed to prepare files for drag operation: {ex.Message}");
             }
             finally
@@ -254,6 +262,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "Drag operation failed");
             _messageBoxService.ShowError($"Drag operation failed: {ex.Message}");
         }
     }
@@ -297,9 +306,10 @@ public partial class MainWindow
                 if (defaultDrive.IsReady && defaultDrive.AvailableFreeSpace >= requiredWithBuffer)
                     return Path.Combine(defaultTempPath, tempSubfolder, Guid.NewGuid().ToString());
             }
-            catch
+            catch (Exception ex)
             {
                 // Ignore and fall through to alternative search
+                _logger.Debug(ex, "Could not inspect default temp drive: {TempDriveRoot}", defaultTempDriveRoot);
             }
         }
 

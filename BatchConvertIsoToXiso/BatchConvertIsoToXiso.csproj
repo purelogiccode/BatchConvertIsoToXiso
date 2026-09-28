@@ -10,9 +10,9 @@
         <Authors>PureLogicCode</Authors>
         <Company>PureLogicCode.com</Company>
         <IsPackable>false</IsPackable>
-        <Version>2.8.0</Version>
-        <AssemblyVersion>2.8.0</AssemblyVersion>
-        <FileVersion>2.8.0</FileVersion>
+        <Version>2.9.0</Version>
+        <AssemblyVersion>2.9.0</AssemblyVersion>
+        <FileVersion>2.9.0</FileVersion>
         <NeutralLanguage>en</NeutralLanguage>
         <DebugType>embedded</DebugType>
         <DebugSymbols>true</DebugSymbols>
@@ -38,6 +38,8 @@
         </PackageReference>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
         <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.12" />
+        <PackageReference Include="Serilog" Version="4.4.0" />
+        <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
         <PackageReference Include="Roslynator.Analyzers" Version="5.0.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

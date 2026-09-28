@@ -42,6 +42,16 @@ public class BugReportServiceTests
     }
 
     [Fact]
+    public void BuildFullMessageSimpleMessageContainsErrorDetailsSection()
+    {
+        const string message = "Test bug report message";
+        var result = BugReportService.BuildFullMessage(message);
+
+        Assert.Contains($"=== Error Details ==={Environment.NewLine}{message}", result,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void BuildFullMessageCreatesValidFormattedOutput()
     {
         const string message = "Something broke!";

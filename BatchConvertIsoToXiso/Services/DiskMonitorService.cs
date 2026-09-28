@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using BatchConvertIsoToXiso.Interfaces;
+using Serilog;
 
 namespace BatchConvertIsoToXiso.Services;
 
@@ -16,7 +17,7 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
 
     public DiskMonitorService(ILogger logger)
     {
-        _logger = logger;
+        _logger = logger.ForContext<DiskMonitorService>();
     }
 
     // P/Invoke for GetDiskFreeSpaceEx which works with UNC paths
@@ -39,7 +40,7 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         if (PathHelper.IsNetworkPath(path))
         {
             StatusMessage = "Disk speed monitoring unavailable for network drives";
-            _logger.LogMessage("Disk speed monitoring unavailable for network drives.");
+            _logger.Information("Disk speed monitoring unavailable for network drives.");
             return;
         }
 
@@ -57,7 +58,7 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
             if (!PerformanceCounterCategory.Exists("LogicalDisk"))
             {
                 StatusMessage = "Disk speed monitoring unavailable - performance counters disabled";
-                _logger.LogMessage(
+                _logger.Information(
                     "Performance counter category 'LogicalDisk' not available. Performance counters may be disabled.");
                 return;
             }
@@ -66,7 +67,7 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
             if (!PerformanceCounterCategory.InstanceExists(perfCounterInstanceName, "LogicalDisk"))
             {
                 StatusMessage = $"Disk speed monitoring unavailable for drive {perfCounterInstanceName}";
-                _logger.LogMessage($"Performance counter for drive {perfCounterInstanceName} not available.");
+                _logger.Information("Performance counter for drive {Drive} not available.", perfCounterInstanceName);
                 return;
             }
 
@@ -84,12 +85,12 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
 
             CurrentDriveLetter = driveLetter;
             StatusMessage = null; // Clear any previous status
-            _logger.LogMessage($"Monitoring disk speed for drive: {perfCounterInstanceName}");
+            _logger.Information("Monitoring disk speed for drive: {Drive}", perfCounterInstanceName);
         }
         catch (Exception ex)
         {
             StatusMessage = "Disk speed monitoring unavailable - performance counter error";
-            _logger.LogMessage($"Failed to initialize disk monitor for {perfCounterInstanceName}: {ex.Message}");
+            _logger.Warning(ex, "Failed to initialize disk monitor for {Drive}", perfCounterInstanceName);
             StopMonitoring();
         }
     }
@@ -113,8 +114,9 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
             var val = _diskReadSpeedCounter.NextValue();
             return Formatter.FormatBytesPerSecond(val);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.Warning(ex, "Failed to read current disk read speed. Stopping monitoring.");
             StopMonitoring();
             return "N/A";
         }
@@ -129,8 +131,9 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
             var val = _diskWriteSpeedCounter.NextValue();
             return Formatter.FormatBytesPerSecond(val);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.Warning(ex, "Failed to read current disk write speed. Stopping monitoring.");
             StopMonitoring();
             return "N/A";
         }
@@ -187,9 +190,10 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
                 return fallbackDriveInfo.AvailableFreeSpace;
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Ignore errors and return 0
+            _logger.Information(ex, "Failed to determine available free space for path: {Path}", path);
         }
 
         return 0;
@@ -219,9 +223,10 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
                     return drive.Name;
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Ignore errors during drive enumeration
+            _logger.Information(ex, "Failed to enumerate drives while searching for free space.");
         }
 
         return null;

@@ -2,19 +2,18 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using BatchConvertIsoToXiso.Interfaces;
+using Serilog;
 
 namespace BatchConvertIsoToXiso.Services;
 
 public partial class ExternalToolService : IExternalToolService
 {
     private readonly ILogger _logger;
-    private readonly IBugReportService _bugReportService;
     private readonly string _bchunkPath;
 
-    public ExternalToolService(ILogger logger, IBugReportService bugReportService)
+    public ExternalToolService(ILogger logger)
     {
-        _logger = logger;
-        _bugReportService = bugReportService;
+        _logger = logger.ForContext<ExternalToolService>();
         var appDir = AppDomain.CurrentDomain.BaseDirectory;
         _bchunkPath = Path.Combine(appDir, "bchunk.exe");
     }
@@ -22,17 +21,17 @@ public partial class ExternalToolService : IExternalToolService
     public async Task<string?> ConvertCueBinToIsoAsync(string cuePath, string tempOutputDir, CancellationToken token)
     {
         var cueFileName = Path.GetFileName(cuePath);
-        _logger.LogMessage($"Converting CUE/BIN to ISO: '{cueFileName}'...");
+        _logger.Information("Converting CUE/BIN to ISO: '{CueFileName}'...", cueFileName);
 
         var binPath = await ParseCueForBinFileAsync(cuePath, token);
         if (string.IsNullOrEmpty(binPath))
         {
-            _logger.LogMessage($"[ERROR] Could not find BIN file for CUE: '{cueFileName}'");
+            _logger.Information("Could not find BIN file for CUE: '{CueFileName}'", cueFileName);
             return null;
         }
 
         var binFileName = Path.GetFileName(binPath);
-        _logger.LogMessage($"  Found BIN file: '{binFileName}'");
+        _logger.Information("Found BIN file: '{BinFileName}'", binFileName);
 
         var outputBaseName = Path.GetFileNameWithoutExtension(cuePath);
         var result = await RunProcessAsync(_bchunkPath, $"\"{binPath}\" \"{cuePath}\" \"{outputBaseName}\"",
@@ -40,20 +39,20 @@ public partial class ExternalToolService : IExternalToolService
 
         if (result != 0)
         {
-            _logger.LogMessage(
-                $"[ERROR] Failed to convert CUE/BIN to ISO for '{cueFileName}'. bchunk.exe exited with code {result}.");
+            _logger.Information(
+                "Failed to convert CUE/BIN to ISO for '{CueFileName}'. bchunk.exe exited with code {ExitCode}.",
+                cueFileName, result);
             return null;
         }
 
         var isoFile = Directory.GetFiles(tempOutputDir, "*.iso").FirstOrDefault();
         if (isoFile != null)
         {
-            _logger.LogMessage($"  Successfully converted CUE/BIN to ISO: '{Path.GetFileName(isoFile)}'");
+            _logger.Information("Successfully converted CUE/BIN to ISO: '{IsoFileName}'", Path.GetFileName(isoFile));
         }
         else
         {
-            _logger.LogMessage(
-                $"[WARNING] CUE/BIN conversion completed but no ISO file was found for '{cueFileName}'.");
+            _logger.Warning("CUE/BIN conversion completed but no ISO file was found for '{CueFileName}'.", cueFileName);
         }
 
         return isoFile;
@@ -100,25 +99,25 @@ public partial class ExternalToolService : IExternalToolService
             var stdErr = await stdErrTask;
 
             if (!string.IsNullOrWhiteSpace(stdOut))
-                _logger.LogMessage(stdOut.TrimEnd());
+                _logger.Information("{Message:l}", stdOut.TrimEnd());
             if (!string.IsNullOrWhiteSpace(stdErr))
-                _logger.LogMessage(stdErr.TrimEnd());
+                _logger.Information("{Message:l}", stdErr.TrimEnd());
 
             return process.ExitCode;
         }
         catch (OperationCanceledException)
         {
+            _logger.Debug("Process execution canceled ({ContextName}).", contextName);
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogMessage($"Process execution failed ({contextName}): {ex.Message}");
-            _ = _bugReportService.SendBugReportAsync($"Process execution failed ({contextName})", ex);
+            _logger.Error(ex, "Process execution failed ({ContextName}): {Message}", contextName, ex.Message);
             return null;
         }
     }
 
-    private static async Task<string?> ParseCueForBinFileAsync(string cuePath, CancellationToken token)
+    private async Task<string?> ParseCueForBinFileAsync(string cuePath, CancellationToken token)
     {
         var cueDir = Path.GetDirectoryName(cuePath);
         if (cueDir == null) return null;
@@ -140,9 +139,9 @@ public partial class ExternalToolService : IExternalToolService
                 if (File.Exists(binPath)) return binPath;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            /* ignore */
+            _logger.Debug(ex, "Failed to parse CUE file: {CuePath}", cuePath);
         }
 
         var fallback = Path.ChangeExtension(cuePath, ".bin");

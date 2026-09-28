@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -6,6 +8,8 @@ using System.Windows.Threading;
 using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
+using Serilog.Events;
 
 namespace BatchConvertIsoToXiso;
 
@@ -20,10 +24,36 @@ public partial class App
     private IStatsService? _statsService;
     private static IServiceProvider? ServiceProvider { get; set; }
     private IMessageBoxService? _messageBoxService;
-    private ILogger? _logger;
 
     public App()
     {
+        // Bootstrap Serilog before the UI starts so every message emitted during
+        // construction and startup is captured. Warning and above are forwarded to the
+        // Bug Report API by the BugReportSink; the service is resolved lazily because
+        // the dependency injection container is built later in OnStartup.
+        var logPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            ApplicationName,
+            "logs",
+            "log-.txt");
+
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Ui(formatProvider: CultureInfo.InvariantCulture)
+            .WriteTo.BugReport(() => _bugReportService, LogEventLevel.Warning, CultureInfo.InvariantCulture)
+            .WriteTo.File(
+                logPath,
+                restrictedToMinimumLevel: LogEventLevel.Debug,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+                formatProvider: CultureInfo.InvariantCulture,
+                fileSizeLimitBytes: 10 * 1024 * 1024,
+                rollingInterval: RollingInterval.Day,
+                rollOnFileSizeLimit: true,
+                retainedFileCountLimit: 14)
+            .CreateLogger();
+
+        Log.Information("BatchConvertIsoToXiso v{Version} starting", GetApplicationVersion.GetProgramVersion());
+
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
         DispatcherUnhandledException += App_DispatcherUnhandledException;
         TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
@@ -42,7 +72,6 @@ public partial class App
 
             _bugReportService = ServiceProvider.GetRequiredService<IBugReportService>();
             _messageBoxService = ServiceProvider.GetRequiredService<IMessageBoxService>();
-            _logger = ServiceProvider.GetRequiredService<ILogger>();
             _statsService = ServiceProvider.GetRequiredService<IStatsService>();
 
             _ = _statsService?.SendStatsAsync();
@@ -56,21 +85,17 @@ public partial class App
                 // Startup cleanup is best-effort and must never delay the window: probing
                 // idle drives can block for many seconds, so run it after the window is
                 // visible and off the UI thread.
-                if (_logger != null)
+                _ = Task.Run(async () =>
                 {
-                    var logger = _logger;
-                    _ = Task.Run(async () =>
+                    try
                     {
-                        try
-                        {
-                            await TempFolderCleanupHelper.CleanupBatchConvertTempFoldersAsync(logger);
-                        }
-                        catch
-                        {
-                            // Cleanup is best-effort; never crash startup because of it.
-                        }
-                    });
-                }
+                        await TempFolderCleanupHelper.CleanupBatchConvertTempFoldersAsync(Log.Logger);
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        Log.Warning(cleanupEx, "Startup temporary folder cleanup failed");
+                    }
+                });
             }
             catch (SEHException sehEx)
             {
@@ -88,7 +113,7 @@ public partial class App
             catch (NullReferenceException nullEx)
             {
                 // Handle UI initialization failures (e.g., ToolBar style issues)
-                _logger?.LogMessage($"UI initialization error during startup: {nullEx.Message}");
+                Log.Error(nullEx, "UI initialization error during startup");
                 await ReportExceptionAsync(nullEx, "Bug OnStartup - UI Initialization Error");
             }
         }
@@ -99,27 +124,27 @@ public partial class App
             {
                 await HandleFontRenderingErrorAsync(sehEx);
             }
-            catch
+            catch (Exception fontEx)
             {
-                /* prevent async void crash */
+                Log.Fatal(fontEx, "Failed to handle font/rendering error during startup");
             }
         }
         catch (Exception ex)
         {
             try
             {
-                _ = ReportExceptionAsync(ex, "Bug OnStartup");
+                await ReportExceptionAsync(ex, "Bug OnStartup", isFatal: true);
             }
-            catch
+            catch (Exception reportEx)
             {
-                /* prevent async void crash */
+                Log.Fatal(reportEx, "Failed to report startup error");
             }
         }
     }
 
-    private async Task HandleFontRenderingErrorAsync(Exception ex)
+    private Task HandleFontRenderingErrorAsync(Exception ex)
     {
-        _logger?.LogMessage($"Font/Rendering error during startup: {ex.Message}");
+        Log.Error(ex, "Font/Rendering error during startup");
 
         var errorMessage =
             "The application encountered a font or rendering error during startup.\n\n" +
@@ -138,9 +163,12 @@ public partial class App
 
         _messageBoxService?.ShowError(errorMessage);
 
-        // Report this critical error
-        await ReportExceptionAsync(ex, "Bug OnStartup - FontRenderingError");
+        // Report this critical error directly as well: the process is about to shut
+        // down, so the fire-and-forget sink may not get a chance to deliver it.
+        TryReportFatal("Bug OnStartup - FontRenderingError", ex);
         Shutdown(1);
+
+        return Task.CompletedTask;
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -151,6 +179,8 @@ public partial class App
         }
 
         base.OnExit(e);
+
+        Log.CloseAndFlush();
 
         // Safety net: if something blocks the dispatcher (e.g., a lingering message box
         // or a stuck async operation), force-kill the process after a few seconds so the
@@ -174,6 +204,10 @@ public partial class App
             .ConfigurePrimaryHttpMessageHandler(static () => new SocketsHttpHandler
                 { PooledConnectionLifetime = TimeSpan.FromMinutes(10) });
 
+        // Serilog is the single logging pipeline: services receive Serilog.ILogger and
+        // warning-or-higher events are forwarded to the Bug Report API by the sink.
+        services.AddSingleton(Log.Logger);
+
         services.AddSingleton<IBugReportService>(static provider =>
         {
             var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
@@ -184,34 +218,31 @@ public partial class App
         {
             var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
             return new StatsService(httpClientFactory.CreateClient("Stats"), StatsApiUrl, BugReportApiKey,
-                ApplicationName);
+                ApplicationName, provider.GetRequiredService<ILogger>());
         });
         services.AddSingleton<IUpdateChecker>(static provider =>
         {
             var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
-            return new UpdateChecker(httpClientFactory.CreateClient("UpdateChecker"));
+            return new UpdateChecker(httpClientFactory.CreateClient("UpdateChecker"),
+                provider.GetRequiredService<ILogger>());
         });
-        services.AddSingleton<ILogger, LoggerService>();
         services.AddSingleton<IDiskMonitorService, DiskMonitorService>();
         services.AddSingleton<IMessageBoxService, MessageBoxService>();
         services.AddSingleton<IUrlOpener, UrlOpenerService>();
         services.AddSingleton<IScreenshotService, ScreenshotService>();
-        services.AddTransient<IFileExtractor, FileExtractorService>(static provider =>
-            new FileExtractorService(provider.GetRequiredService<ILogger>(),
-                provider.GetRequiredService<IBugReportService>()));
-        services.AddTransient<IFileMover, FileMoverService>(static provider =>
+        services.AddTransient<IFileExtractor>(static provider =>
+            new FileExtractorService(provider.GetRequiredService<ILogger>()));
+        services.AddTransient<IFileMover>(static provider =>
             new FileMoverService(provider.GetRequiredService<ILogger>(),
-                provider.GetRequiredService<IBugReportService>(), provider.GetRequiredService<IDiskMonitorService>()));
+                provider.GetRequiredService<IDiskMonitorService>()));
         services.AddTransient<AboutWindow>();
         services.AddSingleton<IExternalToolService>(static provider =>
-            new ExternalToolService(provider.GetRequiredService<ILogger>(),
-                provider.GetRequiredService<IBugReportService>()));
+            new ExternalToolService(provider.GetRequiredService<ILogger>()));
         services.AddSingleton<IXisoSharpService>(static provider =>
             new XisoSharpService(provider.GetRequiredService<ILogger>(),
-                provider.GetRequiredService<IBugReportService>(), provider.GetRequiredService<IDiskMonitorService>()));
+                provider.GetRequiredService<IDiskMonitorService>()));
         services.AddSingleton<IXisoIntegrityService>(static provider =>
-            new XisoIntegrityService(provider.GetRequiredService<ILogger>(),
-                provider.GetRequiredService<IBugReportService>()));
+            new XisoIntegrityService(provider.GetRequiredService<ILogger>()));
         services.AddSingleton<IOrchestratorService, OrchestratorService>();
         services.AddTransient<MainWindow>();
     }
@@ -220,28 +251,40 @@ public partial class App
     {
         if (e.ExceptionObject is Exception exception)
         {
-            _ = ReportExceptionAsync(exception, "AppDomain.UnhandledException");
+            Log.Fatal(exception, "AppDomain.UnhandledException");
+            TryReportFatal("AppDomain.UnhandledException", exception);
         }
     }
 
     private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        _ = ReportExceptionAsync(e.Exception, "Application.DispatcherUnhandledException");
+        Log.Error(e.Exception, "Application.DispatcherUnhandledException");
         e.Handled = true;
+
+        _ = Current.Dispatcher.InvokeAsync(() =>
+            _messageBoxService?.ShowError(
+                "A critical error occurred and has been reported. The application may need to close."));
     }
 
-    private void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    private static void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
-        _ = ReportExceptionAsync(e.Exception, "TaskScheduler.UnobservedTaskException");
+        Log.Error(e.Exception, "TaskScheduler.UnobservedTaskException");
         e.SetObserved();
     }
 
-    private async Task ReportExceptionAsync(Exception exception, string source)
+    private async Task ReportExceptionAsync(Exception exception, string source, bool isFatal = false)
     {
         try
         {
-            if (_bugReportService != null)
-                await _bugReportService.SendBugReportAsync(source, exception);
+            if (isFatal)
+            {
+                Log.Fatal(exception, "{Source}", source);
+                TryReportFatal(source, exception);
+            }
+            else
+            {
+                Log.Error(exception, "{Source}", source);
+            }
 
             await Current.Dispatcher.InvokeAsync(() =>
                 _messageBoxService?.ShowError(
@@ -250,6 +293,30 @@ public partial class App
         catch
         {
             // Ignore
+        }
+    }
+
+    /// <summary>
+    /// Sends a bug report directly (bypassing the Serilog sink) so that even if the
+    /// logging pipeline has already shut down the report is still delivered.
+    /// For fatal exceptions this blocks with a 5-second timeout.
+    /// </summary>
+    private void TryReportFatal(string source, Exception exception, bool isFatal = true)
+    {
+        try
+        {
+            if (_bugReportService == null) return;
+
+            var reportTask = _bugReportService.SendBugReportAsync(source, exception);
+
+            if (isFatal)
+            {
+                reportTask.Wait(TimeSpan.FromSeconds(5));
+            }
+        }
+        catch
+        {
+            // Silently ignore any errors in the reporting process
         }
     }
 }

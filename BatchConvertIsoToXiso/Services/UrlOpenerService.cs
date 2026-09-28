@@ -1,17 +1,16 @@
 using System.Diagnostics;
 using BatchConvertIsoToXiso.Interfaces;
+using Serilog;
 
 namespace BatchConvertIsoToXiso.Services;
 
 public class UrlOpenerService : IUrlOpener
 {
     private readonly ILogger _logger;
-    private readonly IBugReportService _bugReportService;
 
-    public UrlOpenerService(ILogger logger, IBugReportService bugReportService)
+    public UrlOpenerService(ILogger logger)
     {
-        _logger = logger;
-        _bugReportService = bugReportService;
+        _logger = logger.ForContext<UrlOpenerService>();
     }
 
     public void OpenUrl(string url)
@@ -27,8 +26,7 @@ public class UrlOpenerService : IUrlOpener
         }
         catch (Exception ex)
         {
-            _logger.LogMessage($"Error opening URL: {url}. Exception: {ex.Message}");
-            _ = _bugReportService.SendBugReportAsync($"Error opening URL: {url}", ex);
+            _logger.Error(ex, "Error opening URL: {Url}", url);
             throw; // Re-throw the exception for the caller to handle UI
         }
     }

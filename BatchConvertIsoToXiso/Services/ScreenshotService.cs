@@ -5,13 +5,13 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using BatchConvertIsoToXiso.Interfaces;
+using Serilog;
 
 namespace BatchConvertIsoToXiso.Services;
 
 public class ScreenshotService : IScreenshotService
 {
     private readonly ILogger _logger;
-    private readonly IBugReportService _bugReportService;
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
@@ -60,10 +60,9 @@ public class ScreenshotService : IScreenshotService
         public int Bottom;
     }
 
-    public ScreenshotService(ILogger logger, IBugReportService bugReportService)
+    public ScreenshotService(ILogger logger)
     {
-        _logger = logger;
-        _bugReportService = bugReportService;
+        _logger = logger.ForContext<ScreenshotService>();
     }
 
     public async Task<string?> CaptureActiveWindowAsync()
@@ -74,8 +73,7 @@ public class ScreenshotService : IScreenshotService
         }
         catch (Exception ex)
         {
-            _logger.LogMessage($"Error capturing screenshot: {ex.Message}");
-            _ = _bugReportService.SendBugReportAsync("Error capturing screenshot", ex);
+            _logger.Error(ex, "Error capturing screenshot");
             return null;
         }
     }
@@ -85,13 +83,13 @@ public class ScreenshotService : IScreenshotService
         var hwnd = GetForegroundWindow();
         if (hwnd == IntPtr.Zero)
         {
-            _logger.LogMessage("Screenshot: No active window found.");
+            _logger.Information("Screenshot: No active window found.");
             return null;
         }
 
         if (!GetWindowRect(hwnd, out var rect))
         {
-            _logger.LogMessage("Screenshot: Failed to get window rectangle.");
+            _logger.Information("Screenshot: Failed to get window rectangle.");
             return null;
         }
 
@@ -106,7 +104,7 @@ public class ScreenshotService : IScreenshotService
 
         if (width <= 0 || height <= 0)
         {
-            _logger.LogMessage("Screenshot: Invalid window dimensions.");
+            _logger.Information("Screenshot: Invalid window dimensions.");
             return null;
         }
 
@@ -140,7 +138,7 @@ public class ScreenshotService : IScreenshotService
                 encoder.Save(fileStream);
             }
 
-            _logger.LogMessage($"Screenshot saved: {filePath}");
+            _logger.Information("Screenshot saved: {FilePath}", filePath);
             return filePath;
         }
         finally

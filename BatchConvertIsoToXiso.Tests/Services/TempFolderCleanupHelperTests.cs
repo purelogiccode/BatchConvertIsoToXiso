@@ -1,6 +1,5 @@
-using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Services;
-using Moq;
+using Serilog.Events;
 using Xunit;
 
 namespace BatchConvertIsoToXiso.Tests.Services;
@@ -11,15 +10,13 @@ public class TempFolderCleanupHelperTests
     public async Task TryDeleteDirectoryWithRetryAsyncNonExistentDirectoryDoesNotThrow()
     {
         var nonExistentPath = Path.Combine(Path.GetTempPath(), $"NonExistent_Test_{Guid.NewGuid()}");
-        var mockLogger = new Mock<ILogger>();
+        var logger = new TestLogger();
 
         var exception = await Record.ExceptionAsync(() =>
-            TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(nonExistentPath, 3, 100, mockLogger.Object));
+            TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(nonExistentPath, 3, 100, logger.Logger));
 
         Assert.Null(exception);
-        mockLogger.Verify(
-            static x => x.LogMessage(It.Is<string>(static s => s.Contains("WARNING") || s.Contains("Failed"))),
-            Times.Never);
+        Assert.DoesNotContain(logger.Events, e => e.Level >= LogEventLevel.Warning);
     }
 
     [Fact]
@@ -27,17 +24,16 @@ public class TempFolderCleanupHelperTests
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"BatchConvertIsoToXiso_Test_{Guid.NewGuid()}");
         Directory.CreateDirectory(tempDir);
-        var mockLogger = new Mock<ILogger>();
+        var logger = new TestLogger();
 
         try
         {
             Assert.True(Directory.Exists(tempDir));
 
-            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempDir, 3, 100, mockLogger.Object);
+            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempDir, 3, 100, logger.Logger);
 
             Assert.False(Directory.Exists(tempDir));
-            mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("Successfully deleted"))),
-                Times.Once);
+            Assert.True(logger.HasMessage("Successfully deleted"));
         }
         finally
         {
@@ -62,15 +58,13 @@ public class TempFolderCleanupHelperTests
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"BatchConvertIsoToXiso_Test_{Guid.NewGuid()}");
         Directory.CreateDirectory(tempDir);
-        var mockLogger = new Mock<ILogger>();
+        var logger = new TestLogger();
 
         try
         {
-            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempDir, 3, 100, mockLogger.Object);
+            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempDir, 3, 100, logger.Logger);
 
-            mockLogger.Verify(
-                static x => x.LogMessage(It.Is<string>(static s => s.Contains("Successfully deleted temp folder:"))),
-                Times.Once);
+            Assert.True(logger.HasMessage("Successfully deleted temp folder:"));
         }
         finally
         {
@@ -86,17 +80,15 @@ public class TempFolderCleanupHelperTests
         Directory.CreateDirectory(tempDir);
         var lockedFile = Path.Combine(tempDir, "locked.txt");
         File.WriteAllText(lockedFile, "locked");
-        var mockLogger = new Mock<ILogger>();
+        var logger = new TestLogger();
 
         await using (new FileStream(lockedFile, FileMode.Open, FileAccess.Read, FileShare.None))
         {
             var exception = await Record.ExceptionAsync(() =>
-                TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempDir, 2, 10, mockLogger.Object));
+                TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempDir, 2, 10, logger.Logger));
 
             Assert.Null(exception);
-            mockLogger.Verify(
-                static x => x.LogMessage(It.Is<string>(static s => s.Contains("WARNING: Could not delete"))),
-                Times.Once);
+            Assert.True(logger.HasMessage(LogEventLevel.Warning, "Could not delete"));
         }
 
         if (Directory.Exists(tempDir))

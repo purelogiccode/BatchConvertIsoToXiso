@@ -1,6 +1,7 @@
 using System.IO;
 using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Models;
+using Serilog;
 using XISOSharp;
 using XISOSharp.Models;
 
@@ -14,13 +15,11 @@ namespace BatchConvertIsoToXiso.Services;
 public class XisoSharpService : IXisoSharpService
 {
     private readonly ILogger _logger;
-    private readonly IBugReportService _bugReportService;
     private readonly IDiskMonitorService _diskMonitorService;
 
-    public XisoSharpService(ILogger logger, IBugReportService bugReportService, IDiskMonitorService diskMonitorService)
+    public XisoSharpService(ILogger logger, IDiskMonitorService diskMonitorService)
     {
-        _logger = logger;
-        _bugReportService = bugReportService;
+        _logger = logger.ForContext<XisoSharpService>();
         _diskMonitorService = diskMonitorService;
     }
 
@@ -29,11 +28,11 @@ public class XisoSharpService : IXisoSharpService
         CancellationToken token)
     {
         var fileName = Path.GetFileName(inputFile);
-        _logger.LogMessage($"Converting '{fileName}' using XISOSharp...");
+        _logger.Information("Converting '{FileName}' using XISOSharp...", fileName);
 
         if (!File.Exists(inputFile))
         {
-            _logger.LogMessage($"[ERROR] Input file not found: {inputFile}");
+            _logger.Information("Input file not found: {InputFile}", inputFile);
             return FileProcessingStatus.Failed;
         }
 
@@ -44,14 +43,14 @@ public class XisoSharpService : IXisoSharpService
         // onto itself would destroy the source.
         if (XisoPaths.AreSamePath(inputFile, outputPath))
         {
-            _logger.LogMessage($"[ERROR] The output file would overwrite the source file for '{fileName}'. " +
-                               "Please choose a different output folder.");
+            _logger.Information("The output file would overwrite the source file for '{FileName}'. " +
+                                "Please choose a different output folder.", fileName);
             return FileProcessingStatus.Failed;
         }
 
         if (XisoReader.IsOptimizedImage(inputFile))
         {
-            _logger.LogMessage($"'{fileName}' is already an optimized XISO. Skipping conversion.");
+            _logger.Information("'{FileName}' is already an optimized XISO. Skipping conversion.", fileName);
             return FileProcessingStatus.AlreadyOptimized;
         }
 
@@ -59,7 +58,7 @@ public class XisoSharpService : IXisoSharpService
         var outputCheck = CheckOutputDrive(inputFile, inputFileSize, outputFolder);
         if (outputCheck != null)
         {
-            _logger.LogMessage($"[ERROR] {outputCheck}");
+            _logger.Information("{Message:l}", outputCheck);
             return FileProcessingStatus.Failed;
         }
 
@@ -69,7 +68,7 @@ public class XisoSharpService : IXisoSharpService
         }
         catch (Exception ex)
         {
-            _logger.LogMessage($"[ERROR] Could not create the output folder '{outputFolder}': {ex.Message}");
+            _logger.Information(ex, "Could not create the output folder '{OutputFolder}'", outputFolder);
             return FileProcessingStatus.Failed;
         }
 
@@ -84,7 +83,7 @@ public class XisoSharpService : IXisoSharpService
             }
             catch (Exception ex)
             {
-                _logger.LogMessage($"[ERROR] Could not delete the existing output file '{outputFileName}': {ex.Message}");
+                _logger.Warning(ex, "Could not delete the existing output file '{OutputFileName}'", outputFileName);
                 return FileProcessingStatus.Failed;
             }
         }
@@ -111,8 +110,8 @@ public class XisoSharpService : IXisoSharpService
             // static state. Conversions are serialized by the orchestrator, so save and
             // restore the previous values around this conversion.
             Logger.RemoveSystemUpdate = skipSystemUpdate;
-            Logger.ForwardInfo = message => _logger.LogMessage($"  [xiso] {message.TrimEnd()}");
-            Logger.ForwardError = message => _logger.LogMessage($"  [xiso] ERROR: {message.TrimEnd()}");
+            Logger.ForwardInfo = message => _logger.Information("  [xiso] {Message:l}", message.TrimEnd());
+            Logger.ForwardError = message => _logger.Information("  [xiso] ERROR: {Message:l}", message.TrimEnd());
 
             var progressAdapter = new Progress<ProgressInfo>(info =>
             {
@@ -142,87 +141,90 @@ public class XisoSharpService : IXisoSharpService
 
             if (result != 0 || !File.Exists(resultPath))
             {
-                _logger.LogMessage($"[ERROR] XISOSharp could not convert '{fileName}' (result code {result}).");
+                _logger.Information("XISOSharp could not convert '{FileName}' (result code {ResultCode}).", fileName,
+                    result);
                 DeletePartialOutput(resultPath);
                 return FileProcessingStatus.Failed;
             }
 
             if (checkIntegrity)
             {
-                _logger.LogMessage("Verifying output XISO integrity...");
+                _logger.Information("Verifying output XISO integrity...");
                 var audit = XisoReader.AuditXiso(resultPath);
                 if (!audit.IsValid)
                 {
-                    _logger.LogMessage(
-                        $"[ERROR] Output XISO failed structural validation: {string.Join("; ", audit.Issues)}");
+                    _logger.Information("Output XISO failed structural validation: {Issues}",
+                        string.Join("; ", audit.Issues));
                     DeletePartialOutput(resultPath);
                     return FileProcessingStatus.Failed;
                 }
 
-                _logger.LogMessage(
-                    $"Output XISO passed validation ({audit.FilesChecked} files, {audit.DirsChecked} directories).");
+                _logger.Information("Output XISO passed validation ({FilesChecked} files, {DirsChecked} directories).",
+                    audit.FilesChecked, audit.DirsChecked);
             }
 
-            _logger.LogMessage($"Successfully converted '{fileName}' to XISO format.");
+            _logger.Information("Successfully converted '{FileName}' to XISO format.", fileName);
             return FileProcessingStatus.Converted;
         }
         catch (OperationCanceledException)
         {
-            _logger.LogMessage($"Conversion of '{fileName}' was canceled. Cleaning up partial output...");
+            _logger.Information("Conversion of '{FileName}' was canceled. Cleaning up partial output...", fileName);
             DeletePartialOutput(outIsoPath ?? outputPath);
             throw;
         }
         catch (Exception ex) when (PathHelper.IsDiskSpaceError(ex))
         {
             DeletePartialOutput(outIsoPath ?? outputPath);
-            _logger.LogMessage($"[ERROR] Not enough disk space to convert '{fileName}': {ex.Message}");
+            _logger.Information(ex, "Not enough disk space to convert '{FileName}'", fileName);
             throw;
         }
         catch (Exception ex) when (PathHelper.IsDeviceIoError(ex))
         {
             DeletePartialOutput(outIsoPath ?? outputPath);
-            _logger.LogMessage($"[ERROR] The drive reported a hardware I/O error while converting '{fileName}': {ex.Message}\n\n" +
-                               "This usually means the source or output drive is failing, was disconnected, or has a hardware problem.\n" +
-                               "Please check the drive connection and health (e.g. run chkdsk), then try again.");
+            _logger.Information(ex,
+                "The drive reported a hardware I/O error while converting '{FileName}'.\n\n" +
+                "This usually means the source or output drive is failing, was disconnected, or has a hardware problem.\n" +
+                "Please check the drive connection and health (e.g. run chkdsk), then try again.", fileName);
             throw;
         }
         catch (Exception ex) when (PathHelper.IsNetworkError(ex))
         {
             DeletePartialOutput(outIsoPath ?? outputPath);
-            _logger.LogMessage($"[ERROR] Network error while converting '{fileName}': {ex.Message}\n\n" +
-                               "Please try:\n" +
-                               "1. Check that the network drive is still connected and accessible\n" +
-                               "2. Copy the file to a local drive before processing\n" +
-                               "3. Check your network connection stability");
+            _logger.Information(ex, "Network error while converting '{FileName}'.\n\n" +
+                                    "Please try:\n" +
+                                    "1. Check that the network drive is still connected and accessible\n" +
+                                    "2. Copy the file to a local drive before processing\n" +
+                                    "3. Check your network connection stability", fileName);
             throw;
         }
         catch (DirectoryNotFoundException ex)
         {
             DeletePartialOutput(outIsoPath ?? outputPath);
-            _logger.LogMessage($"[ERROR] Drive or path not found for '{fileName}': {ex.Message}\n\n" +
-                               "Please check that the drive is connected and the path exists.");
+            _logger.Information(ex, "Drive or path not found for '{FileName}'.\n\n" +
+                                    "Please check that the drive is connected and the path exists.", fileName);
             throw;
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
             DeletePartialOutput(outIsoPath ?? outputPath);
-            _logger.LogMessage($"[ERROR] Access denied while converting '{fileName}'.\n\n" +
-                               "The output folder may be write-protected or require administrator rights.\n" +
-                               "Please choose a different output folder or run the application as administrator.");
+            _logger.Warning(ex, "Access denied while converting '{FileName}'.\n\n" +
+                                "The output folder may be write-protected or require administrator rights.\n" +
+                                "Please choose a different output folder or run the application as administrator.",
+                fileName);
             return FileProcessingStatus.Failed;
         }
         catch (Exception ex) when (IsInvalidImageError(ex))
         {
             DeletePartialOutput(outIsoPath ?? outputPath);
-            _logger.LogMessage($"[ERROR] Failed to convert '{fileName}': {ex.Message}\n\n" +
-                               "The file may not be a valid Xbox/Xbox 360 ISO image, may be corrupt, or contains a file too large for XISO.");
+            _logger.Information(ex,
+                "Failed to convert '{FileName}'. The file may not be a valid Xbox/Xbox 360 ISO image, " +
+                "may be corrupt, or contains a file too large for XISO.", fileName);
             return FileProcessingStatus.Failed;
         }
         catch (Exception ex)
         {
             DeletePartialOutput(outIsoPath ?? outputPath);
-            _logger.LogMessage($"[ERROR] Failed to convert '{fileName}': {ex.Message}");
-            _ = _bugReportService.SendBugReportAsync($"Failed to convert '{fileName}'", ex);
+            _logger.Error(ex, "Failed to convert '{FileName}'", fileName);
             return FileProcessingStatus.Failed;
         }
         finally
@@ -241,12 +243,12 @@ public class XisoSharpService : IXisoSharpService
     private static bool IsInvalidImageError(Exception ex)
     {
         return ex is XisoFormatException or XisoEmptyException or XisoFileTooLargeException or InvalidDataException
-            or ExtractErrorException or EndOfStreamException ||
+                   or ExtractErrorException or EndOfStreamException ||
                (ex is IOException ioException &&
                 ioException.Message.StartsWith("Read error", StringComparison.OrdinalIgnoreCase));
     }
 
-    private static void DeletePartialOutput(string? path)
+    private void DeletePartialOutput(string? path)
     {
         if (string.IsNullOrEmpty(path)) return;
 
@@ -254,9 +256,10 @@ public class XisoSharpService : IXisoSharpService
         {
             if (File.Exists(path)) File.Delete(path);
         }
-        catch
+        catch (Exception ex)
         {
             // Cleanup failure is non-fatal; the error is already reported to the user
+            _logger.Debug(ex, "Could not delete partial output file '{Path}'", path);
         }
     }
 
@@ -295,9 +298,10 @@ public class XisoSharpService : IXisoSharpService
                        "Please use an NTFS or exFAT formatted output drive.";
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Pre-check failures are non-fatal; the conversion will surface real errors if they occur
+            _logger.Debug(ex, "Could not check the output drive for '{OutputFolder}'", outputFolder);
         }
 
         return null;

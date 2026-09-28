@@ -1,16 +1,14 @@
 using System.IO.Compression;
-using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Services;
-using Moq;
+using Serilog.Events;
 using Xunit;
 
 namespace BatchConvertIsoToXiso.Tests.Services;
 
 public class FileExtractorServiceTests : IDisposable
 {
+    private readonly TestLogger _logger = new();
     private readonly string _tempDir = Path.Combine(Path.GetTempPath(), $"FileExtractorTests_{Guid.NewGuid():N}");
-    private readonly Mock<ILogger> _mockLogger = new();
-    private readonly Mock<IBugReportService> _mockBugReport = new();
 
     public FileExtractorServiceTests()
     {
@@ -33,7 +31,7 @@ public class FileExtractorServiceTests : IDisposable
 
     private FileExtractorService CreateService()
     {
-        return new FileExtractorService(_mockLogger.Object, _mockBugReport.Object);
+        return new FileExtractorService(_logger.Logger);
     }
 
     private string CreateTestZip(string zipName, Dictionary<string, string> entries)
@@ -166,7 +164,7 @@ public class FileExtractorServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ExtractArchiveAsyncCorruptZipThrowsAndDoesNotSendBugReport()
+    public async Task ExtractArchiveAsyncCorruptZipThrowsAndDoesNotLogWarningOrError()
     {
         var corruptPath = CreateCorruptZip("corrupt.zip");
         var service = CreateService();
@@ -182,10 +180,8 @@ public class FileExtractorServiceTests : IDisposable
             // Expected to throw
         }
 
-        // Corrupt archives should NOT trigger bug reports (environmental error)
-        _mockBugReport.Verify(
-            x => x.SendBugReportAsync(It.IsAny<string>(), It.IsAny<Exception>()),
-            Times.Never);
+        // Corrupt archives are user/input errors and must not be logged as warnings or errors
+        Assert.DoesNotContain(_logger.Events, e => e.Level >= LogEventLevel.Warning);
     }
 
     [Fact]
@@ -226,15 +222,13 @@ public class FileExtractorServiceTests : IDisposable
         Assert.False(result);
 
         // Verify the error message was logged (contains "encrypted" or "password")
-        _mockLogger.Verify(
-            x => x.LogMessage(It.Is<string>(s =>
-                s.Contains("encrypted", StringComparison.OrdinalIgnoreCase) ||
-                s.Contains("password-protected", StringComparison.OrdinalIgnoreCase))),
-            Times.AtLeastOnce);
+        Assert.True(
+            _logger.HasMessage("encrypted") ||
+            _logger.HasMessage("password-protected"));
     }
 
     [Fact]
-    public async Task ExtractArchiveAsyncPasswordProtectedZipDoesNotSendBugReport()
+    public async Task ExtractArchiveAsyncPasswordProtectedZipDoesNotLogWarningOrError()
     {
         var zipPath = Path.Combine(_tempDir, "protected2.zip");
         CreateEncryptedZip(zipPath, "secret.txt", "data", "pw");
@@ -245,10 +239,8 @@ public class FileExtractorServiceTests : IDisposable
 
         await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
 
-        // Password-protected archives should NOT trigger bug reports
-        _mockBugReport.Verify(
-            x => x.SendBugReportAsync(It.IsAny<string>(), It.IsAny<Exception>()),
-            Times.Never);
+        // Password-protected archives are user/input errors and must not be logged as warnings or errors
+        Assert.DoesNotContain(_logger.Events, e => e.Level >= LogEventLevel.Warning);
     }
 
     #endregion
@@ -265,9 +257,7 @@ public class FileExtractorServiceTests : IDisposable
 
         await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
 
-        _mockLogger.Verify(
-            x => x.LogMessage(It.Is<string>(s => s.Contains("Starting extraction"))),
-            Times.Once);
+        Assert.True(_logger.HasMessage("Starting extraction"));
     }
 
     [Fact]
@@ -280,9 +270,7 @@ public class FileExtractorServiceTests : IDisposable
 
         await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
 
-        _mockLogger.Verify(
-            x => x.LogMessage(It.Is<string>(s => s.Contains("Successfully extracted"))),
-            Times.AtLeastOnce);
+        Assert.True(_logger.HasMessage("Successfully extracted"));
     }
 
     [Fact]
@@ -304,9 +292,7 @@ public class FileExtractorServiceTests : IDisposable
             // Expected
         }
 
-        _mockLogger.Verify(
-            x => x.LogMessage(It.Is<string>(s => s.Contains("canceled", StringComparison.OrdinalIgnoreCase))),
-            Times.AtLeastOnce);
+        Assert.True(_logger.HasMessage("canceled"));
     }
 
     #endregion

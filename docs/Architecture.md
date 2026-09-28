@@ -23,7 +23,7 @@ CSharp_BatchConvertIsoToXiso.sln
 │   ├── MainWindow.CheckForUpdatesAsync.cs   Update check integration
 │   ├── MainWindow.UIHelpersAndWindowEvents.cs  UI helpers, links, window events
 │   ├── AboutWindow.xaml(.cs)            About dialog
-│   ├── Interfaces/                      One interface per service (ILogger, IOrchestratorService, ...)
+│   ├── Interfaces/                      One interface per service (IOrchestratorService, IXisoSharpService, ...)
 │   ├── Models/                          DTOs and enums (FileProcessingStatus, BatchOperationProgress, ...)
 │   └── Services/                        All business logic
 │       ├── OrchestratorService.cs       Batch pipeline coordination
@@ -33,9 +33,11 @@ CSharp_BatchConvertIsoToXiso.sln
 │       ├── FileMoverService.cs          File moves with network/lock retries
 │       ├── DiskMonitorService.cs        Read/write speed and free-space monitoring
 │       ├── BugReportService.cs          Automatic bug reporting client
+│       ├── BugReportSink.cs             Serilog sink: forwards Warning+ events to the bug report API
+│       ├── UiLogSink.cs                 Serilog sink: on-screen log pane
 │       ├── StatsService.cs              Anonymous usage statistics client
 │       ├── UpdateChecker.cs             GitHub release update checks
-│       └── ...                          Logging, formatting, path helpers, etc.
+│       └── ...                          Formatting, path helpers, etc.
 └── BatchConvertIsoToXiso.Tests/         xUnit + Moq test suite
 ```
 
@@ -47,7 +49,7 @@ Bundled helper executables (`bchunk.exe`, `7za.exe`, `7za_arm64.exe`) are copied
 
 | Service | Lifetime | Responsibility |
 |:---|:---|:---|
-| `ILogger` / `LoggerService` | Singleton | Timestamped log capture for the UI log pane |
+| Serilog `ILogger` | Singleton | Structured logging pipeline (UI, rolling file, and bug-report sinks) |
 | `IDiskMonitorService` | Singleton | Drive throughput counters and free-space queries |
 | `IOrchestratorService` | Singleton | Batch pipeline: discovery, per-file dispatch, progress, cancellation |
 | `IXisoSharpService` | Singleton | XISO conversion via the XISOSharp library |
@@ -85,13 +87,23 @@ Safety characteristics of the pipeline:
 - **Atomic replace-originals** — deletion of inputs happens only after the converted file exists and (optionally) passes validation.
 - **Cancellation is cooperative** — child processes and I/O loops observe a `CancellationToken`.
 
+## Logging
+
+Logging uses a single [Serilog](https://serilog.net/) pipeline configured in `App` with three sinks:
+
+1. **UI** (`UiLogSink`) — timestamped lines in the on-screen log pane.
+2. **File** — rolling daily log at `%LocalAppData%\BatchConvertIsoToXiso\logs\log-*.txt` (10 MB per file, 14 files retained) with level and exception details.
+3. **Bug report** (`BugReportSink`) — every event at **Warning or higher** is forwarded to the bug report API (fire-and-forget, never throws).
+
+Services inject `Serilog.ILogger` and log with structured message templates. Expected user/environmental errors are logged at Information level so they do not generate bug reports; genuine defects log at Warning/Error/Fatal.
+
 ## Error Handling and Reporting
 
 Three layers of defense:
 
-1. **Global handlers** in `App` (`AppDomain.UnhandledException`, `DispatcherUnhandledException`, `TaskScheduler.UnobservedTaskException`) report and keep the app alive where possible.
-2. **Per-operation catches** translate known failure classes (disk full, access denied, FAT32 limits, locked files, invalid images) into user-facing messages.
-3. **Automatic bug reports** are sent for genuine application defects only; environmental errors are filtered out and shown to the user instead.
+1. **Global handlers** in `App` (`AppDomain.UnhandledException`, `DispatcherUnhandledException`, `TaskScheduler.UnobservedTaskException`) log through Serilog and keep the app alive where possible; fatal shutdown paths also send a blocking report.
+2. **Per-operation catches** translate known failure classes (disk full, access denied, FAT32 limits, locked files, invalid images) into user-facing messages and log at an appropriate level.
+3. **Automatic bug reports** are sent by the Serilog `BugReportSink` for Warning+ events, with complete environment, error, and exception sections; expected environmental errors stay at Information level and are shown to the user instead.
 
 ## Models
 

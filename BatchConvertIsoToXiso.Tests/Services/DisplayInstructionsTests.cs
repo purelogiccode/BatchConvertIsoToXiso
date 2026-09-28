@@ -1,6 +1,4 @@
-using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Services;
-using Moq;
 using Xunit;
 
 namespace BatchConvertIsoToXiso.Tests.Services;
@@ -17,80 +15,69 @@ public class DisplayInstructionsTests
     [Fact]
     public void DisplayInitialInstructionsWhenInitializedLogsWelcomeMessage()
     {
-        var mockLogger = new Mock<ILogger>();
-        DisplayInstructions.Initialize(mockLogger.Object);
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
 
         DisplayInstructions.DisplayInitialInstructions();
 
-        mockLogger.Verify(static x => x.LogMessage("Welcome to 'Batch Convert ISO to XISO'."),
-            Times.Once);
+        Assert.True(logger.HasMessage("Welcome to 'Batch Convert ISO to XISO'."));
     }
 
     [Fact]
     public void DisplayInitialInstructionsLogsApplicationFunctions()
     {
-        var mockLogger = new Mock<ILogger>();
-        DisplayInstructions.Initialize(mockLogger.Object);
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
 
         DisplayInstructions.DisplayInitialInstructions();
 
-        mockLogger.Verify(
-            static x => x.LogMessage(It.Is<string>(static s => s.StartsWith("This application provides"))),
-            Times.Once);
-        mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("Convert"))),
-            Times.AtLeastOnce);
-        mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("Test Integrity"))),
-            Times.Once);
-        mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("Explorer"))),
-            Times.Once);
+        Assert.True(logger.HasMessage("This application provides"));
+        Assert.True(logger.HasMessage("Convert"));
+        Assert.True(logger.HasMessage("Test Integrity"));
+        Assert.True(logger.HasMessage("Explorer"));
     }
 
     [Fact]
     public void DisplayInitialInstructionsLogsPlatformWarning()
     {
-        var mockLogger = new Mock<ILogger>();
-        DisplayInstructions.Initialize(mockLogger.Object);
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
 
         DisplayInstructions.DisplayInitialInstructions();
 
-        mockLogger.Verify(
-            static x => x.LogMessage(It.Is<string>(static s => s.Contains("Xbox") && s.Contains("IMPORTANT"))),
-            Times.Once);
+        Assert.True(logger.HasMessage("IMPORTANT: This tool ONLY works with Xbox"));
     }
 
     [Fact]
     public void DisplayInitialInstructionsLogsReadyMessage()
     {
-        var mockLogger = new Mock<ILogger>();
-        DisplayInstructions.Initialize(mockLogger.Object);
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
 
         DisplayInstructions.DisplayInitialInstructions();
 
-        mockLogger.Verify(static x => x.LogMessage("--- Ready ---"),
-            Times.Once);
+        Assert.True(logger.HasMessage("--- Ready ---"));
     }
 
     [Fact]
     public void DisplayInitialInstructionsLogsBchunkStatus()
     {
-        var mockLogger = new Mock<ILogger>();
-        DisplayInstructions.Initialize(mockLogger.Object);
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
 
         DisplayInstructions.DisplayInitialInstructions();
 
-        mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("bchunk.exe"))),
-            Times.Once);
+        Assert.True(logger.HasMessage("bchunk.exe"));
     }
 
     [Fact]
     public void DisplayInitialInstructionsLogsXisoSharpStatus()
     {
-        var mockLogger = new Mock<ILogger>();
-        DisplayInstructions.Initialize(mockLogger.Object);
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
 
         DisplayInstructions.DisplayInitialInstructions();
 
-        mockLogger.Verify(static x => x.LogMessage(It.Is<string>(static s => s.Contains("XISOSharp"))),
-            Times.Once);
+        Assert.True(logger.HasMessage("XISOSharp"));
     }
 }

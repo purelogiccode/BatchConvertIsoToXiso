@@ -9,6 +9,8 @@ namespace BatchConvertIsoToXiso.Tests.Services;
 
 public class StatsServiceTests
 {
+    private readonly TestLogger _logger = new();
+
     private static HttpClient CreateHttpClient(HttpStatusCode statusCode, string content = "")
     {
         var handlerMock = new Mock<HttpMessageHandler>();
@@ -39,7 +41,8 @@ public class StatsServiceTests
     public async Task SendStatsAsyncSuccessDoesNotThrow()
     {
         var httpClient = CreateHttpClient(HttpStatusCode.OK);
-        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp");
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp",
+            _logger.Logger);
 
         var exception = await Record.ExceptionAsync(service.SendStatsAsync);
         Assert.Null(exception);
@@ -49,7 +52,8 @@ public class StatsServiceTests
     public async Task SendStatsAsyncServerErrorDoesNotThrow()
     {
         var httpClient = CreateHttpClient(HttpStatusCode.InternalServerError);
-        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp");
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp",
+            _logger.Logger);
 
         var exception = await Record.ExceptionAsync(service.SendStatsAsync);
         Assert.Null(exception);
@@ -59,7 +63,8 @@ public class StatsServiceTests
     public async Task SendStatsAsyncNetworkErrorDoesNotThrow()
     {
         var httpClient = CreateHttpClientThatThrows(new HttpRequestException("Network unreachable"));
-        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp");
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp",
+            _logger.Logger);
 
         var exception = await Record.ExceptionAsync(service.SendStatsAsync);
         Assert.Null(exception);
@@ -69,7 +74,8 @@ public class StatsServiceTests
     public async Task SendStatsAsyncTimeoutDoesNotThrow()
     {
         var httpClient = CreateHttpClientThatThrows(new TaskCanceledException("Timeout"));
-        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp");
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp",
+            _logger.Logger);
 
         var exception = await Record.ExceptionAsync(service.SendStatsAsync);
         Assert.Null(exception);
@@ -88,7 +94,8 @@ public class StatsServiceTests
             .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handlerMock.Object);
 
-        var service = new StatsService(httpClient, "https://api.example.com/stats", "my-api-key", "TestApp");
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "my-api-key", "TestApp",
+            _logger.Logger);
         await service.SendStatsAsync();
 
         Assert.NotNull(capturedRequest);
@@ -109,7 +116,8 @@ public class StatsServiceTests
             .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handlerMock.Object);
 
-        var service = new StatsService(httpClient, "https://api.example.com/stats", "my-secret-key", "TestApp");
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "my-secret-key", "TestApp",
+            _logger.Logger);
         await service.SendStatsAsync();
 
         Assert.NotNull(capturedRequest);
@@ -131,7 +139,7 @@ public class StatsServiceTests
             .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handlerMock.Object);
 
-        var service = new StatsService(httpClient, "https://api.example.com/stats", "key", "MyApp");
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "key", "MyApp", _logger.Logger);
         await service.SendStatsAsync();
 
         Assert.NotNull(capturedRequest);
@@ -169,7 +177,8 @@ public class StatsServiceTests
             .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
         var httpClient = new HttpClient(handlerMock.Object);
 
-        var service = new StatsService(httpClient, "https://api.example.com/stats", "key", "BatchConvertIsoToXiso");
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "key", "BatchConvertIsoToXiso",
+            _logger.Logger);
         await service.SendStatsAsync();
 
         Assert.NotNull(capturedBody);
@@ -183,7 +192,7 @@ public class StatsServiceTests
     public async Task SendStatsAsyncBadRequestDoesNotThrow()
     {
         var httpClient = CreateHttpClient(HttpStatusCode.BadRequest, "Bad request");
-        var service = new StatsService(httpClient, "https://api.example.com/stats", "key", "TestApp");
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "key", "TestApp", _logger.Logger);
 
         var exception = await Record.ExceptionAsync(service.SendStatsAsync);
         Assert.Null(exception);
@@ -193,7 +202,7 @@ public class StatsServiceTests
     public async Task SendStatsAsyncForbiddenDoesNotThrow()
     {
         var httpClient = CreateHttpClient(HttpStatusCode.Forbidden, "Forbidden");
-        var service = new StatsService(httpClient, "https://api.example.com/stats", "key", "TestApp");
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "key", "TestApp", _logger.Logger);
 
         var exception = await Record.ExceptionAsync(service.SendStatsAsync);
         Assert.Null(exception);

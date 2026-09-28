@@ -4,19 +4,21 @@ using System.Windows;
 using System.Windows.Threading;
 using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Services;
+using Serilog;
 using XISOSharp;
 
 namespace BatchConvertIsoToXiso;
 
 public partial class MainWindow
 {
+    private const int MaxLogLength = 100000; // Approx 1000-2000 lines depending on length
+
     private readonly IOrchestratorService _orchestratorService;
     private readonly IDiskMonitorService _diskMonitorService;
     private CancellationTokenSource _cts = new();
     private TaskCompletionSource _operationCompletedTcs = new();
     private readonly IUpdateChecker _updateChecker;
     private readonly ILogger _logger;
-    private readonly IBugReportService _bugReportService;
     private readonly IMessageBoxService _messageBoxService;
     private readonly IUrlOpener _urlOpener;
     private readonly IScreenshotService _screenshotService;
@@ -41,27 +43,61 @@ public partial class MainWindow
     private readonly Lock _explorerLock = new();
     private string _currentInternalPath = "/";
 
-    public MainWindow(IUpdateChecker updateChecker, ILogger logger, IBugReportService bugReportService,
+    public MainWindow(IUpdateChecker updateChecker, ILogger logger,
         IMessageBoxService messageBoxService, IUrlOpener urlOpener, IScreenshotService screenshotService,
         IOrchestratorService orchestratorService, IDiskMonitorService diskMonitorService)
     {
         InitializeComponent();
 
         _updateChecker = updateChecker;
-        _logger = logger;
-        _bugReportService = bugReportService;
+        _logger = logger.ForContext<MainWindow>();
         _messageBoxService = messageBoxService;
         _urlOpener = urlOpener;
         _screenshotService = screenshotService;
         _orchestratorService = orchestratorService;
         _diskMonitorService = diskMonitorService;
-        _logger.Initialize(LogViewer);
+
+        // Display every Serilog event in the on-screen log viewer.
+        UiLogSink.MessageLogged += OnLogMessage;
+        Closed += MainWindow_Closed;
+
         _processingTimer.Tick += ProcessingTimer_Tick;
         _memoryTimer.Tick += MemoryTimer_Tick;
 
         ResetSummaryStats();
         DisplayInstructions.Initialize(_logger);
         DisplayInstructions.DisplayInitialInstructions();
+    }
+
+    private void MainWindow_Closed(object? sender, EventArgs e)
+    {
+        UiLogSink.MessageLogged -= OnLogMessage;
+    }
+
+    /// <summary>
+    /// Called by <see cref="UiLogSink"/> for every log event. Appends the pre-formatted
+    /// line to the log viewer on the UI thread, truncating the oldest half when the
+    /// viewer grows too large.
+    /// </summary>
+    private void OnLogMessage(object? sender, UiLogSink.LogMessageEventArgs e)
+    {
+        var logViewer = LogViewer;
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+
+        _ = dispatcher.InvokeAsync(() =>
+        {
+            if (logViewer.Text.Length > MaxLogLength)
+            {
+                var text = logViewer.Text;
+                // Keep the last ~50% of the log, try to cut at a newline
+                var cutIndex = text.IndexOf('\n', text.Length / 2);
+                logViewer.Text = cutIndex >= 0 ? text.Substring(cutIndex + 1) : text.Substring(text.Length / 2);
+            }
+
+            logViewer.AppendText($"{e.Message}{Environment.NewLine}");
+            logViewer.ScrollToEnd();
+        });
     }
 
     private async void Window_LoadedAsync(object sender, RoutedEventArgs e)
@@ -77,103 +113,125 @@ public partial class MainWindow
             }
             catch (Exception ex)
             {
-                _ = _bugReportService.SendBugReportAsync("Error checking for updates", ex);
+                _logger.Error(ex, "Error checking for updates");
             }
         }
         catch (Exception ex)
         {
-            _ = _bugReportService.SendBugReportAsync("Error setting initial navigation button style", ex);
+            _logger.Error(ex, "Error setting initial navigation button style");
         }
     }
 
     private void Window_Closing(object sender, CancelEventArgs e)
     {
-        if (_isForceClosing) return;
-
-        if (_isOperationRunning)
+        try
         {
-            var result = _messageBoxService.Show("An operation is still running. Exit anyway?", "Warning",
-                MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (result == MessageBoxResult.No)
+            if (_isForceClosing) return;
+
+            if (_isOperationRunning)
             {
+                var result = _messageBoxService.Show("An operation is still running. Exit anyway?", "Warning",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (result == MessageBoxResult.No)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+
+                // Cancel the operation and prevent immediate window close
                 e.Cancel = true;
+
+                // Wait for the operation to complete in the background, then close
+                _ = WaitForOperationAndCloseAsync();
                 return;
             }
 
-            // Cancel the operation and prevent immediate window close
-            e.Cancel = true;
-
-            // Wait for the operation to complete in the background, then close
-            _ = WaitForOperationAndCloseAsync();
-            return;
+            // No operation running, safe to close immediately
+            CleanupResources();
         }
-
-        // No operation running, safe to close immediately
-        CleanupResources();
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error while closing the main window");
+        }
     }
 
     private async Task WaitForOperationAndCloseAsync()
     {
-        _logger.LogMessage("Waiting for current operation to cancel before exiting...");
-
-        // Signal the operation to stop
-        _cts.Cancel();
-
-        // Wait up to 10 seconds for the operation to complete
-        var completedTask = await Task.WhenAny(_operationCompletedTcs.Task, Task.Delay(TimeSpan.FromSeconds(10)));
-
-        var timedOut = completedTask != _operationCompletedTcs.Task;
-        if (timedOut)
+        try
         {
-            _logger.LogMessage("Warning: Operation did not complete within timeout. Closing anyway.");
-            timedOut = true;
-        }
-        else
-        {
-            _logger.LogMessage("Operation completed. Closing application...");
-        }
+            _logger.Information("Waiting for current operation to cancel before exiting...");
 
-        // Now perform cleanup and close on the UI thread
-        await Dispatcher.InvokeAsync(() =>
-        {
-            _isForceClosing = true;
-            CleanupResources();
-            Close();
-        });
+            // Signal the operation to stop
+            _cts.Cancel();
 
-        // If the operation timed out, the dispatcher may still be blocked by a
-        // queued message box or another modal dialog. Force a process-level exit
-        // after a delay as a last resort — this skips normal cleanup but prevents
-        // a permanently hung process.
-        if (timedOut || !_isForceClosing)
-        {
-            ThreadPool.QueueUserWorkItem(static _ =>
+            // Wait up to 10 seconds for the operation to complete
+            var completedTask = await Task.WhenAny(_operationCompletedTcs.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+
+            var timedOut = completedTask != _operationCompletedTcs.Task;
+            if (timedOut)
             {
-                Thread.Sleep(5000);
-                Environment.Exit(0);
+                _logger.Warning("Operation did not complete within timeout. Closing anyway.");
+                timedOut = true;
+            }
+            else
+            {
+                _logger.Information("Operation completed. Closing application...");
+            }
+
+            // Now perform cleanup and close on the UI thread
+            await Dispatcher.InvokeAsync(() =>
+            {
+                _isForceClosing = true;
+                CleanupResources();
+                Close();
             });
+
+            // If the operation timed out, the dispatcher may still be blocked by a
+            // queued message box or another modal dialog. Force a process-level exit
+            // after a delay as a last resort — this skips normal cleanup but prevents
+            // a permanently hung process.
+            if (timedOut || !_isForceClosing)
+            {
+                ThreadPool.QueueUserWorkItem(static _ =>
+                {
+                    Thread.Sleep(5000);
+                    Environment.Exit(0);
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error while waiting for the current operation to cancel");
         }
     }
 
     private void CleanupResources()
     {
-        lock (_explorerLock)
+        try
         {
-            _explorer?.Dispose();
-        }
+            lock (_explorerLock)
+            {
+                _explorer?.Dispose();
+            }
 
-        _processingTimer.Stop();
-        _memoryTimer.Stop();
-        StopPerformanceCounter();
+            _processingTimer.Stop();
+            _memoryTimer.Stop();
+            StopPerformanceCounter();
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Error during resource cleanup");
+        }
 
         try
         {
             _cts.Cancel();
             _cts.Dispose();
         }
-        catch
+        catch (Exception ex)
         {
             // Ignore disposal errors during shutdown
+            _logger.Debug(ex, "Ignoring cancellation token disposal error during shutdown");
         }
     }
 
@@ -198,13 +256,13 @@ public partial class MainWindow
                 var filePath = await _screenshotService.CaptureActiveWindowAsync();
                 if (filePath is not null)
                 {
-                    _logger.LogMessage($"Screenshot captured: {filePath}");
+                    _logger.Information("Screenshot captured: {FilePath}", filePath);
                 }
             }
         }
         catch (Exception ex)
         {
-            _ = _bugReportService.SendBugReportAsync("Error in method Window_KeyDownAsync", ex);
+            _logger.Error(ex, "Error in method Window_KeyDownAsync");
         }
     }
 }

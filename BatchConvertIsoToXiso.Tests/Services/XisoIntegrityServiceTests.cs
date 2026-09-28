@@ -1,7 +1,6 @@
-using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Models;
 using BatchConvertIsoToXiso.Services;
-using Moq;
+using Serilog.Events;
 using XISOSharp;
 using Xunit;
 
@@ -9,7 +8,10 @@ namespace BatchConvertIsoToXiso.Tests.Services;
 
 public sealed class XisoIntegrityServiceTests : IDisposable
 {
-    private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"XisoIntegrityServiceTests_{Guid.NewGuid():N}");
+    private readonly string _tempRoot =
+        Path.Combine(Path.GetTempPath(), $"XisoIntegrityServiceTests_{Guid.NewGuid():N}");
+
+    private readonly TestLogger _logger = new();
 
     public XisoIntegrityServiceTests()
     {
@@ -43,11 +45,23 @@ public sealed class XisoIntegrityServiceTests : IDisposable
         return isoPath;
     }
 
-    private static XisoIntegrityService CreateService(Mock<IBugReportService>? bugReport = null)
+    private static void RemoveOptimizedTag(string isoPath)
     {
-        var logger = new Mock<ILogger>();
-        bugReport ??= new Mock<IBugReportService>();
-        return new XisoIntegrityService(logger.Object, bugReport.Object);
+        using var fs = new FileStream(isoPath, FileMode.Open, FileAccess.Write, FileShare.None);
+        fs.Seek(Constants.OptimizedTagOffset, SeekOrigin.Begin);
+        fs.Write(new byte[Constants.OptimizedTagLength]);
+    }
+
+    private static void CorruptRootDirectoryPointer(string isoPath)
+    {
+        using var fs = new FileStream(isoPath, FileMode.Open, FileAccess.Write, FileShare.None);
+        fs.Seek(Constants.HeaderOffset + 20, SeekOrigin.Begin);
+        fs.Write(BitConverter.GetBytes(0xFFFFFFF0u));
+    }
+
+    private XisoIntegrityService CreateService()
+    {
+        return new XisoIntegrityService(_logger.Logger);
     }
 
     [Fact]
@@ -75,30 +89,69 @@ public sealed class XisoIntegrityServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RawNonOptimizedIsoPassesStructuralTest()
+    {
+        var isoPath = CreateOptimizedXiso();
+        RemoveOptimizedTag(isoPath);
+        var service = CreateService();
+
+        var passed = await service.TestIsoIntegrityAsync(isoPath, false, new Progress<BatchOperationProgress>(),
+            CancellationToken.None);
+
+        Assert.True(passed);
+        Assert.True(_logger.HasMessage("not optimized"));
+    }
+
+    [Fact]
+    public async Task RawNonOptimizedIsoPassesDeepScan()
+    {
+        var isoPath = CreateOptimizedXiso();
+        RemoveOptimizedTag(isoPath);
+        var service = CreateService();
+
+        var passed = await service.TestIsoIntegrityAsync(isoPath, true, new Progress<BatchOperationProgress>(),
+            CancellationToken.None);
+
+        Assert.True(passed);
+    }
+
+    [Fact]
+    public async Task RawNonOptimizedIsoWithCorruptTreeFails()
+    {
+        var isoPath = CreateOptimizedXiso();
+        RemoveOptimizedTag(isoPath);
+        CorruptRootDirectoryPointer(isoPath);
+        var service = CreateService();
+
+        var passed = await service.TestIsoIntegrityAsync(isoPath, false, new Progress<BatchOperationProgress>(),
+            CancellationToken.None);
+
+        Assert.False(passed);
+    }
+
+    [Fact]
     public async Task InvalidImageFailsWithoutBugReport()
     {
         var badIso = Path.Combine(_tempRoot, "bad.iso");
         File.WriteAllText(badIso, "this is not an xiso image");
-        var bugReport = new Mock<IBugReportService>();
-        var service = CreateService(bugReport);
+        var service = CreateService();
 
         var passed = await service.TestIsoIntegrityAsync(badIso, false, new Progress<BatchOperationProgress>(),
             CancellationToken.None);
 
         Assert.False(passed);
-        bugReport.Verify(static b => b.SendBugReportAsync(It.IsAny<string>(), It.IsAny<Exception>()), Times.Never);
+        Assert.DoesNotContain(_logger.Events, e => e.Level >= LogEventLevel.Warning);
     }
 
     [Fact]
     public async Task MissingFileFailsWithoutBugReport()
     {
-        var bugReport = new Mock<IBugReportService>();
-        var service = CreateService(bugReport);
+        var service = CreateService();
 
         var passed = await service.TestIsoIntegrityAsync(Path.Combine(_tempRoot, "missing.iso"), false,
             new Progress<BatchOperationProgress>(), CancellationToken.None);
 
         Assert.False(passed);
-        bugReport.Verify(static b => b.SendBugReportAsync(It.IsAny<string>(), It.IsAny<Exception>()), Times.Never);
+        Assert.DoesNotContain(_logger.Events, e => e.Level >= LogEventLevel.Warning);
     }
 }

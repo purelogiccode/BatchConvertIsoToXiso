@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using BatchConvertIsoToXiso.Interfaces;
+using Serilog;
 
 namespace BatchConvertIsoToXiso.Services;
 
@@ -24,8 +25,9 @@ public static class PathHelper
             var driveInfo = new DriveInfo(pathRoot);
             return driveInfo.Name.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Debug(ex, "Failed to determine drive letter for path: {Path}", path);
             return null;
         }
     }
@@ -60,8 +62,9 @@ public static class PathHelper
             var driveInfo = new DriveInfo(driveLetter);
             return driveInfo.DriveType == DriveType.Network;
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Debug(ex, "Failed to determine if path is a network path: {Path}", path);
             return false;
         }
     }
@@ -89,9 +92,10 @@ public static class PathHelper
                 return (parts[0], parts[1]);
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Ignore parsing errors
+            Log.Debug(ex, "Failed to parse UNC share info from path: {Path}", path);
         }
 
         return null;
@@ -277,9 +281,10 @@ public static class PathHelper
                 if (defaultDrive.IsReady && defaultDrive.AvailableFreeSpace >= requiredWithBuffer)
                     return Path.Combine(defaultTempPath, tempSubfolder, Guid.NewGuid().ToString());
             }
-            catch
+            catch (Exception ex)
             {
                 // Ignore and fall through to alternative search
+                Log.Debug(ex, "Could not inspect default temp drive: {TempDriveRoot}", defaultTempDriveRoot);
             }
         }
 

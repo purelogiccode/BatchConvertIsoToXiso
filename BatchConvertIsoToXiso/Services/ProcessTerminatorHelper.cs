@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using BatchConvertIsoToXiso.Interfaces;
+using Serilog;
 
 namespace BatchConvertIsoToXiso.Services;
 
@@ -15,31 +15,32 @@ public static class ProcessTerminatorHelper
         {
             if (process.HasExited)
             {
-                logger.LogMessage($"Process {processName} has already exited.");
+                logger.Information("Process {ProcessName} has already exited.", processName);
                 return;
             }
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException ex)
         {
-            logger.LogMessage($"Process {processName} is not associated with a running process or has been disposed.");
+            logger.Debug(ex,
+                "Process {ProcessName} is not associated with a running process or has been disposed.", processName);
             return;
         }
 
         try
         {
-            logger.LogMessage($"Attempting graceful termination of {processName}...");
+            logger.Information("Attempting graceful termination of {ProcessName}...", processName);
 
             // Try graceful shutdown first
             if (process.CloseMainWindow())
             {
                 if (process.WaitForExit(3000))
                 {
-                    logger.LogMessage($"Process {processName} exited gracefully.");
+                    logger.Information("Process {ProcessName} exited gracefully.", processName);
                     return;
                 }
             }
 
-            logger.LogMessage($"Graceful termination failed for {processName}, forcing kill...");
+            logger.Information("Graceful termination failed for {ProcessName}, forcing kill...", processName);
 
             // Force kill with entire process tree
             process.Kill(true);
@@ -47,23 +48,23 @@ public static class ProcessTerminatorHelper
             // Wait for process to fully exit and release handles
             if (process.WaitForExit(5000))
             {
-                logger.LogMessage($"Process {processName} was killed successfully.");
+                logger.Information("Process {ProcessName} was killed successfully.", processName);
                 return;
             }
 
-            logger.LogMessage($"WARNING: Process {processName} did not exit within timeout after kill.");
+            logger.Warning("Process {ProcessName} did not exit within timeout after kill.", processName);
         }
         catch (InvalidOperationException ex)
         {
-            logger.LogMessage($"Process {processName} already exited during termination: {ex.Message}");
+            logger.Debug(ex, "Process {ProcessName} already exited during termination.", processName);
         }
         catch (Win32Exception ex)
         {
-            logger.LogMessage($"Access denied terminating {processName}: {ex.Message}");
+            logger.Warning(ex, "Access denied terminating {ProcessName}", processName);
         }
         catch (Exception ex)
         {
-            logger.LogMessage($"Unexpected error terminating {processName}: {ex.Message}");
+            logger.Error(ex, "Unexpected error terminating {ProcessName}", processName);
         }
     }
 }

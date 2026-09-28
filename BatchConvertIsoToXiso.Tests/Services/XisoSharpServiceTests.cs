@@ -2,6 +2,7 @@ using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Models;
 using BatchConvertIsoToXiso.Services;
 using Moq;
+using Serilog.Events;
 using XISOSharp;
 using Xunit;
 
@@ -10,6 +11,7 @@ namespace BatchConvertIsoToXiso.Tests.Services;
 public sealed class XisoSharpServiceTests : IDisposable
 {
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"XisoSharpServiceTests_{Guid.NewGuid():N}");
+    private readonly TestLogger _logger = new();
 
     public XisoSharpServiceTests()
     {
@@ -43,13 +45,11 @@ public sealed class XisoSharpServiceTests : IDisposable
         return isoPath;
     }
 
-    private static XisoSharpService CreateService(Mock<IBugReportService>? bugReport = null)
+    private XisoSharpService CreateService()
     {
-        var logger = new Mock<ILogger>();
-        bugReport ??= new Mock<IBugReportService>();
         var diskMonitor = new Mock<IDiskMonitorService>();
         diskMonitor.Setup(static d => d.GetAvailableFreeSpace(It.IsAny<string>())).Returns(long.MaxValue);
-        return new XisoSharpService(logger.Object, bugReport.Object, diskMonitor.Object);
+        return new XisoSharpService(_logger.Logger, diskMonitor.Object);
     }
 
     [Fact]
@@ -102,14 +102,14 @@ public sealed class XisoSharpServiceTests : IDisposable
     {
         var badIso = Path.Combine(_tempRoot, "bad.iso");
         File.WriteAllText(badIso, "this is not an xiso image");
-        var bugReport = new Mock<IBugReportService>();
-        var service = CreateService(bugReport);
+        var service = CreateService();
 
-        var status = await service.ConvertIsoToXisoAsync(badIso, Path.Combine(_tempRoot, "out"), "bad.iso", false, false,
+        var status = await service.ConvertIsoToXisoAsync(badIso, Path.Combine(_tempRoot, "out"), "bad.iso", false,
+            false,
             new Progress<BatchOperationProgress>(), CancellationToken.None);
 
         Assert.Equal(FileProcessingStatus.Failed, status);
-        bugReport.Verify(static b => b.SendBugReportAsync(It.IsAny<string>(), It.IsAny<Exception>()), Times.Never);
+        Assert.DoesNotContain(_logger.Events, e => e.Level >= LogEventLevel.Warning);
     }
 
     [Fact]

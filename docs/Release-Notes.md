@@ -12,11 +12,60 @@
 
 | Version | Date | Summary |
 |:---|:---|:---|
+| [2.9.0](#290) | September 2026 | Serilog structured logging; Warning+ events forwarded to the bug report API with full environment/exception details |
 | [2.8.0](#280) | September 2026 | XISOSharp migration: in-process conversion, integrity testing, and exploration; external engines removed |
 | [2.7.1](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases/tag/release_2.7.1) | July 2026 | Resource cleanup, cancellation, better error filtering |
 | [2.7.0](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases/tag/release_2.7.0) | June 2026 | Improved ISO compatibility, disk-space detection, cancellation and performance |
 | [2.6.1](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases/tag/release_2.6.1) | June 2026 | XGD1/XGD2/XGD3 partition offsets, dark-theme tooltip fix |
 | [2.6.0](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases/tag/release_2.6.0) | June 2026 | 7-Zip CLI fallback, multilingual network errors, disk-space handling |
+
+---
+
+## 2.9.0
+
+> **The structured logging release.** All logging now runs through
+> [Serilog](https://serilog.net/), and every **Warning-or-higher** event is automatically forwarded
+> to the Bug Report API with complete environment and exception details.
+
+### New Features
+
+- **Serilog logging pipeline** — three sinks: the on-screen log viewer (`UiLogSink`), a rolling daily
+  file log (`%LocalAppData%\BatchConvertIsoToXiso\logs\log-*.txt`, 10 MB per file, 14 files retained),
+  and a bug-report sink (`BugReportSink`) that forwards every Warning-or-higher event to the Bug
+  Report API. The custom `ILogger`/`LoggerService` abstraction was removed.
+- **Complete bug reports** — every report contains `=== Environment Details ===` (date, application
+  name/version, OS version, architecture, bitness, Windows version, processor count, base directory,
+  temp path), `=== Error Details ===`, and — when an exception is attached — `=== Exception Details ===`
+  (type, message, source, and stack trace, including nested and aggregate exceptions). The API's
+  `environment` and `stackTrace` fields are populated as well.
+- **Fatal-error reporting** — global handlers (`AppDomain.UnhandledException`,
+  `DispatcherUnhandledException`, `TaskScheduler.UnobservedTaskException`) report through the same
+  pipeline, and fatal shutdown paths send a blocking report before the process exits.
+
+### Improvements
+
+- **Every catch block now logs** — previously silent cleanup, retry, and ignore paths log at an
+  appropriate level, and public service methods log failures with context.
+- **Fewer false reports** — expected user/environmental problems (corrupt or password-protected
+  archives, missing files, unsupported images, disk-space/network errors) are logged at Information
+  level so they never generate bug reports; genuine failures are logged at Warning/Error/Fatal.
+- **Diagnostics on disk** — the rolling log file records the startup version and full session log for
+  troubleshooting.
+
+### Breaking Changes
+
+- None for end users. The application and test projects report version **2.9.0**
+  (`AssemblyVersion`/`FileVersion`) so the update checker sees this release over 2.8.0.
+
+### Internal
+
+- Added `Serilog` 4.4.0 and `Serilog.Sinks.File` 7.0.0, plus new `UiLogSink`, `BugReportSink`, and
+  `LoggingSinkExtensions` (`WriteTo.Ui()` / `WriteTo.BugReport()` configuration).
+- Services and windows now inject `Serilog.ILogger`; `Interfaces/ILogger` and `Services/LoggerService`
+  were deleted.
+- Tests migrated from `Mock<ILogger>` to a capturing `TestLogger` sink; added `BugReportSinkTests`.
+
+**Full Changelog**: <https://github.com/purelogiccode/BatchConvertIsoToXiso/compare/release_2.8.0...release_2.9.0>
 
 ---
 

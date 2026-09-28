@@ -56,7 +56,7 @@ This page describes the repository itself: where things live, how releases are m
 
 - The primary branch is **`master`**.
 - **Releases** are tagged on GitHub and published on the [Releases](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases) page with ready-to-run ZIP archives.
-- **Versioning:** `MAJOR.MINOR.PATCH` (currently 2.8.0). Releases are tagged `release_MAJOR.MINOR.PATCH` (for example `release_2.7.1`). The application's update checker extracts the numeric version from the latest release tag, so keep the `MAJOR.MINOR.PATCH` part intact.
+- **Versioning:** `MAJOR.MINOR.PATCH` (currently 2.9.0). Releases are tagged `release_MAJOR.MINOR.PATCH` (for example `release_2.8.0`). The application's update checker extracts the numeric version from the latest release tag, so keep the `MAJOR.MINOR.PATCH` part intact.
 
 ## Contributing
 

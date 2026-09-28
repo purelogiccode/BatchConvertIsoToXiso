@@ -11,15 +11,17 @@ public partial class MainWindow
         {
             // Log the current running version
             var currentVersion = GetApplicationVersion.GetProgramVersion();
-            _logger.LogMessage($"Application started. Current version: {currentVersion}");
-            _logger.LogMessage("Checking for updates...");
+            _logger.Information("Application started. Current version: {CurrentVersion}", currentVersion);
+            _logger.Information("Checking for updates...");
 
             var (isNewVersionAvailable, latestVersion, downloadUrl) = await _updateChecker.CheckForUpdateAsync();
 
             if (isNewVersionAvailable && !string.IsNullOrEmpty(downloadUrl) && !string.IsNullOrEmpty(latestVersion))
             {
-                _logger.LogMessage($"Update available! Version {latestVersion} is available on the release page.");
-                _logger.LogMessage($"Current version: {currentVersion} | Available version: {latestVersion}");
+                _logger.Information("Update available! Version {LatestVersion} is available on the release page.",
+                    latestVersion);
+                _logger.Information("Current version: {CurrentVersion} | Available version: {LatestVersion}",
+                    currentVersion, latestVersion);
 
                 var result = _messageBoxService.Show(
                     $"A new version ({latestVersion}) is available. Would you like to go to the download page?",
@@ -32,14 +34,13 @@ public partial class MainWindow
             }
             else
             {
-                _logger.LogMessage($"You are using the most updated version ({currentVersion}).");
+                _logger.Information("You are using the most updated version ({CurrentVersion}).", currentVersion);
             }
         }
         catch (Exception ex)
         {
             // Log and report the error, but don't bother the user.
-            _logger.LogMessage($"Error checking for updates: {ex.Message}");
-            _ = ReportBugAsync("Error during update check", ex);
+            _logger.Warning(ex, "Error during update check");
         }
     }
 }

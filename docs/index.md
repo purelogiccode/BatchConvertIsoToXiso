@@ -13,7 +13,7 @@ Welcome to the official documentation for **Batch ISO to XISO Converter** — a 
 - **Repository:** <https://github.com/purelogiccode/BatchConvertIsoToXiso>
 - **Website:** <https://www.purelogiccode.com>
 - **License:** GNU General Public License v3.0
-- **Current version:** 2.8.0
+- **Current version:** 2.9.0
 - **Platform:** Windows x64 / ARM64, .NET 10.0 Desktop Runtime
 
 ---

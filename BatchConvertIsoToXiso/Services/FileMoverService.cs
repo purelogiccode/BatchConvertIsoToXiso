@@ -1,12 +1,12 @@
 using System.IO;
 using BatchConvertIsoToXiso.Interfaces;
+using Serilog;
 
 namespace BatchConvertIsoToXiso.Services;
 
 public class FileMoverService : IFileMover
 {
     private readonly ILogger _logger;
-    private readonly IBugReportService _bugReportService;
     private readonly IDiskMonitorService _diskMonitorService;
 
     // Maximum retry attempts for file move operations
@@ -15,10 +15,9 @@ public class FileMoverService : IFileMover
     // Initial delay in milliseconds (will be used for exponential backoff)
     private const int InitialRetryDelayMs = 1000;
 
-    public FileMoverService(ILogger logger, IBugReportService bugReportService, IDiskMonitorService diskMonitorService)
+    public FileMoverService(ILogger logger, IDiskMonitorService diskMonitorService)
     {
-        _logger = logger;
-        _bugReportService = bugReportService;
+        _logger = logger.ForContext<FileMoverService>();
         _diskMonitorService = diskMonitorService;
     }
 
@@ -41,15 +40,16 @@ public class FileMoverService : IFileMover
 
             if (await Task.Run(() => File.Exists(destinationFile), token))
             {
-                _logger.LogMessage(
-                    $"  Cannot move {fileName}: Destination file already exists at {destinationFile}. Skipping move.");
+                _logger.Information(
+                    "Cannot move {FileName}: Destination file already exists at {DestinationFile}. Skipping move.",
+                    fileName, destinationFile);
                 return;
             }
 
             if (!await Task.Run(() => File.Exists(sourceFile), token))
             {
-                _logger.LogMessage(
-                    $"  Cannot move {fileName}: Source file no longer exists. It may have already been moved.");
+                _logger.Information(
+                    "Cannot move {FileName}: Source file no longer exists. It may have already been moved.", fileName);
                 return;
             }
 
@@ -60,8 +60,9 @@ public class FileMoverService : IFileMover
             {
                 var requiredSpace = Formatter.FormatBytes(sourceFileInfo.Length);
                 var availableSpaceFormatted = Formatter.FormatBytes(availableSpace);
-                _logger.LogMessage(
-                    $"  Cannot move {fileName}: Insufficient disk space. Required: {requiredSpace}, Available: {availableSpaceFormatted}");
+                _logger.Information(
+                    "Cannot move {FileName}: Insufficient disk space. Required: {RequiredSpace}, Available: {AvailableSpace}",
+                    fileName, requiredSpace, availableSpaceFormatted);
                 return;
             }
 
@@ -75,17 +76,18 @@ public class FileMoverService : IFileMover
             // newly created file, network glitches, etc.) — always use retry logic.
             await MoveFileWithRetryAsync(sourceFile, destinationFile, fileName, isNetworkOperation, token);
 
-            _logger.LogMessage($"  Moved {fileName} ({moveReason}) to {destinationFolder}");
+            _logger.Information("Moved {FileName} ({MoveReason}) to {DestinationFolder}", fileName, moveReason,
+                destinationFolder);
         }
         catch (OperationCanceledException)
         {
-            _logger.LogMessage($"  Move operation for {fileName} cancelled.");
+            _logger.Information("Move operation for {FileName} cancelled.", fileName);
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogMessage($"  Error moving {fileName} to {destinationFolder}: {ex.Message}");
-            _ = _bugReportService.SendBugReportAsync($"Error moving tested file {fileName}", ex);
+            _logger.Error(ex, "Error moving {FileName} to {DestinationFolder}: {Message}", fileName, destinationFolder,
+                ex.Message);
         }
     }
 
@@ -112,8 +114,9 @@ public class FileMoverService : IFileMover
                 // Exponential backoff: 1000ms, 2000ms, 4000ms, 8000ms, 16000ms, etc.
                 var delayMs = InitialRetryDelayMs * (int)Math.Pow(2, attempt);
                 var reason = isNetworkOperation ? "Network error" : "File is locked or in use";
-                _logger.LogMessage(
-                    $"  {reason} moving {fileName}, retrying in {delayMs}ms... (attempt {attempt + 1}/{MaxRetryAttempts})");
+                _logger.Warning(ex,
+                    "{Reason} moving {FileName}, retrying in {DelayMs}ms... (attempt {Attempt}/{MaxRetryAttempts})",
+                    reason, fileName, delayMs, attempt + 1, MaxRetryAttempts);
                 await Task.Delay(delayMs, token);
             }
         }

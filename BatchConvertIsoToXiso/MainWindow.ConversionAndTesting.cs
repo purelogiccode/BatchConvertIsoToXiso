@@ -106,16 +106,17 @@ public partial class MainWindow
             {
                 oldCts.Dispose();
             }
-            catch
+            catch (Exception ex)
             {
                 /* Already disposed by CleanupResources */
+                _logger.Debug(ex, "Cancellation token source was already disposed");
             }
 
             var progress = new Progress<BatchOperationProgress>(p =>
             {
                 try
                 {
-                    if (p.LogMessage != null) _logger.LogMessage(p.LogMessage);
+                    if (p.LogMessage != null) _logger.Information("{Message:l}", p.LogMessage);
                     if (p.StatusText != null) UpdateStatus(p.StatusText);
 
                     if (p.TotalFiles.HasValue)
@@ -159,9 +160,10 @@ public partial class MainWindow
                         ProgressBar.IsIndeterminate = false;
                     }
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException ex)
                 {
                     // Ignore cancellation exceptions during UI updates
+                    _logger.Debug(ex, "Ignoring cancellation exception during progress UI update");
                 }
             });
 
@@ -184,14 +186,16 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            _logger.LogMessage($"Critical Error: {ex.Message}");
-
             // Environmental errors (disk space, network, disconnected drives) are not
             // application bugs — the user already gets a clear message from the orchestrator.
-            if (!PathHelper.IsDiskSpaceError(ex) && !PathHelper.IsNetworkError(ex) &&
-                !PathHelper.IsDeviceIoError(ex))
+            if (PathHelper.IsDiskSpaceError(ex) || PathHelper.IsNetworkError(ex) ||
+                PathHelper.IsDeviceIoError(ex))
             {
-                _ = _bugReportService.SendBugReportAsync("Critical error during batch conversion", ex);
+                _logger.Information(ex, "Batch conversion stopped due to an environmental error");
+            }
+            else
+            {
+                _logger.Error(ex, "Critical error during batch conversion");
             }
         }
         finally
@@ -240,16 +244,17 @@ public partial class MainWindow
             {
                 oldCts.Dispose();
             }
-            catch
+            catch (Exception ex)
             {
                 /* Already disposed by CleanupResources */
+                _logger.Debug(ex, "Cancellation token source was already disposed");
             }
 
             var progress = new Progress<BatchOperationProgress>(p =>
             {
                 try
                 {
-                    if (p.LogMessage != null) _logger.LogMessage(p.LogMessage);
+                    if (p.LogMessage != null) _logger.Information("{Message:l}", p.LogMessage);
                     if (p.StatusText != null) UpdateStatus(p.StatusText);
 
                     if (p.TotalFiles.HasValue)
@@ -286,9 +291,10 @@ public partial class MainWindow
                         ProgressBar.IsIndeterminate = false;
                     }
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException ex)
                 {
                     // Ignore cancellation exceptions during UI updates
+                    _logger.Debug(ex, "Ignoring cancellation exception during progress UI update");
                 }
             });
 
@@ -311,14 +317,16 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            _logger.LogMessage($"Critical Error: {ex.Message}");
-
             // Environmental errors (disk space, network, disconnected drives) are not
             // application bugs — the user already gets a clear message from the orchestrator.
-            if (!PathHelper.IsDiskSpaceError(ex) && !PathHelper.IsNetworkError(ex) &&
-                !PathHelper.IsDeviceIoError(ex))
+            if (PathHelper.IsDiskSpaceError(ex) || PathHelper.IsNetworkError(ex) ||
+                PathHelper.IsDeviceIoError(ex))
             {
-                _ = _bugReportService.SendBugReportAsync("Critical error during batch test", ex);
+                _logger.Information(ex, "Batch test stopped due to an environmental error");
+            }
+            else
+            {
+                _logger.Error(ex, "Critical error during batch test");
             }
         }
         finally

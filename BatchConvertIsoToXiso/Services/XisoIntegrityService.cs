@@ -2,6 +2,7 @@ using System.Buffers;
 using System.IO;
 using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Models;
+using Serilog;
 using XISOSharp;
 
 namespace BatchConvertIsoToXiso.Services;
@@ -14,12 +15,10 @@ namespace BatchConvertIsoToXiso.Services;
 public class XisoIntegrityService : IXisoIntegrityService
 {
     private readonly ILogger _logger;
-    private readonly IBugReportService _bugReportService;
 
-    public XisoIntegrityService(ILogger logger, IBugReportService bugReportService)
+    public XisoIntegrityService(ILogger logger)
     {
-        _logger = logger;
-        _bugReportService = bugReportService;
+        _logger = logger.ForContext<XisoIntegrityService>();
     }
 
     public Task<bool> TestIsoIntegrityAsync(string isoPath, bool performDeepScan,
@@ -31,9 +30,9 @@ public class XisoIntegrityService : IXisoIntegrityService
 
             try
             {
-                _logger.LogMessage($"[INFO] Starting structural integrity test for: {fileName}");
-                _logger.LogMessage(
-                    "[INFO] Note: This verifies filesystem structure and readability, not data checksums.");
+                _logger.Information("Starting structural integrity test for: {FileName}", fileName);
+                _logger.Information(
+                    "Note: This verifies filesystem structure and readability, not data checksums.");
 
                 // 1. Optional deep surface scan: read the entire image sequentially to test physical media
                 if (performDeepScan && !PerformSurfaceScan(isoPath, progress, token))
@@ -41,38 +40,47 @@ public class XisoIntegrityService : IXisoIntegrityService
                     return false;
                 }
 
-                // 2. Logical structure test: deep audit of the XDVDFS directory tree
-                _logger.LogMessage("[INFO] Validating XDVDFS directory structure...");
+                // 2. Logical structure test: deep audit of the XDVDFS directory tree.
+                // The audit also reports a missing optimized tag; raw (unconverted) dumps
+                // legitimately lack it, so that entry is informational, not a failure.
+                _logger.Information("Validating XDVDFS directory structure...");
                 var audit = XisoReader.AuditXiso(isoPath);
+                var issues = audit.Issues.Where(static issue => !IsOptimizationNotice(issue)).ToList();
 
-                if (!audit.IsValid)
+                if (issues.Count > 0)
                 {
-                    _logger.LogMessage($"[ERROR] Structural validation failed for {fileName}:");
-                    foreach (var issue in audit.Issues)
+                    _logger.Information("Structural validation failed for {FileName}:", fileName);
+                    foreach (var issue in issues)
                     {
-                        _logger.LogMessage($"  - {issue}");
+                        _logger.Information("  - {Issue:l}", issue);
                     }
 
                     return false;
                 }
 
-                _logger.LogMessage(
-                    $"[INFO] Structure is valid ({audit.FilesChecked} files, {audit.DirsChecked} directories checked).");
+                if (issues.Count != audit.Issues.Count)
+                {
+                    _logger.Information(
+                        "Image is not optimized (raw ISO); the optimized tag is written during conversion.");
+                }
+
+                _logger.Information("Structure is valid ({FilesChecked} files, {DirsChecked} directories checked).",
+                    audit.FilesChecked, audit.DirsChecked);
                 return true;
             }
             catch (OperationCanceledException)
             {
+                _logger.Information("Integrity check of {FileName} was canceled.", fileName);
                 throw;
             }
             catch (Exception ex) when (IsInputError(ex))
             {
-                _logger.LogMessage($"Integrity check failed for {fileName}: {ex.Message}");
+                _logger.Information(ex, "Integrity check failed for {FileName}", fileName);
                 return false;
             }
             catch (Exception ex)
             {
-                _logger.LogMessage($"Integrity check failed for {fileName}: {ex.Message}");
-                _ = _bugReportService.SendBugReportAsync($"Integrity check failed for {fileName}", ex);
+                _logger.Error(ex, "Integrity check failed for {FileName}", fileName);
                 return false;
             }
         }, token);
@@ -91,9 +99,19 @@ public class XisoIntegrityService : IXisoIntegrityService
                 ioException.Message.StartsWith("Read error", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// The library's audit flags a missing optimized tag as an issue. Raw Redump-style
+    /// ISOs are never optimized, so the tag is not part of filesystem integrity: the
+    /// test accepts them while still failing on any structural defect.
+    /// </summary>
+    private static bool IsOptimizationNotice(string issue)
+    {
+        return issue.StartsWith("Optimized tag not found", StringComparison.Ordinal);
+    }
+
     private bool PerformSurfaceScan(string isoPath, IProgress<BatchOperationProgress> progress, CancellationToken token)
     {
-        _logger.LogMessage("[INFO] Performing deep surface scan (sequential read of all sectors)...");
+        _logger.Information("Performing deep surface scan (sequential read of all sectors)...");
 
         try
         {
@@ -114,7 +132,7 @@ public class XisoIntegrityService : IXisoIntegrityService
 
                     if (read == 0)
                     {
-                        _logger.LogMessage($"[ERROR] Surface scan failed: unexpected end of file at {bytesRead}.");
+                        _logger.Information("Surface scan failed: unexpected end of file at {BytesRead}.", bytesRead);
                         return false;
                     }
 
@@ -136,15 +154,16 @@ public class XisoIntegrityService : IXisoIntegrityService
         }
         catch (OperationCanceledException)
         {
+            _logger.Debug("Surface scan was canceled.");
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogMessage($"[ERROR] Surface scan failed: {ex.Message}");
+            _logger.Information(ex, "Surface scan failed");
             return false;
         }
 
-        _logger.LogMessage("[INFO] Surface scan completed successfully.");
+        _logger.Information("Surface scan completed successfully.");
         return true;
     }
 }

@@ -48,9 +48,17 @@ public partial class MainWindow
 
     private async Task PreOperationCleanupAsync()
     {
-        _logger.LogMessage("Performing pre-operation cleanup of temporary folders...");
-        await TempFolderCleanupHelper.CleanupBatchConvertTempFoldersAsync(_logger);
-        _logger.LogMessage("Pre-operation cleanup completed.");
+        try
+        {
+            _logger.Information("Performing pre-operation cleanup of temporary folders...");
+            await TempFolderCleanupHelper.CleanupBatchConvertTempFoldersAsync(_logger);
+            _logger.Information("Pre-operation cleanup completed.");
+        }
+        catch (Exception ex)
+        {
+            // Cleanup is best-effort; never block the operation because of it.
+            _logger.Warning(ex, "Pre-operation cleanup of temporary folders failed");
+        }
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
@@ -59,17 +67,18 @@ public partial class MainWindow
         {
             _cts.Cancel();
         }
-        catch (ObjectDisposedException)
+        catch (ObjectDisposedException ex)
         {
             // CTS already disposed during shutdown — ignore
+            _logger.Debug(ex, "Cancellation token source already disposed during shutdown");
         }
 
-        _logger.LogMessage("Cancellation requested. Finishing current file...");
+        _logger.Information("Cancellation requested. Finishing current file...");
     }
 
     private void AboutMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        var aboutWindow = new AboutWindow(_urlOpener, _messageBoxService) { Owner = this };
+        var aboutWindow = new AboutWindow(_urlOpener, _messageBoxService, _logger) { Owner = this };
         aboutWindow.ShowDialog();
     }
 
@@ -129,48 +138,57 @@ public partial class MainWindow
 
     private async Task LogOperationSummaryAsync(string operationType)
     {
-        _logger.LogMessage("");
-        _logger.LogMessage($"--- Batch {operationType.ToLowerInvariant()} completed. ---");
-        _logger.LogMessage($"Total files processed: {_uiTotalFiles}");
-        _logger.LogMessage($"Successfully {ConvertToPastTense.GetPastTense(operationType)}: {_uiSuccessCount} files");
-        _logger.LogMessage($"Skipped: {_uiSkippedCount} files");
-
-        if (_uiFailedCount > 0)
+        try
         {
-            _logger.LogMessage($"Failed to {operationType.ToLowerInvariant()}: {_uiFailedCount} files");
-            _logger.LogMessage("\nList of files that failed (original names):");
-            foreach (var originalPath in _failedFilePaths)
+            _logger.Information("");
+            _logger.Information("--- Batch {OperationType} completed. ---", operationType.ToLowerInvariant());
+            _logger.Information("Total files processed: {TotalFiles}", _uiTotalFiles);
+            _logger.Information("Successfully {Action}: {SuccessCount} files",
+                ConvertToPastTense.GetPastTense(operationType), _uiSuccessCount);
+            _logger.Information("Skipped: {SkippedCount} files", _uiSkippedCount);
+
+            if (_uiFailedCount > 0)
             {
-                _logger.LogMessage($"- {Path.GetFileName(originalPath)}");
+                _logger.Information("Failed to {OperationType}: {FailedCount} files",
+                    operationType.ToLowerInvariant(), _uiFailedCount);
+                _logger.Information("List of files that failed (original names):");
+                foreach (var originalPath in _failedFilePaths)
+                {
+                    _logger.Information("- {FileName}", Path.GetFileName(originalPath));
+                }
+
+                _logger.Information("");
             }
 
-            _logger.LogMessage("");
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                if (_isForceClosing) return;
+
+                if (_totalProcessedFiles > 5 && (double)_invalidIsoErrorCount / _totalProcessedFiles > 0.5)
+                {
+                    _messageBoxService.ShowWarning(
+                        $"Many files ({_invalidIsoErrorCount} out of {_totalProcessedFiles}) were not valid Xbox ISOs. " +
+                        "Please ensure you are selecting the correct ISO files from Xbox or Xbox 360 games.",
+                        "High Rate of Invalid ISOs Detected");
+                }
+
+                _messageBoxService.Show($"Batch {operationType.ToLowerInvariant()} completed.\n\n" +
+                                        $"Total files processed: {_uiTotalFiles}\n" +
+                                        $"Successfully {ConvertToPastTense.GetPastTense(operationType)}: {_uiSuccessCount} files\n" +
+                                        $"Skipped: {_uiSkippedCount} files\n" +
+                                        $"Failed: {_uiFailedCount} files",
+                    $"{operationType} Complete", MessageBoxButton.OK,
+                    _uiFailedCount > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+
+                _isOperationRunning = false;
+                _operationCompletedTcs.TrySetResult();
+                SetControlsState(true);
+            });
         }
-
-        await Application.Current.Dispatcher.InvokeAsync(() =>
+        catch (Exception ex)
         {
-            if (_isForceClosing) return;
-
-            if (_totalProcessedFiles > 5 && (double)_invalidIsoErrorCount / _totalProcessedFiles > 0.5)
-            {
-                _messageBoxService.ShowWarning(
-                    $"Many files ({_invalidIsoErrorCount} out of {_totalProcessedFiles}) were not valid Xbox ISOs. " +
-                    "Please ensure you are selecting the correct ISO files from Xbox or Xbox 360 games.",
-                    "High Rate of Invalid ISOs Detected");
-            }
-
-            _messageBoxService.Show($"Batch {operationType.ToLowerInvariant()} completed.\n\n" +
-                                    $"Total files processed: {_uiTotalFiles}\n" +
-                                    $"Successfully {ConvertToPastTense.GetPastTense(operationType)}: {_uiSuccessCount} files\n" +
-                                    $"Skipped: {_uiSkippedCount} files\n" +
-                                    $"Failed: {_uiFailedCount} files",
-                $"{operationType} Complete", MessageBoxButton.OK,
-                _uiFailedCount > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
-
-            _isOperationRunning = false;
-            _operationCompletedTcs.TrySetResult();
-            SetControlsState(true);
-        });
+            _logger.Error(ex, "Error while logging the batch operation summary");
+        }
     }
 
     private void ProcessingTimer_Tick(object? sender, EventArgs e)

@@ -10,6 +10,8 @@ namespace BatchConvertIsoToXiso.Tests.Services;
 
 public class UpdateCheckerTests
 {
+    private readonly TestLogger _logger = new();
+
     private static HttpClient CreateHttpClient(HttpStatusCode statusCode, string content)
     {
         var handlerMock = new Mock<HttpMessageHandler>();
@@ -36,7 +38,7 @@ public class UpdateCheckerTests
     {
         var json = CreateReleaseJson("v2.4.0", "https://github.com/test/releases/tag/v2.4.0");
         var httpClient = CreateHttpClient(HttpStatusCode.OK, json);
-        var checker = new UpdateChecker(httpClient, "2.3.1");
+        var checker = new UpdateChecker(httpClient, "2.3.1", _logger.Logger);
 
         var (isNew, latestVersion, downloadUrl) = await checker.CheckForUpdateAsync();
 
@@ -50,7 +52,7 @@ public class UpdateCheckerTests
     {
         var json = CreateReleaseJson("v2.3.1", "https://github.com/test/releases/tag/v2.3.1");
         var httpClient = CreateHttpClient(HttpStatusCode.OK, json);
-        var checker = new UpdateChecker(httpClient, "2.3.1");
+        var checker = new UpdateChecker(httpClient, "2.3.1", _logger.Logger);
 
         var (isNew, latestVersion, downloadUrl) = await checker.CheckForUpdateAsync();
 
@@ -64,7 +66,7 @@ public class UpdateCheckerTests
     {
         var json = CreateReleaseJson("v2.2.0", "https://github.com/test/releases/tag/v2.2.0");
         var httpClient = CreateHttpClient(HttpStatusCode.OK, json);
-        var checker = new UpdateChecker(httpClient, "2.3.1");
+        var checker = new UpdateChecker(httpClient, "2.3.1", _logger.Logger);
 
         var (isNew, latestVersion, downloadUrl) = await checker.CheckForUpdateAsync();
 
@@ -78,7 +80,7 @@ public class UpdateCheckerTests
     {
         var json = CreateReleaseJson("release-3.0.0", "https://github.com/test/releases/tag/release-3.0.0");
         var httpClient = CreateHttpClient(HttpStatusCode.OK, json);
-        var checker = new UpdateChecker(httpClient, "2.3.1");
+        var checker = new UpdateChecker(httpClient, "2.3.1", _logger.Logger);
 
         var (isNew, latestVersion, _) = await checker.CheckForUpdateAsync();
 
@@ -91,7 +93,7 @@ public class UpdateCheckerTests
     {
         var json = CreateReleaseJson(null!, "https://github.com/test/releases/tag/v1.0.0");
         var httpClient = CreateHttpClient(HttpStatusCode.OK, json);
-        var checker = new UpdateChecker(httpClient, "1.0.0");
+        var checker = new UpdateChecker(httpClient, "1.0.0", _logger.Logger);
 
         var (isNew, _, _) = await checker.CheckForUpdateAsync();
 
@@ -103,7 +105,7 @@ public class UpdateCheckerTests
     {
         var json = CreateReleaseJson("v2.0.0", null!);
         var httpClient = CreateHttpClient(HttpStatusCode.OK, json);
-        var checker = new UpdateChecker(httpClient, "1.0.0");
+        var checker = new UpdateChecker(httpClient, "1.0.0", _logger.Logger);
 
         var (isNew, _, _) = await checker.CheckForUpdateAsync();
 
@@ -115,7 +117,7 @@ public class UpdateCheckerTests
     {
         var json = CreateReleaseJson("latest-stable", "https://github.com/test/releases/tag/latest-stable");
         var httpClient = CreateHttpClient(HttpStatusCode.OK, json);
-        var checker = new UpdateChecker(httpClient, "1.0.0");
+        var checker = new UpdateChecker(httpClient, "1.0.0", _logger.Logger);
 
         var (isNew, latestVersion, downloadUrl) = await checker.CheckForUpdateAsync();
 
@@ -134,7 +136,7 @@ public class UpdateCheckerTests
                 ItExpr.IsAny<CancellationToken>())
             .ThrowsAsync(new HttpRequestException("Network error"));
         var httpClient = new HttpClient(handlerMock.Object);
-        var checker = new UpdateChecker(httpClient, "1.0.0");
+        var checker = new UpdateChecker(httpClient, "1.0.0", _logger.Logger);
 
         var (isNew, latestVersion, downloadUrl) = await checker.CheckForUpdateAsync();
 
@@ -147,7 +149,7 @@ public class UpdateCheckerTests
     public async Task CheckForUpdateAsyncInvalidJsonReturnsFalse()
     {
         var httpClient = CreateHttpClient(HttpStatusCode.OK, "{invalid-json");
-        var checker = new UpdateChecker(httpClient, "1.0.0");
+        var checker = new UpdateChecker(httpClient, "1.0.0", _logger.Logger);
 
         var (isNew, latestVersion, downloadUrl) = await checker.CheckForUpdateAsync();
 
@@ -161,7 +163,7 @@ public class UpdateCheckerTests
     {
         var json = CreateReleaseJson("not-a-version-v1.2.3", "https://github.com/test/releases/tag/nonsense");
         var httpClient = CreateHttpClient(HttpStatusCode.OK, json);
-        var checker = new UpdateChecker(httpClient, "not-a-valid-ver");
+        var checker = new UpdateChecker(httpClient, "not-a-valid-ver", _logger.Logger);
 
         var (isNew, _, _) = await checker.CheckForUpdateAsync();
 
@@ -172,7 +174,7 @@ public class UpdateCheckerTests
     public async Task CheckForUpdateAsyncServerErrorReturnsFalse()
     {
         var httpClient = CreateHttpClient(HttpStatusCode.InternalServerError, "Server error");
-        var checker = new UpdateChecker(httpClient, "1.0.0");
+        var checker = new UpdateChecker(httpClient, "1.0.0", _logger.Logger);
 
         var (isNew, latestVersion, downloadUrl) = await checker.CheckForUpdateAsync();
 
@@ -186,7 +188,7 @@ public class UpdateCheckerTests
     {
         var json = CreateReleaseJson("v3.0.0", "https://github.com/test/releases/tag/v3.0.0");
         var httpClient = CreateHttpClient(HttpStatusCode.OK, json);
-        var checker = new UpdateChecker(httpClient, "2.9.9");
+        var checker = new UpdateChecker(httpClient, "2.9.9", _logger.Logger);
 
         var (isNew, latestVersion, _) = await checker.CheckForUpdateAsync();
 
@@ -199,7 +201,7 @@ public class UpdateCheckerTests
     {
         var json = CreateReleaseJson("v1.2.3.4", "https://github.com/test/releases/tag/v1.2.3.4");
         var httpClient = CreateHttpClient(HttpStatusCode.OK, json);
-        var checker = new UpdateChecker(httpClient, "1.2.3.3");
+        var checker = new UpdateChecker(httpClient, "1.2.3.3", _logger.Logger);
 
         var (isNew, latestVersion, _) = await checker.CheckForUpdateAsync();
 

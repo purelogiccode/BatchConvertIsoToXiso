@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Navigation;
 using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Services;
+using Serilog;
 
 namespace BatchConvertIsoToXiso;
 
@@ -9,11 +10,13 @@ public partial class AboutWindow
 {
     private readonly IUrlOpener _urlOpener;
     private readonly IMessageBoxService _messageBoxService;
+    private readonly ILogger _logger;
 
-    public AboutWindow(IUrlOpener urlOpener, IMessageBoxService messageBoxService)
+    public AboutWindow(IUrlOpener urlOpener, IMessageBoxService messageBoxService, ILogger logger)
     {
         _urlOpener = urlOpener;
         _messageBoxService = messageBoxService;
+        _logger = logger.ForContext<AboutWindow>();
         InitializeComponent();
 
         AppVersionTextBlock.Text = $"Version: {GetApplicationVersion.GetProgramVersion()}";
@@ -32,6 +35,7 @@ public partial class AboutWindow
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "Unable to open link: {Uri}", e.Uri.AbsoluteUri);
             _messageBoxService.ShowError($"Unable to open link: {ex.Message}");
         }
 

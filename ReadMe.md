@@ -52,6 +52,12 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 
 ## What's New
 
+### v2.9.0 — structured logging & smarter bug reports
+
+- **Serilog pipeline** — all logging now runs through [Serilog](https://serilog.net/): the on-screen viewer, a rolling daily log file (`%LocalAppData%\BatchConvertIsoToXiso\logs`), and automatic forwarding of every Warning-or-higher event to the bug report API.
+- **Complete bug reports** — every report includes Environment Details (app name/version, OS and Windows version, architecture, bitness, processor count, base directory, temp path), Error Details, and Exception Details (type, message, source, stack trace, including nested exceptions).
+- **Quieter and more reliable** — expected user/environmental errors log at Information level so they never generate spurious reports, and previously silent `catch` blocks now log at an appropriate level.
+
 ### v2.8.0 — powered entirely by XISOSharp
 
 - **One conversion engine** — all ISO → XISO conversion runs in-process through [XISOSharp](https://github.com/purelogiccode/XISOSharp); the bundled `extract-xiso.exe`, `xdvdfs.exe`, and the native writer were removed (smaller download, no external processes).
@@ -103,6 +109,7 @@ Read the full [What's New](WhatsNew.md) or browse the [Release Notes](docs/Relea
 - **Real-time Statistics**: Track success/fail counts, elapsed time, and processed files
 - **Disk Monitor**: Live monitoring of write speeds and drive activity to identify hardware bottlenecks
 - **Cloud-Aware**: Automatic detection and handling of cloud-stored files (e.g., OneDrive)
+- **Structured Logging**: [Serilog](https://serilog.net/) pipeline with an on-screen viewer, a rolling daily log file, and automatic bug-report forwarding for Warning-or-higher events
 
 ---
 
@@ -199,6 +206,9 @@ The application follows modern software engineering principles with a clean, mai
 ### Dependency Injection
 Utilizes `Microsoft.Extensions.DependencyInjection` for comprehensive service management. All core logic is decoupled from the UI, enabling easier testing and modular updates.
 
+### Logging
+Logging runs through a single [Serilog](https://serilog.net/) pipeline with three sinks: the on-screen log viewer (`UiLogSink`), a rolling daily file log (`%LocalAppData%\BatchConvertIsoToXiso\logs`), and a bug-report sink (`BugReportSink`) that forwards every **Warning-or-higher** event to the Bug Report API. Reports include complete environment, error, and exception sections; expected user/environmental errors are logged at Information level so they never generate noise.
+
 ### Testing
 A comprehensive [xUnit](https://xunit.net/) test suite (`BatchConvertIsoToXiso.Tests`) covers models, services, and XISO services with 27 test files and 250+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
 
@@ -224,7 +234,7 @@ For a deep dive into the XDVDFS format, binary file structures, and the conversi
 - **Atomic Operations**: Converted files are verified before originals are deleted
 - **Automatic Cleanup**: [`TempFolderCleanupHelper`](BatchConvertIsoToXiso/Services/TempFolderCleanupHelper.cs) removes orphaned temporary files on startup or after crashes
 - **Fallback Temp Drives**: Automatically searches alternative local drives when the system temp drive lacks sufficient space for archive extraction
-- **Robust Error Handling**: Comprehensive exception handling with automatic bug reporting
+- **Robust Error Handling**: Comprehensive exception handling with [Serilog](https://serilog.net/) structured logging; every Warning-or-higher event is automatically forwarded to the bug report API with full environment and exception details
 - **Network Resilience**: Full support for UNC paths and mapped network drives with automatic retry logic for transient network failures
 - **Cloud-Aware Retry**: Automatic retries with exponential backoff for cloud-synced files (OneDrive, etc.)
 - **Encrypted Archive Handling**: Gracefully detects password-protected and encrypted archives, providing clear user guidance instead of cryptic errors
@@ -235,6 +245,7 @@ For a deep dive into the XDVDFS format, binary file structures, and the conversi
 ## Acknowledgements
 
 - **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** - XISO/XDVDFS reading, writing, and conversion library that powers all conversion, integrity testing, and exploration
+- **[Serilog](https://serilog.net/)** - Structured logging pipeline (log viewer, rolling file log, and bug report sinks)
 - **[bchunk](https://github.com/extramaster/bchunk)** - CUE/BIN to ISO conversion
 - **[SharpCompress](https://github.com/adamhathcock/sharpcompress)** - High-performance archive extraction
 

@@ -273,7 +273,7 @@ public class OrchestratorServiceTests : IDisposable
         Mock<IExternalToolService> externalTool,
         FileProcessingStatus conversionStatus)
     {
-        var bugReport = new Mock<IBugReportService>();
+        var logger = new TestLogger();
         var diskMonitor = new Mock<IDiskMonitorService>();
         diskMonitor.Setup(static d => d.GetAvailableFreeSpace(It.IsAny<string>())).Returns(long.MaxValue);
         var fileMover = new Mock<IFileMover>();
@@ -285,7 +285,7 @@ public class OrchestratorServiceTests : IDisposable
                 It.IsAny<IProgress<BatchOperationProgress>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(conversionStatus);
 
-        return new OrchestratorService(externalTool.Object, extractor.Object, fileMover.Object, bugReport.Object,
+        return new OrchestratorService(externalTool.Object, extractor.Object, fileMover.Object, logger.Logger,
             integrity.Object, xisoSharp.Object, diskMonitor.Object);
     }
 

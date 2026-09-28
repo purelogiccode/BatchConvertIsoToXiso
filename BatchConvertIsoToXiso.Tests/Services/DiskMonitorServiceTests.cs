@@ -1,6 +1,4 @@
-using BatchConvertIsoToXiso.Interfaces;
 using BatchConvertIsoToXiso.Services;
-using Moq;
 using Xunit;
 
 namespace BatchConvertIsoToXiso.Tests.Services;
@@ -9,8 +7,8 @@ public class DiskMonitorServiceTests
 {
     private static DiskMonitorService CreateService()
     {
-        var mockLogger = new Mock<ILogger>();
-        return new DiskMonitorService(mockLogger.Object);
+        var logger = new TestLogger();
+        return new DiskMonitorService(logger.Logger);
     }
 
     #region Constructor Tests

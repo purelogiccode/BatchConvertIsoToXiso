@@ -28,7 +28,7 @@ public class BugReportService : IBugReportService
     {
         var fullMessage = BuildFullMessage(message);
         var version = GetApplicationVersion.GetProgramVersion();
-        return SendToApiAsync(fullMessage, version);
+        return SendToApiAsync(fullMessage, version, null);
     }
 
     public Task<bool> SendBugReportAsync(string errorMessage, Exception exception)
@@ -38,10 +38,10 @@ public class BugReportService : IBugReportService
         sb.AppendLine("=== Exception Details ===");
         ExceptionFormatter.AppendExceptionDetails(sb, exception);
         var version = GetApplicationVersion.GetProgramVersion();
-        return SendToApiAsync(sb.ToString(), version);
+        return SendToApiAsync(sb.ToString(), version, exception);
     }
 
-    private async Task<bool> SendToApiAsync(string fullMessage, string version)
+    private async Task<bool> SendToApiAsync(string fullMessage, string version, Exception? exception)
     {
         try
         {
@@ -49,7 +49,9 @@ public class BugReportService : IBugReportService
             {
                 { "message", fullMessage },
                 { "applicationName", _applicationName },
-                { "version", version }
+                { "version", version },
+                { "environment", GetEnvironmentSummary() },
+                { "stackTrace", exception?.StackTrace }
             };
 
             using var content = JsonContent.Create(payload);
@@ -73,6 +75,7 @@ public class BugReportService : IBugReportService
         var sb = new StringBuilder();
         AppendEnvironmentDetails(sb);
         sb.AppendLine();
+        sb.AppendLine("=== Error Details ===");
         sb.AppendLine(message);
 
         return sb.ToString();
@@ -93,5 +96,12 @@ public class BugReportService : IBugReportService
         sb.AppendLine(CultureInfo.InvariantCulture, $"Processor Count: {Environment.ProcessorCount}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Base Directory: {AppContext.BaseDirectory}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Temp Path: {Path.GetTempPath()}");
+    }
+
+    private static string GetEnvironmentSummary()
+    {
+        var bitness = Environment.Is64BitProcess ? "64-bit" : "32-bit";
+        var summary = $"{Environment.OSVersion} {bitness}";
+        return summary.Length <= 50 ? summary : summary[..50];
     }
 }
