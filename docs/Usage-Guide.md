@@ -4,7 +4,7 @@
 |---|---|---|---|
 | [Home](index.md) | [**Usage Guide**](Usage-Guide.md) | [Architecture](Architecture.md) | [Repository](Repository.md) |
 | [Installation](Installation.md) | [Conversion Methods](Conversion-Methods.md) | [XDVDFS Technical Docs](XDVDFS-Technical-Documentation.md) | [Building from Source](Building-from-Source.md) |
-| | [XISO Explorer](XISO-Explorer.md) | [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) | |
+| | [XISO Explorer](XISO-Explorer.md) | [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) | [Release Notes](Release-Notes.md) |
 
 ---
 
@@ -73,8 +73,8 @@ Use this view to validate ISO images without converting them.
 
 | Option | Behavior when enabled |
 |:---|:---|
-| **Move Passed Files** | Moves ISOs that pass validation into a `Passed` subfolder |
-| **Move Failed Files** | Moves ISOs that fail validation into a `Failed` subfolder |
+| **Move Passed Files** | Moves ISOs that pass validation into a `_success` subfolder |
+| **Move Failed Files** | Moves ISOs that fail validation into a `_failed` subfolder |
 | **Search Subfolders** | Recurses into subdirectories of the input folder |
 | **Perform Deep Scan** | Reads every sector of the image sequentially to detect physical corruption / bad sectors (slower, but thorough) |
 

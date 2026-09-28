@@ -4,7 +4,7 @@
 |---|---|---|---|
 | [Home](index.md) | [Usage Guide](Usage-Guide.md) | [Architecture](Architecture.md) | [Repository](Repository.md) |
 | [Installation](Installation.md) | [Conversion Methods](Conversion-Methods.md) | [**XDVDFS Technical Docs**](XDVDFS-Technical-Documentation.md) | [Building from Source](Building-from-Source.md) |
-| | [XISO Explorer](XISO-Explorer.md) | [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) | |
+| | [XISO Explorer](XISO-Explorer.md) | [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) | [Release Notes](Release-Notes.md) |
 
 ---
 
@@ -13,21 +13,21 @@
 1. [Introduction](#introduction)
 2. [What is XDVDFS?](#what-is-xdvdfs)
 3. [XISO File Structure](#xiso-file-structure)
-4. [The XDVDFS.cs Class](#the-xdvdfs-class)
+4. [The XDVDFS Format in Code](#the-xdvdfs-format-in-code)
 5. [Algorithm Deep Dive](#algorithm-deep-dive)
 6. [File Entry Structure](#file-entry-structure)
 7. [Volume Descriptor](#volume-descriptor)
 8. [Process Flow Diagrams](#process-flow-diagrams)
-9. [Integration with XisoWriter](#integration-with-xisowriter)
+9. [Integration with XISOSharp](#integration-with-xisosharp)
 10. [Summary](#summary)
 
 ---
 
 ## Introduction
 
-The `XDVDFS.cs` class is the heart of the native C# XISO processing engine in the Batch ISO to XISO Converter. It implements the Xbox Disc Volume Descriptor File System (XDVDFS) traversal logic to identify, validate, and extract meaningful data from Xbox and Xbox 360 ISO images.
+This page documents the Xbox Disc Volume Descriptor File System (XDVDFS) binary format and the traversal/optimization algorithm used to identify, validate, and extract meaningful data from Xbox and Xbox 360 ISO images.
 
-> **Note:** The application now delegates all XISO encoding and decoding to the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library. This page documents the XDVDFS format and the algorithm itself, which remain accurate and useful for understanding how XISOSharp processes images.
+> **Note:** The application delegates all XISO encoding and decoding to the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library. The in-repo parser described by earlier revisions of this page was removed in version 2.8.0. The format description and algorithms below remain accurate — they describe how XISOSharp processes images.
 
 ## What is XDVDFS?
 
@@ -76,17 +76,24 @@ An XISO file has a specific layout that differs from standard ISO 9660:
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## The XDVDFS.cs Class
+## The XDVDFS Format in Code
 
-### Location
+### Where the Algorithm Lives
 
-```text
-BatchConvertIsoToXiso/Services/XisoServices/XDVDFS/XDVDFS.cs
-```
+Version 2.8.0 removed the in-repo parser (`BatchConvertIsoToXiso/Services/XisoServices/`). The equivalent
+traversal, sector collection, and range consolidation logic now lives in the
+[XISOSharp](https://github.com/purelogiccode/XISOSharp) library:
+
+| Concern | XISOSharp API |
+|:---|:---|
+| Volume descriptor validation | `XisoReader.GetVolumeInfo` / `VolumeInfo` |
+| Directory traversal and sector/ranges | `XisoRanges.GetXisoRanges` |
+| Image rewriting (conversion) | `XisoReader.Rewrite` |
+| Structural audit | `XisoReader.AuditXiso` (used by `XisoIntegrityService`) |
 
 ### Core Responsibilities
 
-The `Xdvdfs` static class performs three critical functions:
+The traversal performs three critical functions:
 
 1. **Filesystem Traversal** — navigates the binary tree structure of directory entries
 2. **Sector Collection** — identifies all sectors containing valid data (files + metadata)
@@ -94,15 +101,11 @@ The `Xdvdfs` static class performs three critical functions:
 
 ### Key Constants
 
-```csharp
-private const long XisoHeaderOffset = 0x10000;  // 65536 bytes
-public static readonly byte[] Magic = "XBOX_DVD_LAYOUT_TOOL_SIG"u8.ToArray();
-```
-
 | Constant | Value | Purpose |
 |----------|-------|---------|
-| `XisoHeaderOffset` | 0x10000 (65536) | Offset to XISO header from partition start |
-| `SectorSize` | 2048 | Bytes per sector (from `Utils`) |
+| `XisoHeaderOffset` | 0x10000 (65536) | Offset to the XISO volume descriptor from the partition start |
+| `Magic` | `MICROSOFT*XBOX*MEDIA` | Volume descriptor signature (checked at `0x000` and `0x7EC`) |
+| `SectorSize` | 2048 | Bytes per sector |
 
 ### Internal Structures
 
@@ -333,7 +336,7 @@ Each file/directory entry in XDVDFS follows this binary format:
 
 ## Volume Descriptor
 
-The `VolumeDescriptor` class (`BatchConvertIsoToXiso/Services/XisoServices/XDVDFS/VolumeDescriptor.cs`) handles the XISO header validation:
+XISOSharp validates the volume descriptor (`XisoReader.GetVolumeInfo`, returned as `VolumeInfo`) at each known location until a valid signature is found:
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -405,7 +408,7 @@ The `VolumeDescriptor` class (`BatchConvertIsoToXiso/Services/XisoServices/XDVDF
 │           │                                                                  │
 │           ▼                                                                  │
 │  ┌─────────────────────────────────┐                                         │
-│  │  Xdvdfs.GetXisoRanges()         │◄────────────────────────────┐          │
+│  │  GetXisoRanges() (XISOSharp)    │◄────────────────────────────┐          │
 │  │                                 │                             │          │
 │  │  1. Read Volume Descriptor      │                             │          │
 │  │     └─ Validate magic IDs       │                             │          │
@@ -451,51 +454,38 @@ The `VolumeDescriptor` class (`BatchConvertIsoToXiso/Services/XisoServices/XDVDF
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Integration with XisoWriter
+## Integration with XISOSharp
 
-The `XisoWriter` class (`BatchConvertIsoToXiso/Services/XisoServices/XisoWriter.cs`) uses XDVDFS to perform the actual ISO conversion:
+The application converts images through `XisoSharpService`, which delegates the traversal and rewrite to
+the XISOSharp library (`XisoReader.Rewrite`):
 
 ```csharp
-// From XisoWriter.cs - how GetXisoRanges is used:
+// From XisoSharpService.cs — XISOSharp locates the volume, traverses the tree,
+// repacks the file data, and writes the optimized output with the requested name.
 
-await using FileStream isoFs = new(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-
-// Generate valid ranges based on XDVDFS traversal
-List<(uint Start, uint End)> validRanges;
-try
-{
-    validRanges = Xdvdfs.GetXisoRanges(isoFs, inputOffset, true, skipSystemUpdate);
-}
-catch
-{
-    _logger.LogMessage($"[ERROR] '{Path.GetFileName(sourcePath)}' is not a valid Xbox ISO image.");
-    return FileProcessingStatus.Failed;
-}
-
-// Use ranges to copy only valid data
-await using FileStream xisoFs = new(destPath, FileMode.Create, FileAccess.Write, FileShare.None);
-var buffer = new byte[64 * Utils.SectorSize];
-
-foreach (var (startSector, endSector) in validRanges)
-{
-    var startPos = startSector * Utils.SectorSize;
-    var length = (endSector - startSector + 1) * Utils.SectorSize;
-
-    isoFs.Seek(inputOffset + startPos, SeekOrigin.Begin);
-    Utils.FillBuffer(isoFs, xisoFs, -1, length, buffer);
-}
+var result = XisoReader.Rewrite(inputFile, outputFolder, out var outIsoPath, token,
+    outputName: Path.GetFileName(outputPath), progress: progressAdapter);
 ```
 
-Before writing, `XisoWriter` also verifies that the destination drive has enough free space for the expected output size (plus a safety margin) and cleans up partial files if a disk-full condition occurs mid-write.
+The service complements the library with:
+
+- **Pre-flight checks** — verifies the destination drive has enough free space (plus a safety margin) and
+  respects the FAT32 4 GB limit before starting.
+- **Already-optimized detection** — `XisoReader.IsOptimizedImage` skips images that are already XISOs.
+- **Partial-output cleanup** — the output file is removed if the rewrite fails or is cancelled.
+- **Optional verification** — when *Check Output Integrity* is enabled, `XisoReader.AuditXiso` runs
+  against the produced image before success is reported.
 
 ## Summary
 
-The `XDVDFS.cs` class is a sophisticated implementation of Xbox filesystem traversal that:
+XDVDFS traversal is responsible for:
 
-1. **Parses binary structures** — decodes the proprietary XDVDFS format
-2. **Traverses efficiently** — uses iterative DFS to avoid stack overflow
-3. **Validates thoroughly** — detects cycles and validates magic signatures
-4. **Optimizes storage** — consolidates sectors into minimal copy ranges
-5. **Supports variants** — handles standard XISOs, Redump ISOs, and rebuilt images
+1. **Parsing binary structures** — decoding the proprietary XDVDFS format
+2. **Traversing efficiently** — iterative depth-first traversal avoids stack overflows on deep trees
+3. **Validating thoroughly** — detects cycles and validates magic signatures
+4. **Optimizing storage** — consolidates sectors into minimal copy ranges
+5. **Supporting variants** — handles standard XISOs, Redump ISOs, and rebuilt images
 
-This class enables the application to strip away padding and system update data, producing optimized XISO files that are smaller but fully functional for emulation and preservation purposes.
+This algorithm enables the application to strip away padding and system update data, producing
+optimized XISO files that are smaller but fully functional for emulation and preservation purposes.
+In version 2.8.0 and later it is implemented by [XISOSharp](https://github.com/purelogiccode/XISOSharp).

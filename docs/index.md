@@ -4,7 +4,7 @@
 |---|---|---|---|
 | **Home** | [Usage Guide](Usage-Guide.md) | [Architecture](Architecture.md) | [Repository](Repository.md) |
 | [Installation](Installation.md) | [Conversion Methods](Conversion-Methods.md) | [XDVDFS Technical Docs](XDVDFS-Technical-Documentation.md) | [Building from Source](Building-from-Source.md) |
-| | [XISO Explorer](XISO-Explorer.md) | [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) | |
+| | [XISO Explorer](XISO-Explorer.md) | [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) | [Release Notes](Release-Notes.md) |
 
 ---
 
@@ -13,7 +13,7 @@ Welcome to the official documentation for **Batch ISO to XISO Converter** — a 
 - **Repository:** <https://github.com/purelogiccode/BatchConvertIsoToXiso>
 - **Website:** <https://www.purelogiccode.com>
 - **License:** GNU General Public License v3.0
-- **Current version:** 2.7.2
+- **Current version:** 2.8.0
 - **Platform:** Windows x64 / ARM64, .NET 10.0 Desktop Runtime
 
 ---
@@ -69,6 +69,8 @@ Whether you are managing a large collection of game backups, preparing files for
 | [XDVDFS Technical Docs](XDVDFS-Technical-Documentation.md) | Binary format internals and the XISO conversion algorithm |
 | [Building from Source](Building-from-Source.md) | Prerequisites, build, and test instructions |
 | [Repository](Repository.md) | Repository layout, releases, contributing, and license |
+| [Release Notes](Release-Notes.md) | Version history and detailed release notes |
+| [What's New](../WhatsNew.md) | Highlights of the latest release |
 
 ---
 

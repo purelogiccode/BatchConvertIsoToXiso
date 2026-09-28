@@ -4,7 +4,7 @@
 |---|---|---|---|
 | [Home](index.md) | [Usage Guide](Usage-Guide.md) | [Architecture](Architecture.md) | [**Repository**](Repository.md) |
 | [Installation](Installation.md) | [Conversion Methods](Conversion-Methods.md) | [XDVDFS Technical Docs](XDVDFS-Technical-Documentation.md) | [Building from Source](Building-from-Source.md) |
-| | [XISO Explorer](XISO-Explorer.md) | [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) | |
+| | [XISO Explorer](XISO-Explorer.md) | [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) | [**Release Notes**](Release-Notes.md) |
 
 ---
 
@@ -31,6 +31,7 @@ This page describes the repository itself: where things live, how releases are m
 │   ├── Architecture.md
 │   ├── XDVDFS-Technical-Documentation.md
 │   ├── Building-from-Source.md
+│   ├── Release-Notes.md                   Full version history
 │   ├── Repository.md                      This page
 │   └── _Sidebar.md                        Sidebar menu (GitHub wiki)
 ├── BatchConvertIsoToXiso/                 Main WPF application project
@@ -46,6 +47,7 @@ This page describes the repository itself: where things live, how releases are m
 ├── CSharp_BatchConvertIsoToXiso.sln       Solution file
 ├── global.json                            Pins the .NET SDK version
 ├── ReadMe.md                              Repository front page
+├── WhatsNew.md                            Highlights of the latest release
 ├── LICENSE.txt                            GNU GPL v3.0
 └── screenshot*.png                        Screenshots used by the ReadMe
 ```
@@ -54,7 +56,7 @@ This page describes the repository itself: where things live, how releases are m
 
 - The primary branch is **`master`**.
 - **Releases** are tagged on GitHub and published on the [Releases](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases) page with ready-to-run ZIP archives.
-- **Versioning:** `MAJOR.MINOR.PATCH` (currently 2.7.2). The application's update checker compares its version against the latest release tag on GitHub, so published tags must follow the `vMAJOR.MINOR.PATCH` convention.
+- **Versioning:** `MAJOR.MINOR.PATCH` (currently 2.8.0). Releases are tagged `release_MAJOR.MINOR.PATCH` (for example `release_2.7.1`). The application's update checker extracts the numeric version from the latest release tag, so keep the `MAJOR.MINOR.PATCH` part intact.
 
 ## Contributing
 

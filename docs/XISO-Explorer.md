@@ -4,11 +4,11 @@
 |---|---|---|---|
 | [Home](index.md) | [Usage Guide](Usage-Guide.md) | [Architecture](Architecture.md) | [Repository](Repository.md) |
 | [Installation](Installation.md) | [Conversion Methods](Conversion-Methods.md) | [XDVDFS Technical Docs](XDVDFS-Technical-Documentation.md) | [Building from Source](Building-from-Source.md) |
-| | [**XISO Explorer**](XISO-Explorer.md) | [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) | |
+| | [**XISO Explorer**](XISO-Explorer.md) | [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) | [Release Notes](Release-Notes.md) |
 
 ---
 
-The **XISO Explorer** tab provides a native file browser for Xbox and Xbox 360 ISO images. It parses the XDVDFS filesystem directly from the image, so you can inspect archives without extracting anything.
+The **XISO Explorer** tab provides a native file browser for Xbox and Xbox 360 ISO images. It reads the XDVDFS filesystem directly from the image through the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library, so you can inspect images without extracting anything.
 
 ## Opening an Image
 
@@ -51,6 +51,7 @@ The selected items are extracted from the ISO to the drop target. This is the qu
 ## Notes and Limitations
 
 - The explorer operates read-only; it never modifies the source ISO.
-- Very deep directory trees are handled with an iterative traversal (no recursion limits).
+- Very deep directory trees are handled iteratively by XISOSharp (no recursion limits).
 - Images that fail XDVDFS validation are rejected with a clear error rather than showing unreliable content.
-- The explorer shares the same parsing code as the conversion and testing engines (see [Architecture](Architecture.md)), so what you see here reflects exactly what the other views process.
+- Conversion, integrity testing, and exploration all use the same XISOSharp library, so what you see
+  here reflects exactly what the other views process.

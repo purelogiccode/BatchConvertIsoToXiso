@@ -1,10 +1,22 @@
 # Batch ISO to XISO Converter
 
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
+[![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6.svg?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
 [![GitHub release](https://img.shields.io/github/v/release/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases)
+[![GitHub release date](https://img.shields.io/github/release-date/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases)
+[![Downloads](https://img.shields.io/github/downloads/purelogiccode/BatchConvertIsoToXiso/total)](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases)
+[![GitHub stars](https://img.shields.io/github/stars/purelogiccode/BatchConvertIsoToXiso?style=social)](https://github.com/purelogiccode/BatchConvertIsoToXiso/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/purelogiccode/BatchConvertIsoToXiso?style=social)](https://github.com/purelogiccode/BatchConvertIsoToXiso/forks)
+[![GitHub issues](https://img.shields.io/github/issues/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso/issues)
+[![GitHub last commit](https://img.shields.io/github/last-commit/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso/commits/master)
+[![Repo size](https://img.shields.io/github/repo-size/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso)
+[![Top language](https://img.shields.io/github/languages/top/purelogiccode/BatchConvertIsoToXiso)](https://github.com/purelogiccode/BatchConvertIsoToXiso)
+[![Powered by XISOSharp](https://img.shields.io/badge/Powered%20by-XISOSharp-8A2BE2.svg)](https://github.com/purelogiccode/XISOSharp)
+[![Code analyzers](https://img.shields.io/badge/analyzers-Meziantou%20%7C%20Roslynator-blueviolet)](docs/Architecture.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/Repository.md#contributing)
 
 A high-performance Windows WPF utility for the Xbox preservation and emulation community. Convert, verify, and explore Xbox and Xbox 360 ISO files, powered by the XISOSharp library.
 
@@ -13,6 +25,7 @@ A high-performance Windows WPF utility for the Xbox preservation and emulation c
 ## 📋 Table of Contents
 
 - [Overview](#overview)
+- [What's New](#whats-new)
 - [Screenshots](#screenshots)
 - [Key Features](#key-features)
 - [Installation](#installation)
@@ -34,15 +47,29 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 
 ---
 
+## What's New
+
+### v2.8.0 — powered entirely by XISOSharp
+
+- **One conversion engine** — all ISO → XISO conversion runs in-process through [XISOSharp](https://github.com/purelogiccode/XISOSharp); the bundled `extract-xiso.exe`, `xdvdfs.exe`, and the native writer were removed (smaller download, no external processes).
+- **Integrity testing and XISO Explorer** are now backed by the same library (`AuditXiso` and `XisoExplorer`).
+- **Fixes** — the main window now appears immediately (startup drive probing no longer blocks it); cloud/OneDrive sources keep their original output name; already-optimized files no longer delete an existing output; **Replace Originals** no longer deletes originals (including archives and CUE/BIN) when a conversion was skipped; device I/O errors stop the batch with a drive-health message.
+- **Hardening** — free-space/FAT32 pre-checks, partial-output cleanup, cross-volume move fallback, locked-archive retries; CUE/BIN is skipped cleanly on ARM64.
+- **Bundles** — release ZIPs include `LICENSE.txt`, `ReadMe.md`, and `WhatsNew.md`.
+
+Read the full [What's New](WhatsNew.md) or browse the [Release Notes](docs/Release-Notes.md).
+
+---
+
 ## Screenshots
 
-![Convert Tab](screenshot.png)
+![Convert Tab](Screenshot.png)
 *Batch conversion interface with real-time progress monitoring*
 
-![Test Tab](screenshot2.png)
+![Test Tab](Screenshot2.png)
 *ISO integrity testing with batch organization*
 
-![Explorer Tab](screenshot3.png)
+![Explorer Tab](Screenshot3.png)
 *XISO file browser*
 
 ---
@@ -170,10 +197,10 @@ The application follows modern software engineering principles with a clean, mai
 Utilizes `Microsoft.Extensions.DependencyInjection` for comprehensive service management. All core logic is decoupled from the UI, enabling easier testing and modular updates.
 
 ### Testing
-A comprehensive [xUnit](https://xunit.net/) test suite (`BatchConvertIsoToXiso.Tests`) covers models, services, and XISO services with over 25 test files, using [Moq](https://github.com/devlooped/moq) for mocking.
+A comprehensive [xUnit](https://xunit.net/) test suite (`BatchConvertIsoToXiso.Tests`) covers models, services, and XISO services with 27 test files and 250+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
 
 ### Technical Documentation
-For a deep dive into the XDVDFS format, binary file structures, and the internal conversion algorithm, see the [XDVDFS Technical Documentation](docs/XDVDFS-Technical-Documentation.md). The full documentation (including installation, usage, troubleshooting, and architecture) lives in the [docs folder](docs/index.md) and doubles as the repository wiki.
+For a deep dive into the XDVDFS format, binary file structures, and the conversion algorithm, see the [XDVDFS Technical Documentation](docs/XDVDFS-Technical-Documentation.md). The full documentation (including installation, usage, troubleshooting, architecture, and [release notes](docs/Release-Notes.md)) lives in the [docs folder](docs/index.md) and doubles as the repository wiki. Highlights of the latest release are summarized in [What's New](WhatsNew.md).
 
 ---
 

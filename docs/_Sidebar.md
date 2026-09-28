@@ -19,6 +19,12 @@
 
 - [Building from Source](Building-from-Source)
 - [Repository](Repository)
+- [Release Notes](Release-Notes)
+
+**Releases**
+
+- [What's New](https://github.com/purelogiccode/BatchConvertIsoToXiso/blob/master/WhatsNew.md)
+- [GitHub Releases](https://github.com/purelogiccode/BatchConvertIsoToXiso/releases)
 
 ---
 

@@ -4,7 +4,7 @@
 |---|---|---|---|
 | [Home](index.md) | [Usage Guide](Usage-Guide.md) | [**Architecture**](Architecture.md) | [Repository](Repository.md) |
 | [Installation](Installation.md) | [Conversion Methods](Conversion-Methods.md) | [XDVDFS Technical Docs](XDVDFS-Technical-Documentation.md) | [Building from Source](Building-from-Source.md) |
-| | [XISO Explorer](XISO-Explorer.md) | [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) | |
+| | [XISO Explorer](XISO-Explorer.md) | [Troubleshooting & FAQ](Troubleshooting-and-FAQ.md) | [Release Notes](Release-Notes.md) |
 
 ---
 
@@ -29,8 +29,8 @@ CSharp_BatchConvertIsoToXiso.sln
 │       ├── OrchestratorService.cs       Batch pipeline coordination
 │       ├── XisoSharpService.cs          XISO conversion via the XISOSharp library
 │       ├── XisoIntegrityService.cs      Structural audit + deep surface scan via XISOSharp
-│       ├── ExtractFiles.cs              Archive handling (zip/7z/rar), locked-file retries
-│       ├── MoveFiles.cs                 File moves with network/lock retries
+│       ├── FileExtractorService.cs      Archive handling (zip/7z/rar), locked-file retries
+│       ├── FileMoverService.cs          File moves with network/lock retries
 │       ├── DiskMonitorService.cs        Read/write speed and free-space monitoring
 │       ├── BugReportService.cs          Automatic bug reporting client
 │       ├── StatsService.cs              Anonymous usage statistics client
@@ -70,7 +70,7 @@ MainWindow (Convert tab)
          ├─ discovers inputs (recursive option, extension filter)
          ├─ for each file:
          │    ├─ .cue/.bin ──► bchunk (external) ──► ISO
-         │    ├─ .zip/.7z/.rar ──► ExtractFiles ──► temp ISO ──► convert ──► cleanup
+         │    ├─ .zip/.7z/.rar ──► FileExtractorService ──► temp ISO ──► convert ──► cleanup
          │    └─ .iso ──► XisoSharpService (in-process, XISOSharp library)
          ├─ after each file: optional integrity check, optional original deletion,
          │   file moves (retry-aware), progress + stats updates
@@ -81,7 +81,7 @@ Safety characteristics of the pipeline:
 
 - **Pre-flight checks** — output-drive free space and FAT32 file-size limits are verified before conversion starts; failures skip the file with a clear message instead of failing late.
 - **Environmental errors are surfaced, not reported** — disk-space and network failures stop or skip with actionable messages and are excluded from automatic bug reports.
-- **Transient failures retry** — locked files and network hiccups use exponential backoff (see `ExtractFiles`, `MoveFiles`).
+- **Transient failures retry** — locked files and network hiccups use exponential backoff (see `FileExtractorService`, `FileMoverService`).
 - **Atomic replace-originals** — deletion of inputs happens only after the converted file exists and (optionally) passes validation.
 - **Cancellation is cooperative** — child processes and I/O loops observe a `CancellationToken`.
 
@@ -106,7 +106,7 @@ Three layers of defense:
 
 ## Testing
 
-The `BatchConvertIsoToXiso.Tests` project (xUnit, Moq) covers models, services, and the XISO binary layer:
+The `BatchConvertIsoToXiso.Tests` project (xUnit, Moq) covers models, services, and helper utilities:
 
 ```bash
 dotnet test CSharp_BatchConvertIsoToXiso.sln

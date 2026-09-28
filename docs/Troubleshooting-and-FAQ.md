@@ -4,7 +4,7 @@
 |---|---|---|---|
 | [Home](index.md) | [Usage Guide](Usage-Guide.md) | [Architecture](Architecture.md) | [Repository](Repository.md) |
 | [Installation](Installation.md) | [Conversion Methods](Conversion-Methods.md) | [XDVDFS Technical Docs](XDVDFS-Technical-Documentation.md) | [Building from Source](Building-from-Source.md) |
-| | [XISO Explorer](XISO-Explorer.md) | [**Troubleshooting & FAQ**](Troubleshooting-and-FAQ.md) | |
+| | [XISO Explorer](XISO-Explorer.md) | [**Troubleshooting & FAQ**](Troubleshooting-and-FAQ.md) | [Release Notes](Release-Notes.md) |
 
 ---
 
@@ -84,9 +84,34 @@ This happens when required system fonts are missing — commonly under Wine/Prot
 - Windows: run `sfc /scannow` to repair system files; ensure *Segoe UI* and *Arial* are installed.
 - Linux/Steam Deck: install core fonts via `winetricks corefonts` and update your Wine/Proton version.
 
-### The output file was not found although the tool reported success
+### The application seems not to start / the main window takes a long time to appear
 
-This can happen when antivirus software quarantines the freshly created file. The application automatically searches the working and input directories and, if the file is found elsewhere, moves it to the expected output path; otherwise it reports the failure with an antivirus hint. Check your antivirus quarantine list.
+In versions before **2.8.0**, startup ran temporary-folder cleanup before showing the main window.
+That cleanup probes every drive, and waking an idle spinning disk can take ~20 seconds — making the
+app look like it never started (the process was running with no window). It also caused a pause before
+each batch (pre-operation cleanup).
+
+- **Update to 2.8.0 or later** — cleanup now runs after the window is shown, on a background thread.
+- On older versions, wait ~30 seconds on first launch; subsequent launches are fast while the disk
+  remains spun up.
+
+### The drive reported a hardware I/O error
+
+**Message pattern:** *"The drive reported a hardware I/O error ..."* or an `I/O device error`.
+
+The read or write request failed at the hardware level — the drive is failing, was disconnected, or is
+power-cycling. The batch is stopped deliberately because continuing could produce corrupt output.
+
+- Check the cable/connection and the drive's health (for example, run `chkdsk`).
+- Copy the source files to a healthy local drive and retry.
+- These errors are treated as environmental and are not sent as automatic bug reports.
+
+### The output file is missing or the conversion failed after antivirus activity
+
+Antivirus software can quarantine or delete the freshly created XISO during conversion. XISOSharp writes
+the output directly to the requested path; if the file cannot be found or read back afterwards, the
+conversion is reported as failed and the partial output is removed. Check your antivirus quarantine
+list and consider excluding the input/output folders from real-time scanning.
 
 ---
 
