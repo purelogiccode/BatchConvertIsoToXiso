@@ -28,11 +28,13 @@ CSharp_XboxIsoStudio.sln
 │   └── Services/                        All business logic
 │       ├── OrchestratorService.cs       Batch pipeline coordination
 │       ├── SupportedFiles.cs            Extension filters shared by the UI lists and folder scans
-│       ├── XisoSharpService.cs          XISO conversion via the XISOSharp library
-│       ├── XisoIntegrityService.cs      Structural audit + deep scan via XISOSharp / ZArchiveSharp
-│       ├── ImageExplorerFactory.cs      Opens the right IImageExplorer (XISO/CISO or ZAR)
+│       ├── XisoSharpService.cs          XISO/ZAR/CSO conversion via the XISOSharp library
+│       ├── ChdService.cs                CHD conversion via the CHDSharp library
+│       ├── XisoIntegrityService.cs      Structural audit + deep scan via XISOSharp / ZArchiveSharp / CHDSharp
+│       ├── ImageExplorerFactory.cs      Opens the right IImageExplorer (XISO/CISO, ZAR or CHD)
 │       ├── XisoImageExplorer.cs         IImageExplorer over ISO/CSO via XisoExplorer
 │       ├── ZarImageExplorer.cs          IImageExplorer over ZAR via ZArchiveReader (zip-slip safe)
+│       ├── ChdImageExplorer.cs          IImageExplorer over CHD via CHDSharp + XISOSharp (on-demand decompression)
 │       ├── ImagePaths.cs                Shared internal-path normalization helpers
 │       ├── FileExtractorService.cs      Archive handling (zip/7z/rar), locked-file retries
 │       ├── FileMoverService.cs          File moves with network/lock retries
@@ -46,7 +48,7 @@ CSharp_XboxIsoStudio.sln
 └── XboxIsoStudio.Tests/         xUnit + Moq test suite
 ```
 
-Bundled helper executables (`7za.exe`, `7za_arm64.exe`) are copied to the output directory and invoked as isolated child processes. All XISO encoding and decoding is performed in-process by the `XISOSharp` NuGet package.
+Bundled helper executables (`7za.exe`, `7za_arm64.exe`) are copied to the output directory and invoked as isolated child processes. All XISO and CHD encoding/decoding is performed in-process by the `XISOSharp` and `CHDSharp` NuGet packages.
 
 ## Dependency Injection
 
@@ -58,8 +60,9 @@ Bundled helper executables (`7za.exe`, `7za_arm64.exe`) are copied to the output
 | `IDiskMonitorService` | Singleton | Drive throughput counters and free-space queries |
 | `IOrchestratorService` | Singleton | Batch pipeline: per-file dispatch for the selected files, progress, cancellation |
 | `IXisoSharpService` | Singleton | XISO/ZAR/CSO conversion via the XISOSharp library |
-| `IXisoIntegrityService` | Singleton | Structural audit + deep scan via XISOSharp (ISO/CSO) and ZArchiveSharp (ZAR) |
-| `IImageExplorer` | Per open image | Explorer over ISO/CSO (`XisoExplorer`) or ZAR (`ZArchiveReader`), built by `ImageExplorerFactory` |
+| `IChdService` | Singleton | CHD conversion via the CHDSharp library (rewrites non-optimized inputs through `IXisoSharpService`, then encodes and verifies) |
+| `IXisoIntegrityService` | Singleton | Structural audit + deep scan via XISOSharp (ISO/CSO), ZArchiveSharp (ZAR) and CHDSharp (CHD container + Xbox filesystem) |
+| `IImageExplorer` | Per open image | Explorer over ISO/CSO (`XisoExplorer`), ZAR (`ZArchiveReader`) or CHD (`ChdImageStream` + XISOSharp), built by `ImageExplorerFactory` |
 | `IFileExtractor` | Transient | Archive extraction with fallbacks and lock retries |
 | `IFileMover` | Transient | Move/copy operations with retry + backoff |
 | `IBugReportService` | Singleton | Sends exception reports to the developer endpoint |
@@ -77,18 +80,23 @@ MainWindow (Convert tab)
    ├─ user ticks the files to process (selectable DataGrid list)
    └─► OrchestratorService (ConvertFilesAsync)
          ├─ for each selected file:
-         │    ├─ .zip/.7z/.rar ──► FileExtractorService ──► temp ISO ──► convert ──► cleanup
-         │    └─ .iso ──► XisoSharpService (in-process: XISO / ZAR / CSO)
+          │    ├─ .zip/.7z/.rar ──► FileExtractorService ──► temp ISO ──► convert ──► cleanup
+          │    └─ .iso ──► XisoSharpService (in-process: XISO / ZAR / CSO)
+          │                or ChdService (CHDSharp CHD encode + deep verify)
          ├─ after each file: optional integrity check, optional original deletion,
          │   file moves (retry-aware), progress + stats updates
          └─ final summary (success/fail/skip counts, elapsed time)
 ```
 
-The requested output format flows from the UI through `ConvertFilesAsync`/`ConvertAsync` to
-`IXisoSharpService.ConvertIsoAsync`: **XISO** uses `XisoReader.Rewrite`, **ZAR** streams the
-game-partition tree via `XisoZarchive.CreateZar` (Redump partition offsets detected with
-`XgdTables`), and **CSO** repacks non-optimized inputs to a temporary XISO and calls
-`CisoWriter.CompressToCso` (CISO v2/LZ4).
+The requested output format flows from the UI through `ConvertFilesAsync`/`ConvertAsync`:
+**XISO**, **ZAR**, and **CSO** go to `IXisoSharpService.ConvertIsoAsync` — XISO uses
+`XisoReader.Rewrite`, ZAR streams the game-partition tree via `XisoZarchive.CreateZar` (Redump
+partition offsets detected with `XgdTables`), and CSO repacks non-optimized inputs to a
+temporary XISO and calls `CisoWriter.CompressToCso` (CISO v2/LZ4). **CHD** goes to
+`IChdService.ConvertIsoToChdAsync`, which reuses the optimized-XISO rewrite for non-optimized
+inputs and then calls `ChdEncoder.EncodeRaw` (CHDSharp) with the chdman `createdvd` preset
+(4096-byte hunks, 2048-byte units, `lzma,zlib,huff,flac`, `DVD ` metadata), followed by a
+header check and — when output integrity is enabled — a full `Chd.CheckFile` deep verification.
 
 The folder-scanning `ConvertAsync`/`TestAsync` overloads remain available for callers that want the
 orchestrator to discover files itself; the UI always passes the explicit list of ticked files.
@@ -97,8 +105,10 @@ The test pipeline (`TestAsync`/`TestFilesAsync` → `IXisoIntegrityService`) dis
 `.iso` and `.cso` (single or split `.1.cso`) go through `XisoReader.AuditXiso(...,
 requireOptimizedTag: false)` and, with the deep scan enabled, a sequential read of the whole
 decompressed image; `.zar` is opened, tree-walked, and (deep scan) fully decompressed through
-`ZArchiveReader`. Split CISO continuation parts are hidden from the list and move together with
-part 1.
+`ZArchiveReader`; `.chd` (Xbox DVD images only) is verified with `Chd.CheckFile` (header-only, or
+every hunk and checksum with the deep scan) and the Xbox filesystem is audited through
+`XisoReader.AuditXiso(IBlockDevice)` over a `ChdImageStream`. Split CISO continuation parts are
+hidden from the list and move together with part 1.
 
 Safety characteristics of the pipeline:
 

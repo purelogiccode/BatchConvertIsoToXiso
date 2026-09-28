@@ -12,5 +12,8 @@ public enum OutputFormat
     Zar = 1,
 
     /// <summary>Compressed ISO (<c>.cso</c>) — CISO v2 (LZ4), compatible with the xdvdfs ecosystem.</summary>
-    Cso = 2
+    Cso = 2,
+
+    /// <summary>Compressed Hunks of Data (<c>.chd</c>) — CHD v5, readable by MAME-compatible tools.</summary>
+    Chd = 3
 }

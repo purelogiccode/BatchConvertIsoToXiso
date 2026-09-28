@@ -2,6 +2,32 @@
 
 <!-- Keep this file focused on the newest release. Full history lives in docs/Release-Notes.md. -->
 
+## Version 2.10.0 (unreleased)
+
+**Release date:** TBD
+
+Version 2.10.0 is the **CHD release**: the [CHDSharp](https://github.com/purelogiccode/CHDSharp) library is now built in, so Xbox and Xbox 360 images can be converted to **CHD** (`.chd`, Compressed Hunks of Data), and Xbox DVD CHD files can be integrity-tested and explored without extraction.
+
+### Highlights
+
+#### CHD output format
+- The Convert tab's **Output Format** selector now includes **CHD** (`.chd`, CHD v5). The optimized game partition is encoded with the chdman `createdvd` preset — 4096-byte hunks, 2048-byte units, and the `lzma,zlib,huff,flac` codec list — and tagged as a DVD image.
+- Non-optimized (Redump) inputs are rewritten to the game partition first, so **Skip $SystemUpdate** and **Delete Originals** work exactly as they do for XISO/ZAR/CSO.
+- **Check Output Integrity** deep-verifies the new CHD — every hunk is decompressed and every checksum and hash is validated — before the conversion is reported as successful.
+
+#### Test Xbox CHD files
+- The Test tab now accepts `.chd` files, limited to Xbox DVD images: CD/GD-ROM/hard-disk CHDs and differential child CHDs are rejected with a clear message.
+- The CHD container is verified first (header-only, or every hunk and checksum with **Perform Deep Scan**), and the Xbox filesystem structure inside the decompressed image is then audited with XISOSharp.
+
+#### Explore Xbox CHD files
+- The Explorer opens `.chd` files, decompressing hunks on demand, and browses and copies out entries through XISOSharp just like ISO/CSO/ZAR.
+- Both game-partition-only CHDs (produced by this app) and full Redump-image CHDs (produced by `chdman createdvd`) are supported — partition offsets are auto-detected.
+
+### Upgrading
+No action is required. CHD support adds the **CHDSharp** 1.4.3 package (pure managed code, no native dependencies); all existing formats keep working unchanged.
+
+---
+
 ## Version 2.9.0
 
 **Release date:** September 2026

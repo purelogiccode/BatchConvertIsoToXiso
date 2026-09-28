@@ -38,9 +38,11 @@ This page describes the repository itself: where things live, how releases are m
 │   ├── Interfaces/                        Service contracts
 │   ├── Models/                            DTOs and enums
 │   ├── Services/                          All business logic
-│   │   ├── XisoSharpService.cs            XISO conversion via the XISOSharp library
-│   │   ├── XisoIntegrityService.cs        Integrity validation via XISOSharp / ZArchiveSharp
-│   │   └── ImageExplorerFactory.cs        Explorer over ISO/CSO (XisoExplorer) or ZAR (ZArchiveReader)
+│   │   ├── XisoSharpService.cs            XISO/ZAR/CSO conversion via the XISOSharp library
+│   │   ├── ChdService.cs                  CHD conversion via the CHDSharp library
+│   │   ├── XisoIntegrityService.cs        Integrity validation via XISOSharp / ZArchiveSharp / CHDSharp
+│   │   ├── ImageExplorerFactory.cs        Explorer over ISO/CSO (XisoExplorer), ZAR (ZArchiveReader) or CHD (ChdImageExplorer)
+│   │   └── ChdImageExplorer.cs            Explorer over CHD via CHDSharp + XISOSharp
 │   ├── MainWindow*.cs                     Partial classes for the main window
 │   ├── 7za.exe, 7za_arm64.exe             Bundled helper tools
 │   └── XboxIsoStudio.csproj
@@ -70,7 +72,7 @@ Contributions are welcome!
 3. Open a new issue including:
    - Application version (visible in the About window)
    - Windows version and architecture (x64/ARM64)
-   - The input format used (`.iso`, `.cso`, `.zar`, or archive)
+   - The input format used (`.iso`, `.cso`, `.zar`, `.chd`, or archive)
    - The relevant lines from the in-application log
 
 ### Submitting Changes
@@ -117,5 +119,6 @@ This project is licensed under the **GNU General Public License v3.0** — see [
 
 ## Acknowledgements
 
-- **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** — XISO/XDVDFS library powering conversion, integrity testing, and exploration
+- **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** — XISO/XDVDFS library powering XISO/ZAR/CSO conversion, integrity testing, and exploration
+- **[CHDSharp](https://github.com/purelogiccode/CHDSharp)** — CHD reading, verification, and creation powering CHD conversion, testing, and exploration
 - **[SharpCompress](https://github.com/adamhathcock/sharpcompress)** — archive extraction

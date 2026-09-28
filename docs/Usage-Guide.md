@@ -12,9 +12,9 @@ The main window is organized into three views, selectable from the navigation bu
 
 | View | Purpose |
 |:---|:---|
-| **Convert** | Batch-convert ISOs (and archives containing ISOs) into trimmed XISO files |
-| **Test Integrity** | Validate ISO, CSO, and ZAR images and organize results |
-| **Explorer** | Browse the contents of an Xbox ISO, CSO, or ZAR without extracting it |
+| **Convert** | Batch-convert ISOs (and archives containing ISOs) into trimmed XISO, ZAR, CSO, or CHD files |
+| **Test Integrity** | Validate ISO, CSO, ZAR, and Xbox CHD images and organize results |
+| **Explorer** | Browse the contents of an Xbox ISO, CSO, ZAR, or CHD without extracting it |
 
 Below the three views, a shared **status bar** shows a live log, progress bar, cancel button, statistics (total / success / fail / skipped / processing time), and per-drive read/write speed indicators.
 
@@ -41,11 +41,12 @@ Once an input folder is chosen, the **Select Files to Convert** list is filled w
 
 ### 3. Conversion Engine
 
-All conversion is performed in-process by the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library — there is no engine selection. Choose the **Output Format** in the Options panel:
+All conversion is performed in-process by the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library, with **[CHDSharp](https://github.com/purelogiccode/CHDSharp)** handling CHD encoding — there is no external tool. Choose the **Output Format** in the Options panel:
 
 - **XISO** (default) — tightly packed, optimized XISO (`.iso`); images that already carry the optimized tag are skipped automatically.
 - **ZAR** — ZArchive (`.zar`, zstd) for direct use in Xenia canary.
 - **CSO** — compressed ISO (`.cso`, CISO v2/LZ4), compatible with the xdvdfs ecosystem.
+- **CHD** — Compressed Hunks of Data (`.chd`, CHD v5) with the chdman `createdvd` preset (4096-byte hunks, 2048-byte units, `lzma,zlib,huff,flac`).
 
 See the [Conversion Methods](Conversion-Methods.md) page for details.
 
@@ -53,10 +54,10 @@ See the [Conversion Methods](Conversion-Methods.md) page for details.
 
 | Option | Behavior when enabled |
 |:---|:---|
-| **Output Format** | Produces `.iso` (optimized XISO), `.zar` (ZArchive/zstd), or `.cso` (CISO v2/LZ4). |
+| **Output Format** | Produces `.iso` (optimized XISO), `.zar` (ZArchive/zstd), `.cso` (CISO v2/LZ4), or `.chd` (CHD v5, chdman `createdvd` preset). |
 | **Skip $SystemUpdate** | Excludes the `$SystemUpdate` folder from the output for extra space savings (~100–300 MB). |
 | **Delete Originals** | Replaces each input file with its converted version. Deletion happens **only after** the output has been produced and verified. |
-| **Check Output Integrity** | Runs a structural validation on each newly created XISO before reporting success (for ZAR/CSO the source image is validated instead). |
+| **Check Output Integrity** | Runs a structural validation on each newly created XISO and a full deep verification (every hunk and hash) on each newly created CHD before reporting success (for ZAR/CSO the source image is validated instead). |
 | **Search Subfolders** | Includes files found in subdirectories of the input folder in the list. |
 
 ### 5. Start, Monitor, Cancel
@@ -70,7 +71,7 @@ See the [Conversion Methods](Conversion-Methods.md) page for details.
 
 The orchestrator decides per input file:
 
-1. **`.iso`** — converted directly with the XISOSharp engine into the selected output format (`.iso`, `.zar`, or `.cso`).
+1. **`.iso`** — converted with the XISOSharp engine (or CHDSharp for CHD) into the selected output format (`.iso`, `.zar`, `.cso`, or `.chd`).
 2. **`.zip` / `.7z` / `.rar`** — extracted to a temporary folder (with automatic drive fallback if the temp drive is short on space), the ISO inside is converted, then temporaries are cleaned up.
    - Password-protected/encrypted archives are detected and **skipped with a clear message** instead of a cryptic failure.
 3. At the end, a **summary** is logged (files processed, succeeded, failed, skipped) and the operation is finalized.
@@ -85,6 +86,7 @@ Use this view to validate images without converting them. Supported formats:
 
 - **`.iso`** and **`.cso`** (CISO, including split `.1.cso` part sets) — a deep audit of the XDVDFS file tree, with an optional sequential sector scan.
 - **`.zar`** (ZArchive/zstd) — opens the archive (header, index, name table, file tree), walks the whole tree, and with the deep scan enabled decompresses every file to prove all blocks are readable.
+- **`.chd`** (Xbox DVD images only) — verifies the CHD container (header-only, or every hunk and checksum with the deep scan enabled) and then audits the Xbox filesystem inside the decompressed image. CD/GD-ROM/hard-disk CHDs are rejected.
 
 ### Options
 
@@ -93,7 +95,7 @@ Use this view to validate images without converting them. Supported formats:
 | **Move Passed Files** | Moves images that pass validation into a `_success` subfolder (a split CISO's continuation parts travel with part 1) |
 | **Move Failed Files** | Moves images that fail validation into a `_failed` subfolder |
 | **Search Subfolders** | Recurses into subdirectories of the input folder |
-| **Perform Deep Scan** | Reads the entire image — every sector for ISO/CSO, every decompressed block for ZAR — to detect physical corruption / bad sectors (slower, but thorough) |
+| **Perform Deep Scan** | Reads the entire image — every sector for ISO/CSO, every decompressed block for ZAR, every CHD hunk and checksum for CHD — to detect physical corruption / bad sectors (slower, but thorough) |
 
 ### Workflow
 
@@ -109,7 +111,7 @@ Use this view to validate images without converting them. Supported formats:
 
 ## The Explorer Tab
 
-The built-in Image Explorer lets you inspect the contents of an Xbox `.iso`, `.cso`, or `.zar` without extraction. See the dedicated [XISO Explorer](XISO-Explorer.md) page for the full walkthrough.
+The built-in Image Explorer lets you inspect the contents of an Xbox `.iso`, `.cso`, `.zar`, or `.chd` without extraction. See the dedicated [XISO Explorer](XISO-Explorer.md) page for the full walkthrough.
 
 ---
 

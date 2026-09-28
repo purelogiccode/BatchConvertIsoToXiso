@@ -13,6 +13,7 @@ public class OrchestratorService : IOrchestratorService
     private readonly ILogger _logger;
     private readonly IXisoIntegrityService _integrityService;
     private readonly IXisoSharpService _xisoSharpService;
+    private readonly IChdService _chdService;
     private readonly IDiskMonitorService _diskMonitorService;
 
     private class ProcessingContext
@@ -26,6 +27,7 @@ public class OrchestratorService : IOrchestratorService
         ILogger logger,
         IXisoIntegrityService integrityService,
         IXisoSharpService xisoSharpService,
+        IChdService chdService,
         IDiskMonitorService diskMonitorService)
     {
         _fileExtractor = fileExtractor;
@@ -33,6 +35,7 @@ public class OrchestratorService : IOrchestratorService
         _logger = logger.ForContext<OrchestratorService>();
         _integrityService = integrityService;
         _xisoSharpService = xisoSharpService;
+        _chdService = chdService;
         _diskMonitorService = diskMonitorService;
     }
 
@@ -535,6 +538,7 @@ public class OrchestratorService : IOrchestratorService
             {
                 OutputFormat.Zar => ".zar",
                 OutputFormat.Cso => ".cso",
+                OutputFormat.Chd => ".chd",
                 _ => ".iso"
             };
             var outputFileName = Path.GetFileNameWithoutExtension(originalFileName) + outputExtension;
@@ -555,19 +559,25 @@ public class OrchestratorService : IOrchestratorService
             {
                 OutputFormat.Zar => "ZAR",
                 OutputFormat.Cso => "CSO",
+                OutputFormat.Chd => "CHD",
                 _ => "optimized XISO"
             };
 
+            var engineName = outputFormat == OutputFormat.Chd ? "CHDSharp" : "XISOSharp";
+
             progress.Report(new BatchOperationProgress
             {
-                LogMessage = $"File '{originalFileName}': Converting to {formatLabel} with XISOSharp...",
+                LogMessage = $"File '{originalFileName}': Converting to {formatLabel} with {engineName}...",
                 CurrentDrive = PathHelper.GetDriveLetter(outputFolder)
             });
 
             // Pass the user-visible output name explicitly: the working copy may be a
             // temporary file, but the converted result must keep the original name.
-            var status = await _xisoSharpService.ConvertIsoAsync(sourcePath, outputFolder, outputFileName,
-                outputFormat, skipSystemUpdate, checkIntegrity, progress, token);
+            var status = outputFormat == OutputFormat.Chd
+                ? await _chdService.ConvertIsoToChdAsync(sourcePath, outputFolder, outputFileName, skipSystemUpdate,
+                    checkIntegrity, progress, token)
+                : await _xisoSharpService.ConvertIsoAsync(sourcePath, outputFolder, outputFileName,
+                    outputFormat, skipSystemUpdate, checkIntegrity, progress, token);
 
             if (status == FileProcessingStatus.AlreadyOptimized) return FileProcessingStatus.Skipped;
             if (status != FileProcessingStatus.Converted) return FileProcessingStatus.Failed;
@@ -743,7 +753,7 @@ public class OrchestratorService : IOrchestratorService
         if (File.Exists(imagePath)) return;
 
         var basePath = imagePath[..^".1.cso".Length];
-        for (var part = 2; ; part++)
+        for (var part = 2;; part++)
         {
             var partPath = $"{basePath}.{part}.cso";
             if (!File.Exists(partPath)) break;

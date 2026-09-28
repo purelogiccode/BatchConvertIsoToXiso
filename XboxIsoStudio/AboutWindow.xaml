@@ -85,7 +85,7 @@
                         Foreground="{StaticResource TextSecondaryBrush}"
                         TextWrapping="Wrap"
                         LineHeight="20"
-                        ToolTip="Key features: XISOSharp-powered batch conversion, ISO/CSO/ZAR integrity testing with deep scan, and an image explorer with drag-and-drop extraction" />
+                        ToolTip="Key features: XISOSharp-powered batch conversion to XISO/ZAR/CSO/CHD, ISO/CSO/ZAR/CHD integrity testing with deep scan, and an image explorer with drag-and-drop extraction" />
                 </StackPanel>
             </Border>
 
@@ -119,6 +119,16 @@
                                 XISOSharp
                             </Hyperlink>
                             <Run Text=" - XISO/XDVDFS reading, writing, and conversion library" Foreground="{StaticResource TextMutedBrush}" />
+                        </TextBlock>
+
+                        <TextBlock Margin="0,0,0,8" ToolTip="Visit CHDSharp on GitHub — CHD (Compressed Hunks of Data) reading and writing library">
+                            <Hyperlink NavigateUri="https://github.com/purelogiccode/CHDSharp"
+                                       RequestNavigate="Hyperlink_RequestNavigate"
+                                       Foreground="{StaticResource LinkTextBrush}"
+                                       TextDecorations="Underline">
+                                CHDSharp
+                            </Hyperlink>
+                            <Run Text=" - CHD reading, verification, and creation" Foreground="{StaticResource TextMutedBrush}" />
                         </TextBlock>
 
                         <TextBlock Margin="0,0,0,8" ToolTip="Visit SharpCompress on GitHub — high-performance archive extraction library">

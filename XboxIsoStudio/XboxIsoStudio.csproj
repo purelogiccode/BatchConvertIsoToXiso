@@ -49,6 +49,7 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
+        <PackageReference Include="CHDSharp" Version="1.4.3" />
         <PackageReference Include="SharpCompress" Version="0.50.4" />
         <PackageReference Include="XISOSharp" Version="1.4.0" />
         <PackageReference Include="ZArchiveSharp" Version="1.3.0" />

@@ -118,7 +118,7 @@ list and consider excluding the input/output folders from real-time scanning.
 ## Frequently Asked Questions
 
 **Which conversion engine is used?**
-All conversion is performed by the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library. See [Conversion Methods](Conversion-Methods.md) for how it works.
+All conversion is performed by the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library, with CHD output encoded by [CHDSharp](https://github.com/purelogiccode/CHDSharp). See [Conversion Methods](Conversion-Methods.md) for how it works.
 
 **Does the tool modify my source files?**
 Only when **Delete Originals** (Replace Originals) is enabled — and even then, originals are removed only after the converted file has been produced and verified.

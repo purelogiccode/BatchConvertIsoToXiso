@@ -1,4 +1,3 @@
-using XboxIsoStudio.Models;
 using XboxIsoStudio.Services;
 using XISOSharp;
 using Xunit;
@@ -56,6 +55,13 @@ public sealed class ImageExplorerTests : IDisposable
         return zarPath;
     }
 
+    private string CreateChd()
+    {
+        var isoPath = CreateXiso();
+        var chdPath = Path.Combine(_tempRoot, "game.chd");
+        return ChdTestHelper.CreateDvdChd(isoPath, chdPath);
+    }
+
     private void AssertImageExplorerWorks(string imagePath)
     {
         using var explorer = ImageExplorerFactory.Open(imagePath);
@@ -92,6 +98,44 @@ public sealed class ImageExplorerTests : IDisposable
     public void ZarImageExplorerListsAndCopiesFiles()
     {
         AssertImageExplorerWorks(CreateZar());
+    }
+
+    [Fact]
+    public void ChdImageExplorerListsAndCopiesFiles()
+    {
+        AssertImageExplorerWorks(CreateChd());
+    }
+
+    [Fact]
+    public void ChdImageExplorerCopiesDirectoriesRecursively()
+    {
+        var chdPath = CreateChd();
+        using var explorer = ImageExplorerFactory.Open(chdPath);
+
+        var dest = Path.Combine(_tempRoot, "media-out");
+        explorer.CopyOut("/media", dest);
+
+        Assert.True(File.Exists(Path.Combine(dest, "data.bin")));
+        Assert.Equal([1, 2, 3, 4, 5], File.ReadAllBytes(Path.Combine(dest, "data.bin")));
+    }
+
+    [Fact]
+    public void ChdImageExplorerMissingPathThrows()
+    {
+        var chdPath = CreateChd();
+        using var explorer = ImageExplorerFactory.Open(chdPath);
+
+        Assert.Throws<InvalidDataException>(() => explorer.ListChildren("/missing"));
+        Assert.Throws<InvalidDataException>(() => explorer.CopyOut("/missing", Path.Combine(_tempRoot, "x")));
+    }
+
+    [Fact]
+    public void ChdImageExplorerInvalidChdThrows()
+    {
+        var badChd = Path.Combine(_tempRoot, "bad.chd");
+        File.WriteAllText(badChd, "not a chd");
+
+        Assert.Throws<InvalidDataException>(() => ImageExplorerFactory.Open(badChd));
     }
 
     [Fact]

@@ -145,6 +145,21 @@ public sealed class XisoIntegrityServiceTests : IDisposable
         return zarPath;
     }
 
+    private string CreateChd(string name = "game.chd")
+    {
+        var isoPath = CreateOptimizedXiso($"{Path.GetFileNameWithoutExtension(name)}.iso");
+        var chdPath = Path.Combine(_tempRoot, name);
+        return ChdTestHelper.CreateDvdChd(isoPath, chdPath);
+    }
+
+    private string CreateNonDvdChd()
+    {
+        var rawPath = Path.Combine(_tempRoot, "raw.bin");
+        File.WriteAllBytes(rawPath, new byte[64 * 1024]);
+        var chdPath = Path.Combine(_tempRoot, "raw.chd");
+        return ChdTestHelper.CreateRawChd(rawPath, chdPath);
+    }
+
     [Fact]
     public async Task ValidCisoPassesStructuralTest()
     {
@@ -193,6 +208,77 @@ public sealed class XisoIntegrityServiceTests : IDisposable
 
         Assert.True(passed);
         Assert.True(_logger.HasMessage("ZAR deep scan completed successfully"));
+    }
+
+    [Fact]
+    public async Task ValidChdPassesStructuralTest()
+    {
+        var chdPath = CreateChd();
+        var service = CreateService();
+
+        var passed = await service.TestIsoIntegrityAsync(chdPath, false, new Progress<BatchOperationProgress>(),
+            CancellationToken.None);
+
+        Assert.True(passed);
+        Assert.True(_logger.HasMessage("CHD container is valid"));
+        Assert.True(_logger.HasMessage("Structure is valid"));
+    }
+
+    [Fact]
+    public async Task ValidChdPassesDeepScan()
+    {
+        var chdPath = CreateChd();
+        var service = CreateService();
+
+        var passed = await service.TestIsoIntegrityAsync(chdPath, true, new Progress<BatchOperationProgress>(),
+            CancellationToken.None);
+
+        Assert.True(passed);
+        Assert.True(_logger.HasMessage("CHD container is valid"));
+    }
+
+    [Fact]
+    public async Task NonDvdChdIsRejected()
+    {
+        var chdPath = CreateNonDvdChd();
+        var service = CreateService();
+
+        var passed = await service.TestIsoIntegrityAsync(chdPath, false, new Progress<BatchOperationProgress>(),
+            CancellationToken.None);
+
+        Assert.False(passed);
+        Assert.True(_logger.HasMessage("not a supported Xbox DVD image"));
+    }
+
+    [Fact]
+    public async Task CorruptChdFailsDeepScan()
+    {
+        var chdPath = CreateChd();
+
+        // Flip a byte in the compressed data so a hunk fails its CRC during verification.
+        var bytes = File.ReadAllBytes(chdPath);
+        bytes[bytes.Length / 2] ^= 0xFF;
+        File.WriteAllBytes(chdPath, bytes);
+
+        var service = CreateService();
+        var passed = await service.TestIsoIntegrityAsync(chdPath, true, new Progress<BatchOperationProgress>(),
+            CancellationToken.None);
+
+        Assert.False(passed);
+    }
+
+    [Fact]
+    public async Task InvalidChdFailsWithoutBugReport()
+    {
+        var badChd = Path.Combine(_tempRoot, "bad.chd");
+        File.WriteAllText(badChd, "this is not a chd image");
+        var service = CreateService();
+
+        var passed = await service.TestIsoIntegrityAsync(badChd, false, new Progress<BatchOperationProgress>(),
+            CancellationToken.None);
+
+        Assert.False(passed);
+        Assert.DoesNotContain(_logger.Events, e => e.Level >= LogEventLevel.Warning);
     }
 
     [Fact]

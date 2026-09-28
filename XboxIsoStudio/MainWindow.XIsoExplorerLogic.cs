@@ -20,8 +20,9 @@ public partial class MainWindow
     {
         var openFileDialog = new OpenFileDialog
         {
-            Filter = "Xbox images (*.iso;*.cso;*.zar)|*.iso;*.cso;*.zar|" +
+            Filter = "Xbox images (*.iso;*.cso;*.zar;*.chd)|*.iso;*.cso;*.zar;*.chd|" +
                      "Xbox ISO (*.iso)|*.iso|Compressed ISO (*.cso)|*.cso|ZAR archive (*.zar)|*.zar|" +
+                     "CHD image (*.chd)|*.chd|" +
                      "All files (*.*)|*.*",
             Title = "Select an Xbox image to explore"
         };

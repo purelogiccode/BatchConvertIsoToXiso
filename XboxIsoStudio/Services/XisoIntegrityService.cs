@@ -1,18 +1,23 @@
 using System.Buffers;
 using System.IO;
+using CHDSharp;
+using CHDSharp.Models;
 using XboxIsoStudio.Interfaces;
 using XboxIsoStudio.Models;
 using Serilog;
 using XISOSharp;
+using XISOSharp.Interfaces;
 using ZArchiveSharp;
 
 namespace XboxIsoStudio.Services;
 
 /// <summary>
-/// Validates Xbox images using the XISOSharp and ZArchiveSharp libraries: a deep
-/// structural audit of the XDVDFS directory tree (plain ISO and CISO) or the ZAR
-/// archive tree, plus an optional sequential surface/deep scan that reads all data
-/// (every sector or decompressed block) to detect media or decompression errors.
+/// Validates Xbox images using the XISOSharp, ZArchiveSharp and CHDSharp libraries: a deep
+/// structural audit of the XDVDFS directory tree (plain ISO, CISO and Xbox CHD images) or the
+/// ZAR archive tree, plus an optional sequential surface/deep scan that reads all data
+/// (every sector, decompressed block or CHD hunk) to detect media or decompression errors.
+/// CHD parsing is limited to Xbox DVD images; the CHD container is verified first and the
+/// filesystem structure is then audited over the decompressed image.
 /// </summary>
 public class XisoIntegrityService : IXisoIntegrityService
 {
@@ -35,6 +40,11 @@ public class XisoIntegrityService : IXisoIntegrityService
                 if (Path.GetExtension(isoPath).Equals(".zar", StringComparison.OrdinalIgnoreCase))
                 {
                     return TestZarIntegrity(isoPath, performDeepScan, progress, token);
+                }
+
+                if (Path.GetExtension(isoPath).Equals(".chd", StringComparison.OrdinalIgnoreCase))
+                {
+                    return TestChdIntegrity(isoPath, performDeepScan, progress, token);
                 }
 
                 _logger.Information("Starting structural integrity test for: {FileName}", fileName);
@@ -195,6 +205,132 @@ public class XisoIntegrityService : IXisoIntegrityService
         return true;
     }
 
+    /// <summary>
+    /// Validates a CHD (Compressed Hunks of Data) image. Parsing is limited to Xbox DVD
+    /// images: other CHD media (CD, GD-ROM, hard disk, laserdisc) are rejected. The CHD
+    /// container is verified first — header-only, or all hunks and hashes when
+    /// <paramref name="performDeepScan"/> is set — and the Xbox filesystem structure is
+    /// then audited over the decompressed image through XISOSharp.
+    /// </summary>
+    private bool TestChdIntegrity(string chdPath, bool performDeepScan,
+        IProgress<BatchOperationProgress> progress, CancellationToken token)
+    {
+        var fileName = Path.GetFileName(chdPath);
+        _logger.Information("Starting integrity test for CHD image: {FileName}", fileName);
+        _logger.Information(
+            "Note: This verifies the CHD container checksums and the Xbox filesystem structure.");
+
+        // Only Xbox DVD images are supported; reject CD/GD-ROM/hard-disk/unknown CHDs early.
+        // Child CHDs (which need a parent file) surface as an open error here.
+        var classifyError = Chd.Classify(chdPath, out var classification);
+        if (classifyError != ChdError.Chderrnone || !string.Equals(classification, "dvd", StringComparison.Ordinal))
+        {
+            var reason = classifyError != ChdError.Chderrnone
+                ? classifyError.GetMessage()
+                : classification ?? "unknown media type";
+            _logger.Information("CHD image is not a supported Xbox DVD image ({Reason}): {FileName}",
+                reason, fileName);
+            return false;
+        }
+
+        // 1. Container verification: header-only by default, every hunk plus checksums for a deep scan.
+        using (var stream = new FileStream(chdPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024))
+        {
+            var result = Chd.CheckFile(stream, fileName, performDeepScan,
+                performDeepScan ? CreateChdVerifyProgressAdapter(progress) : null, token);
+
+            if (!result.IsSuccess)
+            {
+                _logger.Information("CHD verification failed for {FileName}: {Error}", fileName,
+                    result.Error.GetMessage());
+                return false;
+            }
+
+            _logger.Information("CHD container is valid (V{Version}, SHA1: {Sha1}).", result.Version, result.Sha1Hex);
+        }
+
+        // 2. Xbox filesystem audit over the decompressed image.
+        _logger.Information("Validating Xbox filesystem structure...");
+        var openError = ChdFile.OpenAsStream(chdPath, out var chdStream, token);
+        if (openError != ChdError.Chderrnone || chdStream is null)
+        {
+            _logger.Information("Could not open CHD image for filesystem validation: {Error}",
+                openError.GetMessage());
+            return false;
+        }
+
+        using var device = new ChdBlockDevice(chdStream);
+        var audit = XisoReader.AuditXiso(device, fileName, requireOptimizedTag: false);
+
+        if (audit.Issues.Count > 0)
+        {
+            _logger.Information("Structural validation failed for {FileName}:", fileName);
+            foreach (var issue in audit.Issues)
+            {
+                _logger.Information("  - {Issue:l}", issue);
+            }
+
+            return false;
+        }
+
+        if (!audit.IsOptimized)
+        {
+            _logger.Information(
+                "Image is not optimized (raw ISO); the optimized tag is written during conversion.");
+        }
+
+        _logger.Information("Structure is valid ({FilesChecked} files, {DirsChecked} directories checked).",
+            audit.FilesChecked, audit.DirsChecked);
+        return true;
+    }
+
+    /// <summary>Reports CHD deep-verification progress at 5% steps.</summary>
+    private static IProgress<ChdProgress> CreateChdVerifyProgressAdapter(IProgress<BatchOperationProgress> progress)
+    {
+        var lastPercent = -1;
+        return new Progress<ChdProgress>(chdProgress =>
+        {
+            var percent = (int)chdProgress.Percent;
+            if (percent < lastPercent + 5 && percent < 100) return;
+
+            lastPercent = percent;
+            progress.Report(new BatchOperationProgress { StatusText = $"CHD verification: {percent}%" });
+        });
+    }
+
+    /// <summary>
+    /// Adapts a decompressed CHD image stream to XISOSharp's <see cref="IBlockDevice"/>
+    /// so the Xbox filesystem audit can run directly on the CHD contents. Disposing the
+    /// device disposes the underlying stream (and the CHD file handle it owns).
+    /// </summary>
+    private sealed class ChdBlockDevice : IBlockDevice
+    {
+        private readonly ChdImageStream _stream;
+
+        public ChdBlockDevice(ChdImageStream stream)
+        {
+            _stream = stream;
+        }
+
+        public long Length => _stream.Length;
+
+        public int Read(long offset, Span<byte> buffer)
+        {
+            _stream.Position = offset;
+            return _stream.Read(buffer);
+        }
+
+        public void Write(long offset, ReadOnlySpan<byte> buffer)
+        {
+            throw new NotSupportedException("CHD images are read-only.");
+        }
+
+        public void Dispose()
+        {
+            _stream.Dispose();
+        }
+    }
+
     /// <summary>A file discovered by the ZAR tree walk.</summary>
     private readonly record struct ZarFileEntry(uint Node, string Path, ulong Size);
 
@@ -211,6 +347,7 @@ public class XisoIntegrityService : IXisoIntegrityService
     /// the reader, mirroring its mount/host behavior.
     /// </summary>
     private static void WalkZarDirectory(ZArchiveReader reader, uint directoryNode, string directoryPath,
+        // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
         List<ZarFileEntry> files, ref int directoryCount, CancellationToken token, int depth = 0)
     {
         if (depth > MaxZarWalkDepth)

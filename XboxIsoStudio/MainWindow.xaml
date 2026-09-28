@@ -84,11 +84,12 @@
                         </Grid>
                         <Expander Grid.Row="2" Header="Options" Margin="0,5,0,10" Padding="10,8" IsExpanded="True" Style="{StaticResource CustomExpanderStyle}" ToolTip="Configure conversion behavior such as file deletion, subfolder search, and integrity checking. Click the header to collapse or expand.">
                             <StackPanel Orientation="Vertical">
-                                <StackPanel Orientation="Horizontal" Margin="0,2,0,4" ToolTip="Choose the output format: optimized XISO, ZAR (ZArchive/zstd), or CSO (compressed ISO)">
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,4" ToolTip="Choose the output format: optimized XISO, ZAR (ZArchive/zstd), CSO (compressed ISO), or CHD (Compressed Hunks of Data)">
                                     <Label Content="Output Format:" VerticalAlignment="Center" Padding="0,0,8,0" />
                                     <RadioButton x:Name="OutputFormatXisoRadio" Content="XISO" IsChecked="True" GroupName="OutputFormat" Margin="0,0,14,0" ToolTip="Optimized XISO image (.iso) — the standard trimmed Xbox image" />
                                     <RadioButton x:Name="OutputFormatZarRadio" Content="ZAR" GroupName="OutputFormat" Margin="0,0,14,0" ToolTip="ZArchive (.zar) — zstd-compressed image, loadable in Xenia canary" />
-                                    <RadioButton x:Name="OutputFormatCsoRadio" Content="CSO" GroupName="OutputFormat" ToolTip="Compressed ISO (.cso) — CISO v2 (LZ4), xdvdfs-compatible" />
+                                    <RadioButton x:Name="OutputFormatCsoRadio" Content="CSO" GroupName="OutputFormat" Margin="0,0,14,0" ToolTip="Compressed ISO (.cso) — CISO v2 (LZ4), xdvdfs-compatible" />
+                                    <RadioButton x:Name="OutputFormatChdRadio" Content="CHD" GroupName="OutputFormat" ToolTip="Compressed Hunks of Data (.chd) — CHD v5 with the chdman createdvd preset, readable by MAME-compatible tools" />
                                 </StackPanel>
                                 <CheckBox x:Name="DeleteOriginalsCheckBox" Content="Delete original files after successful conversion" Margin="0,2,0,2" HorizontalAlignment="Left" ToolTip="Deletes the original ISO/archive if conversion is successful. Use with caution!" Style="{StaticResource CustomCheckBoxStyle}" />
                                 <CheckBox x:Name="SearchSubfoldersConversionCheckBox" Content="Search for files in subfolders" Margin="0,8,0,8" HorizontalAlignment="Left" ToolTip="Include files found in subdirectories of the source folder" Style="{StaticResource CustomCheckBoxStyle}" Checked="SearchSubfoldersCheckBox_Changed" Unchecked="SearchSubfoldersCheckBox_Changed" />
@@ -125,8 +126,8 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Label Content="Image Folder:" ToolTip="The folder containing ISO, CSO, or ZAR files to test for structural integrity" />
-                            <TextBox x:Name="TestInputFolderTextBox" Grid.Column="1" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True" Margin="5,0" ToolTip="Select the folder containing ISO, CSO, or ZAR files to test" />
+                            <Label Content="Image Folder:" ToolTip="The folder containing ISO, CSO, ZAR, or CHD files to test for structural integrity" />
+                            <TextBox x:Name="TestInputFolderTextBox" Grid.Column="1" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True" Margin="5,0" ToolTip="Select the folder containing ISO, CSO, ZAR, or CHD files to test" />
                             <Button Grid.Column="2" Content="Browse..." Click="BrowseTestInputButton_Click" Style="{StaticResource ActionButtonStyle}" ToolTip="Browse for image folder" />
                         </Grid>
                         <Expander Grid.Row="1" Header="Options" Margin="0,5,0,5" Padding="10,8" IsExpanded="True" Style="{StaticResource CustomExpanderStyle}" ToolTip="Configure integrity test behavior such as file sorting and scan depth. Click the header to collapse or expand.">
@@ -134,11 +135,11 @@
                                 <CheckBox x:Name="MoveSuccessFilesCheckBox" Content="Move successfully tested images to a '_success' subfolder" Margin="0,5,0,0" HorizontalAlignment="Left" IsChecked="False" ToolTip="Moves valid images to a '_success' folder within the source folder" Style="{StaticResource CustomCheckBoxStyle}" />
                                 <CheckBox x:Name="MoveFailedFilesCheckBox" Content="Move failed tested images to a '_failed' subfolder" Margin="0,5,0,0" HorizontalAlignment="Left" IsChecked="False" ToolTip="Moves invalid images to a '_failed' folder within the source folder" Style="{StaticResource CustomCheckBoxStyle}" />
                                 <CheckBox x:Name="SearchSubfoldersTestCheckBox" Content="Search for files in subfolders" Margin="0,5,0,0" HorizontalAlignment="Left" IsChecked="True" ToolTip="Include files found in subdirectories of the source folder" Style="{StaticResource CustomCheckBoxStyle}" Checked="SearchSubfoldersCheckBox_Changed" Unchecked="SearchSubfoldersCheckBox_Changed" />
-                                <CheckBox x:Name="PerformDeepScanCheckBox" Content="Perform deep surface scan (slower)" Margin="0,5,0,5" HorizontalAlignment="Left" IsChecked="False" ToolTip="Reads the entire image (and decompresses every block for CSO/ZAR) to detect bad sectors or corrupt blocks. Unchecked performs the logical structure test only (faster)." Style="{StaticResource CustomCheckBoxStyle}" />
+                                <CheckBox x:Name="PerformDeepScanCheckBox" Content="Perform deep surface scan (slower)" Margin="0,5,0,5" HorizontalAlignment="Left" IsChecked="False" ToolTip="Reads the entire image (and decompresses every block for CSO/ZAR/CHD) to detect bad sectors or corrupt blocks. Unchecked performs the logical structure test only (faster)." Style="{StaticResource CustomCheckBoxStyle}" />
                             </StackPanel>
                         </Expander>
-                        <Label Grid.Row="2" Content="Select Files to Test:" Margin="0,5,0,0" FontWeight="SemiBold" ToolTip="Tick the ISO, CSO, or ZAR files to include in the integrity test" />
-                        <DataGrid x:Name="TestFilesDataGrid" Grid.Row="3" MinHeight="120" Margin="0,5" AutoGenerateColumns="False" Style="{StaticResource FileListDataGridStyle}" ToolTip="ISO, CSO, and ZAR files found in the folder. Untick any file you do not want to test.">
+                        <Label Grid.Row="2" Content="Select Files to Test:" Margin="0,5,0,0" FontWeight="SemiBold" ToolTip="Tick the ISO, CSO, ZAR, or CHD files to include in the integrity test" />
+                        <DataGrid x:Name="TestFilesDataGrid" Grid.Row="3" MinHeight="120" Margin="0,5" AutoGenerateColumns="False" Style="{StaticResource FileListDataGridStyle}" ToolTip="ISO, CSO, ZAR, and CHD files found in the folder. Untick any file you do not want to test.">
                             <DataGrid.Columns>
                                 <DataGridCheckBoxColumn Header="Selected" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="80" />
                                 <DataGridTextColumn Header="Filename" Binding="{Binding FileName}" Width="*" IsReadOnly="True" />
@@ -162,7 +163,7 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Label Content="Select Image File:" ToolTip="Choose an ISO, CSO, or ZAR file to browse its internal file system" />
+                            <Label Content="Select Image File:" ToolTip="Choose an ISO, CSO, ZAR, or CHD file to browse its internal file system" />
                             <TextBox x:Name="ExplorerFilePathTextBox" Grid.Column="1" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True" Margin="5,0" ToolTip="Select an Xbox image to explore its contents" />
                             <Button Content="Browse..." Grid.Column="2" Click="BrowseExplorerFile_Click" Style="{StaticResource ActionButtonStyle}" ToolTip="Browse for an Xbox image" />
                         </Grid>

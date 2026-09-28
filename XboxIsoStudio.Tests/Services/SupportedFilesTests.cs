@@ -56,6 +56,9 @@ public class SupportedFilesTests
     [InlineData("game.zar")]
     [InlineData("GAME.ZAR")]
     [InlineData(@"C:\folder\game.zar")]
+    [InlineData("game.chd")]
+    [InlineData("GAME.CHD")]
+    [InlineData(@"C:\folder\game.chd")]
     public void IsTestableSupportedImagesReturnsTrue(string path)
     {
         Assert.True(SupportedFiles.IsTestable(path));
@@ -73,5 +76,4 @@ public class SupportedFilesTests
     {
         Assert.False(SupportedFiles.IsTestable(path));
     }
-
 }

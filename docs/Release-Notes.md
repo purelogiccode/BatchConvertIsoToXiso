@@ -12,12 +12,51 @@
 
 | Version | Date | Summary |
 |:---|:---|:---|
+| [2.10.0 (unreleased)](#2100-unreleased) | — | CHDSharp integration: CHD output, Xbox CHD integrity testing, and CHD exploration |
 | [2.9.0](#290) | September 2026 | Serilog logging with automatic bug reporting; per-file selection lists; XISO/ZAR/CSO output formats; CUE/BIN support removed |
 | [2.8.0](#280) | September 2026 | XISOSharp migration: in-process conversion, integrity testing, and exploration; external engines removed |
 | [2.7.1](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.7.1) | July 2026 | Resource cleanup, cancellation, better error filtering |
 | [2.7.0](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.7.0) | June 2026 | Improved ISO compatibility, disk-space detection, cancellation and performance |
 | [2.6.1](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.6.1) | June 2026 | XGD1/XGD2/XGD3 partition offsets, dark-theme tooltip fix |
 | [2.6.0](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.6.0) | June 2026 | 7-Zip CLI fallback, multilingual network errors, disk-space handling |
+
+---
+
+## 2.10.0 (unreleased)
+
+> **The CHD release (in development).** [CHDSharp](https://github.com/purelogiccode/CHDSharp) is
+> integrated as a second in-process engine: Xbox and Xbox 360 ISOs can be converted to CHD v5, and
+> Xbox DVD CHD files can be integrity-tested and explored without extraction.
+
+### New Features
+
+- **CHD output format** — the Convert tab's Output Format selector gains **CHD** (`.chd`,
+  Compressed Hunks of Data). The optimized game partition is encoded by `ChdEncoder.EncodeRaw`
+  (CHDSharp) with the chdman `createdvd` preset — 4096-byte hunks, 2048-byte units, the
+  `lzma,zlib,huff,flac` codec list, and the `DVD ` metadata tag. Non-optimized (Redump) inputs are
+  rewritten to the game partition first, so `Skip $SystemUpdate` and `Delete Originals` work exactly
+  as they do for XISO/ZAR/CSO. `Check Output Integrity` deep-verifies the new CHD — every hunk is
+  decompressed and every checksum and hash is validated — before the conversion is reported as
+  successful.
+- **CHD integrity testing** — `.chd` files are testable, limited to Xbox DVD images. The container
+  is verified with `Chd.CheckFile` (header-only, or every hunk and checksum with `Perform Deep
+  Scan`), and the Xbox filesystem is audited over the decompressed image through XISOSharp
+  (`AuditXiso(IBlockDevice)`). CD/GD-ROM/hard-disk CHDs and differential child CHDs are rejected
+  with a clear message.
+- **CHD exploration** — the Explorer opens `.chd` files through a keep-open `ChdImageStream`
+  (hunks decompressed on demand) and lists and copies out entries with the XISOSharp stream APIs.
+  Both game-partition-only CHDs (produced by this app) and full Redump-image CHDs (produced by
+  `chdman createdvd`) are supported — partition offsets are auto-detected.
+
+### Internal
+
+- Added the **CHDSharp** 1.4.3 package (pure managed code, no native dependencies).
+- New `IChdService`/`ChdService` (conversion and deep verification), `ChdImageExplorer`,
+  `OutputFormat.Chd`, `.chd` filters in `SupportedFiles`, and a `ChdBlockDevice` adapter
+  (`IBlockDevice` over `ChdImageStream`) for the XISOSharp filesystem audit.
+- Tests for the new service (valid/optimized/non-optimized inputs, cancellation-safe cleanup,
+  invalid images), CHD integrity testing (valid, deep scan, non-DVD rejection, corruption), the CHD
+  explorer (listing, copy-out, missing paths, invalid files), and orchestrator CHD routing.
 
 ---
 

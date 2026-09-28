@@ -29,8 +29,8 @@ public static class SupportedFiles
 
     /// <summary>
     ///     Returns true when the path is an image the integrity test can verify:
-    ///     plain ISO, CISO (<c>.cso</c>, including the first part of a split set) or
-    ///     ZAR archive.
+    ///     plain ISO, CISO (<c>.cso</c>, including the first part of a split set),
+    ///     ZAR archive, or CHD image.
     /// </summary>
     public static bool IsTestable(string path)
     {
@@ -42,7 +42,7 @@ public static class SupportedFiles
         var extension = Path.GetExtension(path).ToLowerInvariant();
         return extension switch
         {
-            ".iso" or ".zar" => true,
+            ".iso" or ".zar" or ".chd" => true,
             ".cso" => !IsSplitContinuationPart(path),
             _ => false
         };

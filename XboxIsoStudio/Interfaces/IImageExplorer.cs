@@ -4,8 +4,9 @@ namespace XboxIsoStudio.Interfaces;
 
 /// <summary>
 /// A UI-agnostic explorer over one open image or archive: plain ISO and CISO
-/// (<c>.cso</c>) images via XISOSharp, ZAR archives via ZArchiveSharp. Internal
-/// paths use forward slashes and are case-insensitive; <c>"/"</c> is the root.
+/// (<c>.cso</c>) images via XISOSharp, ZAR archives via ZArchiveSharp, and CHD
+/// images via CHDSharp (decompressed on demand). Internal paths use forward
+/// slashes and are case-insensitive; <c>"/"</c> is the root.
 /// </summary>
 public interface IImageExplorer : IDisposable
 {

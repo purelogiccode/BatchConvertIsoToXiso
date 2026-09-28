@@ -8,7 +8,7 @@
 
 ---
 
-All conversion is performed in-process by the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library. No external conversion binaries are required or bundled. The Convert tab can produce optimized **XISO**, compressed **ZAR**, or compressed **CSO** output from the same packing pipeline.
+All conversion is performed in-process by the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library, with **[CHDSharp](https://github.com/purelogiccode/CHDSharp)** handling CHD output. No external conversion binaries are required or bundled. The Convert tab can produce optimized **XISO**, compressed **ZAR**, compressed **CSO**, or compressed **CHD** output from the same packing pipeline.
 
 ## How It Works
 
@@ -39,7 +39,7 @@ XISOSharp Output:
 ## Features
 
 - **Smallest output size** — files are packed tightly, with video partition and padding removed.
-- **No external tools** — the conversion engine ships inside the application.
+- **No external tools** — the conversion engines (XISOSharp and CHDSharp) ship inside the application.
 - **Redump-aware** — automatically detects XGD1/XGD2/XGD3 and hybrid partition offsets.
 - **Already-optimized files are skipped** — images carrying the optimized tag are not converted again.
 - **Optional `$SystemUpdate` skipping** for extra space savings.
@@ -48,18 +48,19 @@ XISOSharp Output:
 
 ## Output Formats
 
-The Convert tab can produce three output formats from the same optimized packing pipeline:
+The Convert tab can produce four output formats from the same optimized packing pipeline:
 
 | Format | Extension | Description |
 |:---|:---|:---|
 | **XISO** (default) | `.iso` | Optimized, tightly packed XISO image. Already-optimized inputs are skipped. |
 | **ZAR** | `.zar` | ZArchive: the game-partition file tree packed with pure-C# zstd (level 6, 64 KiB blocks, raw fallback for incompressible blocks). Byte-compatible with `zarchive.exe`/xboxkit, and Xenia canary loads it directly. |
 | **CSO** | `.cso` | CISO v2 (LZ4, byte-identical to `xdvdfs compress`), written as a single file. Redump/non-optimized inputs are first repacked to a temporary optimized XISO, then compressed. |
+| **CHD** | `.chd` | CHD v5 (Compressed Hunks of Data) written by CHDSharp with the chdman `createdvd` preset: 4096-byte hunks, 2048-byte units, and the `lzma,zlib,huff,flac` codec list. Redump/non-optimized inputs are first repacked to a temporary optimized XISO, then encoded with the `DVD ` metadata tag; the output is deep-verified against every hunk checksum. |
 
-**Skip $SystemUpdate** applies to all three formats: XISO and CSO omit the folder during the
-rewrite, and ZAR excludes it from the archive tree. **Check Output Integrity** audits the newly
-created XISO, or — for ZAR/CSO, which cannot be read by the XISO auditor — the source image that is
-about to be packed.
+**Skip $SystemUpdate** applies to all four formats: XISO, CSO, and CHD omit the folder during the
+rewrite, and ZAR excludes it from the archive tree. **Check Output Integrity** deep-verifies the
+newly created CHD (all hunks and hashes) and audits the newly created XISO; for ZAR/CSO, which
+cannot be read by the XISO auditor, the source image that is about to be packed is audited instead.
 
 ---
 

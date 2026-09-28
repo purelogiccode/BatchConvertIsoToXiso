@@ -153,7 +153,8 @@ public class OrchestratorServiceTests : IDisposable
         Mock<IFileExtractor> extractor,
         FileProcessingStatus conversionStatus,
         bool integrityResult = false,
-        Mock<IXisoSharpService>? xisoSharp = null)
+        Mock<IXisoSharpService>? xisoSharp = null,
+        Mock<IChdService>? chdService = null)
     {
         var logger = new TestLogger();
         var diskMonitor = new Mock<IDiskMonitorService>();
@@ -181,8 +182,17 @@ public class OrchestratorServiceTests : IDisposable
                 .ReturnsAsync(conversionStatus);
         }
 
+        if (chdService == null)
+        {
+            chdService = new Mock<IChdService>();
+            chdService.Setup(static s => s.ConvertIsoToChdAsync(It.IsAny<string>(), It.IsAny<string>(),
+                    It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(),
+                    It.IsAny<IProgress<BatchOperationProgress>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(conversionStatus);
+        }
+
         return new OrchestratorService(extractor.Object, fileMover.Object, logger.Logger,
-            integrity.Object, xisoSharp.Object, diskMonitor.Object);
+            integrity.Object, xisoSharp.Object, chdService.Object, diskMonitor.Object);
     }
 
     private static Task<CloudRetryResult> CloudRetrySkip(string fileName)
@@ -335,7 +345,8 @@ public class OrchestratorServiceTests : IDisposable
     [InlineData("game.cso")]
     [InlineData("game.1.cso")]
     [InlineData("game.zar")]
-    public async Task TestFilesAsyncTestsCsoAndZarImages(string fileName)
+    [InlineData("game.chd")]
+    public async Task TestFilesAsyncTestsCsoZarAndChdImages(string fileName)
     {
         var imagePath = CreateTempFile(fileName, "image data");
         var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(),
@@ -432,6 +443,35 @@ public class OrchestratorServiceTests : IDisposable
 
         Assert.Equal("game.cso", capturedName);
         Assert.Equal(OutputFormat.Cso, capturedFormat);
+    }
+
+    [Fact]
+    public async Task ConvertFilesAsyncChdOutputRoutesToChdServiceWithChdExtension()
+    {
+        var isoPath = CreateTempFile("game.iso", "iso data");
+        string? capturedName = null;
+        var chdService = new Mock<IChdService>();
+        chdService.Setup(static s => s.ConvertIsoToChdAsync(It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(),
+                It.IsAny<IProgress<BatchOperationProgress>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, string _, string outputName, bool _, bool _,
+                IProgress<BatchOperationProgress> _, CancellationToken _) =>
+            {
+                capturedName = outputName;
+                return FileProcessingStatus.Converted;
+            });
+
+        var xisoSharp = new Mock<IXisoSharpService>();
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), FileProcessingStatus.Converted,
+            xisoSharp: xisoSharp, chdService: chdService);
+
+        await orchestrator.ConvertFilesAsync([isoPath], Path.Combine(_tempDir, "out"), false, false, false,
+            OutputFormat.Chd, new Progress<BatchOperationProgress>(), CloudRetrySkip, CancellationToken.None);
+
+        Assert.Equal("game.chd", capturedName);
+        xisoSharp.Verify(static s => s.ConvertIsoAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<OutputFormat>(), It.IsAny<bool>(), It.IsAny<bool>(),
+            It.IsAny<IProgress<BatchOperationProgress>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     #endregion

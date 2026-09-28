@@ -45,7 +45,7 @@ dotnet run --project XboxIsoStudio
 
 ### Bundled Helper Tools
 
-XISO conversion is performed by the `XISOSharp` NuGet package — no conversion binaries are bundled. The application project still bundles Windows helper executables that are copied to the output directory on every build:
+XISO conversion is performed by the `XISOSharp` NuGet package and CHD encoding by the `CHDSharp` NuGet package — no conversion binaries are bundled. The application project still bundles Windows helper executables that are copied to the output directory on every build:
 
 - `7za.exe`, `7za_arm64.exe` — 7-Zip CLI fallback for archive extraction
 

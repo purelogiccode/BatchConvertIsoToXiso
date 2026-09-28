@@ -239,6 +239,9 @@ public partial class App
         services.AddSingleton<IXisoSharpService>(static provider =>
             new XisoSharpService(provider.GetRequiredService<ILogger>(),
                 provider.GetRequiredService<IDiskMonitorService>()));
+        services.AddSingleton<IChdService>(static provider =>
+            new ChdService(provider.GetRequiredService<ILogger>(),
+                provider.GetRequiredService<IXisoSharpService>()));
         services.AddSingleton<IXisoIntegrityService>(static provider =>
             new XisoIntegrityService(provider.GetRequiredService<ILogger>()));
         services.AddSingleton<IOrchestratorService, OrchestratorService>();

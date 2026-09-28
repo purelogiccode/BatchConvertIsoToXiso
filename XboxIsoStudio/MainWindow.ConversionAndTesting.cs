@@ -40,7 +40,7 @@ public partial class MainWindow
 
     private void BrowseTestInputButton_Click(object sender, RoutedEventArgs e)
     {
-        var inputFolder = SelectFolder("Select the folder containing ISO, CSO, or ZAR files to test");
+        var inputFolder = SelectFolder("Select the folder containing ISO, CSO, ZAR, or CHD files to test");
         if (string.IsNullOrEmpty(inputFolder)) return;
 
         if (CheckForTempPath.IsSystemTempPath(inputFolder))
@@ -187,7 +187,9 @@ public partial class MainWindow
                 ? OutputFormat.Xiso
                 : OutputFormatZarRadio.IsChecked == true
                     ? OutputFormat.Zar
-                    : OutputFormat.Cso;
+                    : OutputFormatCsoRadio.IsChecked == true
+                        ? OutputFormat.Cso
+                        : OutputFormat.Chd;
 
             await _orchestratorService.ConvertFilesAsync(
                 selectedFiles, outputFolder,

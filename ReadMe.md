@@ -21,7 +21,7 @@
 [![Code analyzers](https://img.shields.io/badge/analyzers-Meziantou%20%7C%20Roslynator-blueviolet)](docs/Architecture.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/Repository.md#contributing)
 
-A high-performance Windows WPF utility for the Xbox preservation and emulation community. Convert, verify, and explore Xbox and Xbox 360 images (ISO, CSO, and ZAR), powered by the XISOSharp library.
+A high-performance Windows WPF utility for the Xbox preservation and emulation community. Convert, verify, and explore Xbox and Xbox 360 images (ISO, CSO, ZAR, and CHD), powered by the XISOSharp and CHDSharp libraries.
 
 ---
 
@@ -44,7 +44,7 @@ A high-performance Windows WPF utility for the Xbox preservation and emulation c
 
 ## Overview
 
-**Xbox ISO Studio** streamlines the process of converting standard Xbox and Xbox 360 ISOs into the optimized, trimmed **XISO** format. All encoding and decoding is delegated to the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library, which repacks the XDVDFS game partition, delivering superior performance and modern features like real-time disk write monitoring.
+**Xbox ISO Studio** streamlines the process of converting standard Xbox and Xbox 360 ISOs into the optimized, trimmed **XISO** format (or compressed ZAR, CSO, and CHD images). Encoding and decoding is delegated to the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library, which repacks the XDVDFS game partition, and to **[CHDSharp](https://github.com/purelogiccode/CHDSharp)** for CHD compression, delivering superior performance and modern features like real-time disk write monitoring.
 
 Whether you're managing a large collection of Xbox game backups or verifying the integrity of your dumps, this application provides a user-friendly interface with powerful batch processing capabilities.
 
@@ -91,8 +91,8 @@ Read the full [What's New](WhatsNew.md) or browse the [Release Notes](docs/Relea
 ## Key Features
 
 ### 🔄 Batch Conversion
-- **XISOSharp Engine**: All conversion is performed in-process by the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library — no external conversion binaries required
-- **Output Formats**: Optimized **XISO** (`.iso`), **ZAR** (`.zar`, ZArchive/zstd — Xenia canary loads it directly), or **CSO** (`.cso`, CISO v2/LZ4) — selected per batch on the Convert tab
+- **In-Process Engine**: All conversion is performed in-process by [XISOSharp](https://github.com/purelogiccode/XISOSharp) for XISO/ZAR/CSO and by [CHDSharp](https://github.com/purelogiccode/CHDSharp) for CHD — no external conversion binaries required
+- **Output Formats**: Optimized **XISO** (`.iso`), **ZAR** (`.zar`, ZArchive/zstd — Xenia canary loads it directly), **CSO** (`.cso`, CISO v2/LZ4), or **CHD** (`.chd`, CHD v5 with the chdman `createdvd` preset) — selected per batch on the Convert tab
 - **Smart Processing**: Removes video partitions and padding, converting Redump ISOs to playable XISO format
 - **Archive Support**: Process `.zip`, `.7z`, and `.rar` files directly with high-performance extraction via SharpCompress, with automatic 7-Zip CLI fallback for complex `.7z` archives
 - **Encrypted Archive Detection**: Automatically detects password-protected archives and provides clear guidance for manual extraction, preventing cryptic extraction failures
@@ -100,13 +100,13 @@ Read the full [What's New](WhatsNew.md) or browse the [Release Notes](docs/Relea
 - **Skip Already Optimized**: Images that already carry the optimized XISO tag are detected and skipped
 
 ### ✅ Integrity Testing
-- **Structural Validation**: Deep traversal of the XDVDFS file tree (ISO and CSO) or the ZAR archive tree to ensure file system validity
-- **Deep Surface Scan**: Optional sequential read of the entire image — every sector for ISO/CSO, every decompressed block for ZAR — to detect physical data corruption or bad sectors
-- **All Output Formats**: Test the optimized `.iso`, `.cso`, and `.zar` files this app produces (split `.1.cso` part sets are recognized too)
+- **Structural Validation**: Deep traversal of the XDVDFS file tree (ISO, CSO, and the Xbox filesystem inside CHD images) or the ZAR archive tree to ensure file system validity
+- **Deep Surface Scan**: Optional sequential read of the entire image — every sector for ISO/CSO, every decompressed block for ZAR, every CHD hunk and checksum for CHD — to detect physical data corruption or bad sectors
+- **All Output Formats**: Test the optimized `.iso`, `.cso`, `.zar`, and `.chd` files this app produces (split `.1.cso` part sets are recognized too)
 - **Batch Organization**: Automatically organize "Passed" or "Failed" images into dedicated subfolders
 
 ### 🔍 Image Explorer
-- **Native Browsing**: Open any Xbox ISO, CSO, or ZAR to browse files and directories without extraction
+- **Native Browsing**: Open any Xbox ISO, CSO, ZAR, or CHD to browse files and directories without extraction
 - **Metadata View**: View file sizes, attributes, and directory structures directly in the UI
 - **Double-Click to Open**: Open files directly from the image with their default associated applications
 - **Drag & Drop Extraction**: Drag files out of the explorer to extract them to any folder (Windows Explorer, Desktop, etc.)
@@ -152,13 +152,13 @@ No installation required – the application is fully portable.
 
 ### Testing Image Integrity
 1. Switch to the **"Test Integrity"** tab
-2. Select your input folder containing `.iso`, `.cso`, or `.zar` files
+2. Select your input folder containing `.iso`, `.cso`, `.zar`, or `.chd` files
 3. Enable **"Move Passed Files"** and/or **"Move Failed Files"** to organize results
 4. Click **"Start Integrity Test"** to begin validation
 
 ### Exploring Image Contents
 1. Switch to the **"Explorer"** tab
-2. Click **"Browse..."** and select an Xbox `.iso`, `.cso`, or `.zar` file
+2. Click **"Browse..."** and select an Xbox `.iso`, `.cso`, `.zar`, or `.chd` file
 3. Browse the file tree to view contents without extraction
 4. **Open Files**: Double-click any file to open it with its default application
 5. **Extract Files**: Drag and drop files from the explorer to Windows Explorer, Desktop, or any folder to extract them
@@ -167,7 +167,7 @@ No installation required – the application is fully portable.
 
 ## Conversion Engine
 
-All conversion is performed by the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library:
+All conversion is performed by the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library, with CHD output encoded by **[CHDSharp](https://github.com/purelogiccode/CHDSharp)**:
 
 - **Approach**: Repack — reads the XDVDFS game partition and writes a new optimized XISO with files packed tightly together
 - **Output Size**: Smallest — video partition, padding, and inter-file gaps are removed
@@ -200,9 +200,9 @@ XISOSharp Output:
 | Operation      | Supported Formats                              |
 |:---------------|:-----------------------------------------------|
 | **Conversion** | `.iso` (Redump or optimized XISO), `.zip`, `.7z`, `.rar` |
-| **Output**     | `.iso` (XISO), `.zar` (ZAR), `.cso` (CSO)      |
-| **Testing**    | `.iso`, `.cso` (CISO, incl. split `.1.cso` part sets), `.zar` (ZAR) |
-| **Explorer**   | `.iso`, `.cso` (CISO), `.zar` (ZAR)            |
+| **Output**     | `.iso` (XISO), `.zar` (ZAR), `.cso` (CSO), `.chd` (CHD) |
+| **Testing**    | `.iso`, `.cso` (CISO, incl. split `.1.cso` part sets), `.zar` (ZAR), `.chd` (Xbox DVD CHDs) |
+| **Explorer**   | `.iso`, `.cso` (CISO), `.zar` (ZAR), `.chd` (Xbox DVD CHDs) |
 
 ---
 
@@ -217,7 +217,7 @@ Utilizes `Microsoft.Extensions.DependencyInjection` for comprehensive service ma
 Logging runs through a single [Serilog](https://serilog.net/) pipeline with three sinks: the on-screen log viewer (`UiLogSink`), a rolling daily file log (`%LocalAppData%\XboxIsoStudio\logs`), and a bug-report sink (`BugReportSink`) that forwards every **Warning-or-higher** event to the Bug Report API. Reports include complete environment, error, and exception sections; expected user/environmental errors are logged at Information level so they never generate noise.
 
 ### Testing
-A comprehensive [xUnit](https://xunit.net/) test suite (`XboxIsoStudio.Tests`) covers models, services, and image services with 340+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
+A comprehensive [xUnit](https://xunit.net/) test suite (`XboxIsoStudio.Tests`) covers models, services, and image services with 350+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
 
 ### Technical Documentation
 For a deep dive into the XDVDFS format, binary file structures, and the conversion algorithm, see the [XDVDFS Technical Documentation](docs/XDVDFS-Technical-Documentation.md). The full documentation (including installation, usage, troubleshooting, architecture, and [release notes](docs/Release-Notes.md)) lives in the [docs folder](docs/index.md) and doubles as the repository wiki. Highlights of the latest release are summarized in [What's New](WhatsNew.md).
@@ -251,7 +251,8 @@ For a deep dive into the XDVDFS format, binary file structures, and the conversi
 
 ## Acknowledgements
 
-- **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** - XISO/XDVDFS reading, writing, and conversion library that powers all conversion, integrity testing, and exploration
+- **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** - XISO/XDVDFS reading, writing, and conversion library that powers XISO/ZAR/CSO conversion, integrity testing, and exploration
+- **[CHDSharp](https://github.com/purelogiccode/CHDSharp)** - CHD (Compressed Hunks of Data) reading, verification, and creation, used for CHD output and Xbox CHD testing/exploration
 - **[Serilog](https://serilog.net/)** - Structured logging pipeline (log viewer, rolling file log, and bug report sinks)
 - **[SharpCompress](https://github.com/adamhathcock/sharpcompress)** - High-performance archive extraction
 
