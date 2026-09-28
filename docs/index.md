@@ -92,3 +92,7 @@ Whether you are managing a large collection of game backups, preparing files for
 ---
 
 *If you find this tool useful, please give the repository a star on GitHub!*
+
+---
+
+*This documentation is published automatically to the [GitHub wiki](https://github.com/purelogiccode/BatchConvertIsoToXiso/wiki) and [GitHub Pages](https://purelogiccode.github.io/BatchConvertIsoToXiso/) on every change.*
