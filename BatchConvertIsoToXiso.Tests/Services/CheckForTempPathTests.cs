@@ -29,8 +29,16 @@ public class CheckForTempPathTests
     }
 
     [Fact]
-    public void IsSystemTempPathWithCurrentDirectoryReturnsFalse()
+    public void IsSystemTempPathWithParentOfTempPathReturnsFalse()
     {
-        Assert.False(CheckForTempPath.IsSystemTempPath(Environment.CurrentDirectory));
+        // Use the temp path's parent instead of the current directory: CI runners may
+        // run the tests from a folder inside the temp tree, which would make the
+        // assertion meaningless (and environment-dependent).
+        var tempPath = Path.GetFullPath(Path.GetTempPath())
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var parent = Directory.GetParent(tempPath)?.FullName;
+        if (parent == null) return; // temp path is a drive root; nothing outside to test
+
+        Assert.False(CheckForTempPath.IsSystemTempPath(parent));
     }
 }
