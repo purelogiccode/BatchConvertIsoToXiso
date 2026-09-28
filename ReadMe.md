@@ -66,13 +66,13 @@ Read the full [What's New](WhatsNew.md) or browse the [Release Notes](docs/Relea
 
 ## Screenshots
 
-![Convert Tab](Screenshot.png)
+![Convert Tab](screenshot.png)
 *Batch conversion interface with real-time progress monitoring*
 
-![Test Tab](Screenshot2.png)
+![Test Tab](screenshot2.png)
 *ISO integrity testing with batch organization*
 
-![Explorer Tab](Screenshot3.png)
+![Explorer Tab](screenshot3.png)
 *XISO file browser*
 
 ---
