@@ -101,6 +101,15 @@ The `docs/` folder doubles as the repository wiki:
 
 When adding features, please update the relevant documentation pages in the same pull request.
 
+## Continuous Integration
+
+| Workflow | Trigger | Purpose |
+|:---|:---|:---|
+| **CI** (`.github/workflows/ci.yml`) | Push / PR to `master` | Restores, builds in Release, runs the xUnit suite, and uploads portable `win-x64` / `win-arm64` publish artifacts |
+| **Update Wiki** (`.github/workflows/wiki.yml`) | Push to `docs/**` (or manual) | Copies the documentation into the GitHub wiki and rewrites internal links. Requires a `WIKI_TOKEN` repository secret (PAT with `repo` scope); skips with a notice when the secret is absent |
+
+**GitHub Pages** is built automatically by GitHub from the `master` branch `/docs` folder and is published at <https://purelogiccode.github.io/BatchConvertIsoToXiso/> — no workflow is required for it.
+
 ## License
 
 This project is licensed under the **GNU General Public License v3.0** — see [LICENSE.txt](https://github.com/purelogiccode/BatchConvertIsoToXiso/blob/master/LICENSE.txt) for the full text. By contributing, you agree that your contributions are licensed under the same license.

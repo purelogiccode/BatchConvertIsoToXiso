@@ -1,0 +1,70 @@
+name: Update Wiki
+
+# The docs/ folder doubles as the GitHub wiki. GitHub Pages is built automatically
+# by GitHub from the master branch /docs folder; this workflow keeps the wiki in sync.
+#
+# Requirements: add a repository secret named WIKI_TOKEN containing a personal access
+# token with the "repo" scope (the default GITHUB_TOKEN cannot push to the wiki repo).
+# When WIKI_TOKEN is not configured the workflow skips itself with a notice.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync docs to GitHub Wiki
+    runs-on: ubuntu-latest
+    env:
+      WIKI_TOKEN: ${{ secrets.WIKI_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for WIKI_TOKEN
+        id: token
+        run: |
+          if [ -z "$WIKI_TOKEN" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::WIKI_TOKEN is not set. Add a PAT with 'repo' scope as WIKI_TOKEN to enable wiki sync."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Clone wiki
+        if: steps.token.outputs.enabled == 'true'
+        run: git clone "https://x-access-token:${WIKI_TOKEN}@github.com/${{ github.repository }}.wiki.git" wiki
+
+      - name: Sync docs into wiki
+        if: steps.token.outputs.enabled == 'true'
+        working-directory: wiki
+        run: |
+          rm -f *.md
+          cp ../docs/*.md .
+          mv index.md Home.md
+          # Wiki links do not use the .md suffix; rewrite internal links.
+          sed -i -E 's/\]\(([A-Za-z0-9_-]+)\.md([)#])/](\1\2/g' *.md
+          sed -i -E 's/\]\(index([)#])/](Home\1/g' *.md
+          echo "Remaining .md links (expected: none):"
+          grep -RoE '\]\([^)]+\.md[^)]*\)' *.md || true
+
+      - name: Commit and push wiki
+        if: steps.token.outputs.enabled == 'true'
+        working-directory: wiki
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Wiki is already up to date."
+          else
+            git commit -m "docs: sync wiki from docs/ (${GITHUB_SHA})"
+            git push
+          fi

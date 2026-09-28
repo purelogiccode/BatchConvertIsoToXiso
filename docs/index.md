@@ -49,9 +49,9 @@ Whether you are managing a large collection of game backups, preparing files for
 
 | | |
 |---|---|
-| ![Convert Tab](../screenshot.png) | ![Test Tab](../screenshot2.png) |
+| ![Convert Tab](https://raw.githubusercontent.com/purelogiccode/BatchConvertIsoToXiso/master/screenshot.png) | ![Test Tab](https://raw.githubusercontent.com/purelogiccode/BatchConvertIsoToXiso/master/screenshot2.png) |
 | *Batch conversion with real-time monitoring* | *Integrity testing with batch organization* |
-| ![Explorer Tab](../screenshot3.png) | |
+| ![Explorer Tab](https://raw.githubusercontent.com/purelogiccode/BatchConvertIsoToXiso/master/screenshot3.png) | |
 | *XISO file browser* | |
 
 ---
@@ -70,7 +70,7 @@ Whether you are managing a large collection of game backups, preparing files for
 | [Building from Source](Building-from-Source.md) | Prerequisites, build, and test instructions |
 | [Repository](Repository.md) | Repository layout, releases, contributing, and license |
 | [Release Notes](Release-Notes.md) | Version history and detailed release notes |
-| [What's New](../WhatsNew.md) | Highlights of the latest release |
+| [What's New](https://github.com/purelogiccode/BatchConvertIsoToXiso/blob/master/WhatsNew.md) | Highlights of the latest release |
 
 ---
 

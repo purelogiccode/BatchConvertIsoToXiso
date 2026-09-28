@@ -91,7 +91,7 @@
 ### Documentation
 
 - Documentation reorganized into the [docs folder](index.md) and published as the repository wiki.
-- New [What's New](../WhatsNew.md) and Release Notes pages.
+- New [What's New](https://github.com/purelogiccode/BatchConvertIsoToXiso/blob/master/WhatsNew.md) and Release Notes pages.
 - Release ZIPs now include `LICENSE.txt`, `ReadMe.md`, and `WhatsNew.md` alongside the application and bundled tools.
 - [Repository](Repository.md), [Architecture](Architecture.md), [Conversion Methods](Conversion-Methods.md),
   [Usage Guide](Usage-Guide.md), [Installation](Installation.md), and

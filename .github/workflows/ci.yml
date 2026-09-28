@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build & Test (windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore CSharp_BatchConvertIsoToXiso.sln
+
+      - name: Build (Release)
+        run: dotnet build CSharp_BatchConvertIsoToXiso.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test CSharp_BatchConvertIsoToXiso.sln -c Release --no-build --logger "console;verbosity=minimal"
+
+      - name: Publish win-x64
+        if: github.event_name != 'pull_request'
+        run: dotnet publish BatchConvertIsoToXiso -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o artifacts/win-x64
+
+      - name: Publish win-arm64
+        if: github.event_name != 'pull_request'
+        run: dotnet publish BatchConvertIsoToXiso -c Release -r win-arm64 --self-contained false -p:PublishSingleFile=true -o artifacts/win-arm64
+
+      - name: Upload win-x64 artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-x64
+          path: artifacts/win-x64
+          if-no-files-found: error
+
+      - name: Upload win-arm64 artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-arm64
+          path: artifacts/win-arm64
+          if-no-files-found: error
