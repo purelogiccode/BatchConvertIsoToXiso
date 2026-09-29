@@ -3,6 +3,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Models;
 
+/// <summary>Tests <c>XisoExplorerItem</c> defaults, folder/file type resolution, and property initialization.</summary>
 public class XisoExplorerItemTests
 {
     [Fact]

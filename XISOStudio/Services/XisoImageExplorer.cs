@@ -15,7 +15,13 @@ internal sealed class XisoImageExplorer : IImageExplorer
     private readonly XisoExplorer _explorer;
     private readonly ILogger? _logger;
 
-    public XisoImageExplorer(string imagePath, ILogger? logger = null)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="XisoImageExplorer"/> class and opens the
+    /// image in keep-open mode.
+    /// </summary>
+    /// <param name="imagePath">Path of the ISO or CISO image to explore.</param>
+    /// <param name="logger">Optional logger used for diagnostics.</param>
+    internal XisoImageExplorer(string imagePath, ILogger? logger = null)
     {
         _logger = logger?.ForContext<XisoImageExplorer>();
         _explorer = new XisoExplorer(imagePath, new XisoExplorerOptions { KeepOpen = true });

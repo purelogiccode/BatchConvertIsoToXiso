@@ -117,6 +117,9 @@ public class FileMoverService : IFileMover
     /// Returns true when the source and destination resolve to different volumes (or when
     /// either root cannot be determined, in which case the space check is kept as a guard).
     /// </summary>
+    /// <param name="sourceFile">Path of the file being moved.</param>
+    /// <param name="destinationFolder">Folder that receives the file.</param>
+    /// <returns><c>true</c> when the paths resolve to different volumes; otherwise <c>false</c>.</returns>
     private bool IsCrossVolumeMove(string sourceFile, string destinationFolder)
     {
         try
@@ -145,6 +148,8 @@ public class FileMoverService : IFileMover
     /// drive mount point is used instead; this keeps the free-space guard active for moves
     /// between mount points (for example /tmp to a mounted USB drive).
     /// </summary>
+    /// <param name="path">Path whose containing volume or mount point is resolved.</param>
+    /// <returns>The volume root or longest matching mount point, or <c>null</c> when none can be determined.</returns>
     private static string? GetVolumeRoot(string path)
     {
         var fullPath = Path.GetFullPath(path);
@@ -184,6 +189,11 @@ public class FileMoverService : IFileMover
     /// Moves a file with retry logic and exponential backoff for transient errors
     /// (file locked by another process, network issues, etc.).
     /// </summary>
+    /// <param name="source">Path of the file to move.</param>
+    /// <param name="dest">Destination path of the file.</param>
+    /// <param name="fileName">File name used in log messages.</param>
+    /// <param name="isNetworkOperation">Whether either path is on a network share, which selects the retry reason.</param>
+    /// <param name="token">Cancellation token for the operation.</param>
     private async Task MoveFileWithRetryAsync(string source, string dest, string fileName, bool isNetworkOperation,
         CancellationToken token)
     {

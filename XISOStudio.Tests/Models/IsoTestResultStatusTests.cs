@@ -3,6 +3,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Models;
 
+/// <summary>Tests the numeric values of the <c>IsoTestResultStatus</c> enum members.</summary>
 public class IsoTestResultStatusTests
 {
     [Fact]

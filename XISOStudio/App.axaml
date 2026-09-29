@@ -57,12 +57,10 @@
         <!-- Teal/Cyan as primary - complements the green terminal -->
         <SolidColorBrush x:Key="PrimaryAccentBrush" Color="#00bcd4"/>
         <SolidColorBrush x:Key="PrimaryAccentHoverBrush" Color="#00e5ff"/>
-        <SolidColorBrush x:Key="PrimaryAccentDarkBrush" Color="#008ba3"/>
 
         <!-- Secondary accent - Soft Green (harmonizes with terminal) -->
         <SolidColorBrush x:Key="SecondaryAccentBrush" Color="#4caf50"/>
         <SolidColorBrush x:Key="SecondaryAccentHoverBrush" Color="#66bb6a"/>
-        <SolidColorBrush x:Key="SecondaryAccentDarkBrush" Color="#388e3c"/>
 
         <!-- ==================== BUTTON COLORS ==================== -->
         <!-- Action Button (Teal) -->
@@ -83,12 +81,10 @@
         <!-- About/Info Button (Purple - complementary to teal) -->
         <SolidColorBrush x:Key="AboutButtonBrush" Color="#7c4dff"/>
         <SolidColorBrush x:Key="AboutButtonHoverBrush" Color="#9e7bff"/>
-        <SolidColorBrush x:Key="AboutButtonPressedBrush" Color="#5e35b1"/>
 
         <!-- Exit Button (Slate Gray) -->
         <SolidColorBrush x:Key="ExitButtonBrush" Color="#7c4dff"/>
         <SolidColorBrush x:Key="ExitButtonHoverBrush" Color="#9e7bff"/>
-        <SolidColorBrush x:Key="ExitButtonPressedBrush" Color="#5e35b1"/>
 
         <!-- Disabled State -->
         <SolidColorBrush x:Key="DisabledButtonBrush" Color="#3d454f"/>
@@ -504,8 +500,7 @@
                                     </ControlTemplate>
                                 </ToggleButton.Template>
                             </ToggleButton>
-                            <ContentPresenter Name="ExpandSite"
-                                              Grid.Row="1"
+                            <ContentPresenter Grid.Row="1"
                                               Margin="{TemplateBinding Padding}"
                                               HorizontalAlignment="Stretch"
                                               VerticalAlignment="Stretch"

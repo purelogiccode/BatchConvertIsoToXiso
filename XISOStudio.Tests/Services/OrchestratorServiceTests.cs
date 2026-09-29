@@ -6,6 +6,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests batch conversion and integrity-test orchestration, including archive cleanup and output naming, in <c>OrchestratorService</c>.</summary>
 public class OrchestratorServiceTests : IDisposable
 {
     private readonly string _tempDir = Path.Combine(Path.GetTempPath(), $"OrchestratorTests_{Guid.NewGuid():N}");

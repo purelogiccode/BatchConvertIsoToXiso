@@ -71,6 +71,14 @@ public class BugReportService : IBugReportService
         return SendToApiAsync(sb.ToString(), version, exception);
     }
 
+    /// <summary>
+    /// Posts a fully assembled report to the Bug Report API and reports whether the call
+    /// succeeded.
+    /// </summary>
+    /// <param name="fullMessage">Complete report body, including the environment details.</param>
+    /// <param name="version">Application version included in the payload.</param>
+    /// <param name="exception">Exception that triggered the report, or <c>null</c> when there is none.</param>
+    /// <returns><c>true</c> when the API accepted the report; otherwise <c>false</c>.</returns>
     private async Task<bool> SendToApiAsync(string fullMessage, string version, Exception? exception)
     {
         try
@@ -107,6 +115,12 @@ public class BugReportService : IBugReportService
         }
     }
 
+    /// <summary>
+    /// Builds the full report body by appending the message after the environment details
+    /// and error header, unless the message already contains environment details.
+    /// </summary>
+    /// <param name="message">Report message to enrich.</param>
+    /// <returns>The complete report body.</returns>
     internal static string BuildFullMessage(string message)
     {
         if (message.Contains("=== Environment Details ===", StringComparison.OrdinalIgnoreCase))
@@ -123,7 +137,11 @@ public class BugReportService : IBugReportService
         return sb.ToString();
     }
 
-    internal static void AppendEnvironmentDetails(StringBuilder sb)
+    /// <summary>
+    /// Appends the environment details block to the report builder.
+    /// </summary>
+    /// <param name="sb">Report builder that receives the environment details.</param>
+    private static void AppendEnvironmentDetails(StringBuilder sb)
     {
         sb.AppendLine("=== Environment Details ===");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Date: {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}");
@@ -144,6 +162,7 @@ public class BugReportService : IBugReportService
     /// Returns the platform-specific label for the operating system version line, so a
     /// report from Linux or macOS is not mislabeled as a Windows version.
     /// </summary>
+    /// <returns>Label matching the current operating system.</returns>
     internal static string GetPlatformVersionLabel()
     {
         if (OperatingSystem.IsWindows()) return "Windows Version";
@@ -152,6 +171,11 @@ public class BugReportService : IBugReportService
         return "OS Platform Version";
     }
 
+    /// <summary>
+    /// Returns the operating system version, falling back to the full OS description when
+    /// the reported version is 0.0.0.0.
+    /// </summary>
+    /// <returns>Platform version string included in the environment details.</returns>
     private static string GetPlatformVersion()
     {
         var version = Environment.OSVersion.Version;
@@ -161,6 +185,11 @@ public class BugReportService : IBugReportService
         return version == new Version(0, 0, 0, 0) ? Environment.OSVersion.ToString() : version.ToString();
     }
 
+    /// <summary>
+    /// Builds a short OS and bitness summary, truncated to the maximum length accepted by
+    /// the API.
+    /// </summary>
+    /// <returns>Environment summary no longer than 50 characters.</returns>
     private static string GetEnvironmentSummary()
     {
         var bitness = Environment.Is64BitProcess ? "64-bit" : "32-bit";

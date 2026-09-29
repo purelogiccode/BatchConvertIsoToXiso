@@ -4,6 +4,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests retry-based temp directory deletion and orphaned work directory discovery in <c>TempFolderCleanupHelper</c>.</summary>
 public class TempFolderCleanupHelperTests
 {
     [Fact]

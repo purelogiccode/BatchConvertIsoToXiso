@@ -3,6 +3,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests the startup instruction output produced by <c>DisplayInstructions</c>.</summary>
 public class DisplayInstructionsTests
 {
     [Fact]

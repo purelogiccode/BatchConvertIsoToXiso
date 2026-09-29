@@ -365,21 +365,18 @@ public class App : Application
 
     /// <summary>
     /// Sends a bug report directly (bypassing the Serilog sink) so that even if the
-    /// logging pipeline has already shut down the report is still delivered.
-    /// For fatal exceptions this blocks with a 5-second timeout.
+    /// logging pipeline has already shut down the report is still delivered. Blocks
+    /// for at most 5 seconds waiting for the report to be sent.
     /// </summary>
-    private static void TryReportFatal(string source, Exception exception, bool isFatal = true)
+    /// <param name="source">Short label describing where the exception was caught.</param>
+    /// <param name="exception">Exception that is being reported.</param>
+    private static void TryReportFatal(string source, Exception exception)
     {
         try
         {
             if (_bugReportService == null) return;
 
-            var reportTask = _bugReportService.SendBugReportAsync(source, exception);
-
-            if (isFatal)
-            {
-                reportTask.Wait(TimeSpan.FromSeconds(5));
-            }
+            _bugReportService.SendBugReportAsync(source, exception).Wait(TimeSpan.FromSeconds(5));
         }
         catch (Exception reportEx)
         {

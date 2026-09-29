@@ -9,6 +9,7 @@ using ZArchiveSharp;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests image conversion to XISO, CSO, and ZAR formats, including optimization and space checks, in <c>XisoSharpService</c>.</summary>
 public sealed class XisoSharpServiceTests : IDisposable
 {
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"XisoSharpServiceTests_{Guid.NewGuid():N}");

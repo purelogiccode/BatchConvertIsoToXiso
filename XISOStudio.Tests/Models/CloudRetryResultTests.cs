@@ -3,6 +3,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Models;
 
+/// <summary>Tests the numeric values of the <c>CloudRetryResult</c> enum members.</summary>
 public class CloudRetryResultTests
 {
     [Fact]

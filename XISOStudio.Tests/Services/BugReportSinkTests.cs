@@ -7,6 +7,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests that the bug report sink forwards warning and error events to the bug report service.</summary>
 public class BugReportSinkTests
 {
     private static ILogger CreateLogger(IBugReportService? bugReportService, LogEventLevel minimumLevel)

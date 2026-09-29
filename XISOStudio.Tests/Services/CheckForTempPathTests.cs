@@ -3,6 +3,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests system temp path detection in <c>CheckForTempPath</c>.</summary>
 public class CheckForTempPathTests
 {
     [Fact]

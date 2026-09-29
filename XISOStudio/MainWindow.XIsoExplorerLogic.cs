@@ -12,6 +12,7 @@ using XISOStudio.Services;
 
 namespace XISOStudio;
 
+/// <summary>Image explorer view: browsing, extracting, and dragging files out of an open image.</summary>
 [SuppressMessage("ReSharper", "UnusedMember.Local",
     Justification =
         "XAML event handlers are resolved by the Avalonia markup compiler, which ReSharper does not link across partial class files.")]
@@ -20,12 +21,19 @@ namespace XISOStudio;
 public partial class MainWindow
 {
     // Drag-drop state tracking
+    /// <summary>Pointer position where the current drag gesture started.</summary>
     private Point _dragStartPoint;
+    /// <summary>Pointer arguments captured when the drag gesture started.</summary>
     private PointerPressedEventArgs? _dragPointerArgs;
+    /// <summary>Indicates that a drag operation is in progress.</summary>
     private bool _isDragging;
 
+    /// <summary>Minimum pointer movement in pixels required to start a drag.</summary>
     private const double MinimumDragDistance = 4;
 
+    /// <summary>Prompts for an Xbox image and opens it in the explorer.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private async void BrowseExplorerFile_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
@@ -60,6 +68,8 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Opens the image and loads its root directory, retiring any previous explorer.</summary>
+    /// <param name="imagePath">Path of the image or archive to open.</param>
     private void InitializeExplorer(string imagePath)
     {
         IImageExplorer? previous;
@@ -108,6 +118,9 @@ public partial class MainWindow
     ///     archive reads) are synchronous and can take seconds. Returns false when no
     ///     explorer is open.
     /// </summary>
+    /// <param name="action">Action to run against the open explorer.</param>
+    /// <param name="token">Token that cancels the queued work.</param>
+    /// <returns><c>true</c> when the action ran; <c>false</c> when no explorer is open.</returns>
     private async Task<bool> UseExplorerAsync(Action<IImageExplorer> action, CancellationToken token)
     {
         await _explorerUseLock.WaitAsync(token);
@@ -134,6 +147,7 @@ public partial class MainWindow
     ///     Disposes <paramref name="explorer" /> after any in-flight copy-out that is still
     ///     using it has finished, without blocking the caller.
     /// </summary>
+    /// <param name="explorer">Explorer to dispose, or <c>null</c> to do nothing.</param>
     private void RetireExplorer(IImageExplorer? explorer)
     {
         if (explorer == null) return;
@@ -157,6 +171,8 @@ public partial class MainWindow
         }, CancellationToken.None);
     }
 
+    /// <summary>Lists a directory of the open image and binds it to the explorer grid.</summary>
+    /// <param name="internalPath">Directory path within the image (<c>"/"</c> for the root).</param>
     private void LoadDirectory(string internalPath)
     {
         IImageExplorer explorer;
@@ -190,12 +206,16 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Updates the explorer path text and the enabled state of the up button.</summary>
     private void UpdateExplorerUiState()
     {
         ExplorerUpButton.IsEnabled = !string.Equals(_currentInternalPath, "/", StringComparison.Ordinal);
         ExplorerPathTextBlock.Text = _currentInternalPath;
     }
 
+    /// <summary>Opens the double-clicked directory or extracts and opens the selected file.</summary>
+    /// <param name="sender">The grid that raised the event.</param>
+    /// <param name="e">The tap event data.</param>
     private async void ExplorerDataGrid_DoubleTappedAsync(object? sender, TappedEventArgs e)
     {
         try
@@ -218,6 +238,9 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Extracts a file to a temporary folder and opens it with the default application.</summary>
+    /// <param name="entry">Entry describing the file inside the image.</param>
+    /// <param name="fileName">Name used for the extracted temporary file.</param>
     private async Task OpenFileFromImageAsync(ImageEntry entry, string fileName)
     {
         CancellationToken token;
@@ -297,6 +320,8 @@ public partial class MainWindow
     ///     reading the extracted files (file viewer, drag-and-drop target) is not disturbed.
     ///     Failures are logged and left for the startup cleanup.
     /// </summary>
+    /// <param name="tempFolder">Temporary folder to delete.</param>
+    /// <param name="delay">Delay before the folder is deleted.</param>
     private void ScheduleTempFolderCleanup(string tempFolder, TimeSpan delay)
     {
         _ = Task.Run(async () =>
@@ -313,12 +338,18 @@ public partial class MainWindow
         }, CancellationToken.None);
     }
 
+    /// <summary>Records the pointer position that may start a drag gesture.</summary>
+    /// <param name="sender">The grid that raised the event.</param>
+    /// <param name="e">The pointer event data.</param>
     private void ExplorerDataGrid_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         _dragStartPoint = e.GetPosition(null);
         _dragPointerArgs = e;
     }
 
+    /// <summary>Starts a file drag once the pointer moved far enough with the left button held.</summary>
+    /// <param name="sender">The grid that raised the event.</param>
+    /// <param name="e">The pointer event data.</param>
     private async void ExplorerDataGrid_PointerMovedAsync(object? sender, PointerEventArgs e)
     {
         try
@@ -432,13 +463,22 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>File picker patterns matching every file.</summary>
     private static readonly string[] OptionsArray3 = new[] { "*" };
+    /// <summary>File picker patterns matching CHD images.</summary>
     private static readonly string[] OptionsArray2 = new[] { "*.chd" };
+    /// <summary>File picker patterns matching ZAR archives.</summary>
     private static readonly string[] OptionsArray1 = new[] { "*.zar" };
+    /// <summary>File picker patterns matching CSO images.</summary>
     private static readonly string[] OptionsArray0 = new[] { "*.cso" };
+    /// <summary>File picker patterns matching ISO images.</summary>
     private static readonly string[] OptionsArray = new[] { "*.iso" };
+    /// <summary>File picker patterns matching all supported Xbox images.</summary>
     private static readonly string[] Options = new[] { "*.iso", "*.cso", "*.zar", "*.chd" };
 
+    /// <summary>Navigates to the parent directory of the explorer view.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void ExplorerUpButton_Click(object? sender, RoutedEventArgs e)
     {
         try
@@ -453,6 +493,10 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Chooses a temporary folder with enough free space for an extraction.</summary>
+    /// <param name="requiredSize">Number of bytes the extraction needs.</param>
+    /// <param name="tempSubfolder">Subfolder name used under the chosen drive's temp path.</param>
+    /// <returns>Path of the temporary folder to create.</returns>
     private string ResolveExplorerTempDirectory(long requiredSize, string tempSubfolder)
     {
         var defaultTempPath = Path.GetTempPath();

@@ -3,6 +3,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests verb past-tense conversion in <c>ConvertToPastTense</c>.</summary>
 public class ConvertToPastTenseTests
 {
     [Theory]

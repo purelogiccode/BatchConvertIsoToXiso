@@ -3,6 +3,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests fallback file name generation in <c>GenerateFilename</c>.</summary>
 public class GenerateFilenameTests
 {
     [Theory]

@@ -17,41 +17,68 @@ namespace XISOStudio;
 /// </summary>
 public partial class MainWindow : Window
 {
+    /// <summary>Maximum number of characters kept in the on-screen log viewer before the oldest half is dropped.</summary>
     private const int MaxLogLength = 100000; // Approx 1000-2000 lines depending on length
 
+    /// <summary>Coordinates batch conversion and integrity testing.</summary>
     private readonly IOrchestratorService _orchestratorService = null!;
+    /// <summary>Reports disk read/write speed and free space while an operation runs.</summary>
     private readonly IDiskMonitorService _diskMonitorService = null!;
+    /// <summary>Cancels the current batch operation.</summary>
     private CancellationTokenSource _cts = new();
+    /// <summary>Signals completion of the current batch operation to the shutdown flow.</summary>
     private TaskCompletionSource _operationCompletedTcs = new();
+    /// <summary>Checks GitHub for a newer release at startup.</summary>
     private readonly IUpdateChecker _updateChecker = null!;
+    /// <summary>Logger scoped to this window.</summary>
     private readonly ILogger _logger = null!;
+    /// <summary>Shows modal dialogs such as confirmations and errors.</summary>
     private readonly IMessageBoxService _messageBoxService = null!;
+    /// <summary>Opens links in the default browser.</summary>
     private readonly IUrlOpener _urlOpener = null!;
+    /// <summary>Captures the active window for the F8 screenshot shortcut.</summary>
     private readonly IScreenshotService _screenshotService = null!;
 
     // Summary Stats
+    /// <summary>Measures the elapsed time of the current operation.</summary>
     private readonly Stopwatch _operationStopwatch = new();
+    /// <summary>Updates the elapsed-time and disk-speed display every second.</summary>
     private readonly DispatcherTimer _processingTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    /// <summary>Updates the managed-memory display every two seconds.</summary>
     private readonly DispatcherTimer _memoryTimer = new() { Interval = TimeSpan.FromSeconds(2) };
+    /// <summary>Total number of files reported for the current operation.</summary>
     private int _uiTotalFiles;
+    /// <summary>Number of files processed successfully in the current operation.</summary>
     private int _uiSuccessCount;
+    /// <summary>Number of files that failed in the current operation.</summary>
     private int _uiFailedCount;
+    /// <summary>Number of files skipped in the current operation.</summary>
     private int _uiSkippedCount;
+    /// <summary>Indicates whether a batch operation is currently running.</summary>
     private bool _isOperationRunning;
+    /// <summary>Indicates that the window is closing without further confirmation.</summary>
     private bool _isForceClosing;
+    /// <summary>Indicates that a close negotiation is already in progress.</summary>
     private bool _isClosingInProgress;
 
+    /// <summary>Number of processed files that were not valid Xbox ISOs.</summary>
     private int _invalidIsoErrorCount;
+    /// <summary>Total number of files processed in the current operation.</summary>
     private int _totalProcessedFiles;
+    /// <summary>Paths of the files that failed in the current operation.</summary>
     private readonly HashSet<string> _failedFilePaths = new(StringComparer.OrdinalIgnoreCase);
 
     // Image Explorer State
+    /// <summary>Explorer for the image currently open in the explorer view.</summary>
     private IImageExplorer? _explorer;
+    /// <summary>Guards access to <see cref="_explorer"/>.</summary>
     private readonly Lock _explorerLock = new();
 
     // Serializes CopyOut with explorer disposal: an explorer is only disposed once any
     // background copy-out still using it has finished.
+    /// <summary>Serializes explorer use with explorer retirement.</summary>
     private readonly SemaphoreSlim _explorerUseLock = new(1, 1);
+    /// <summary>Directory currently shown in the explorer view.</summary>
     private string _currentInternalPath = "/";
 
     /// <summary>Set once the constructor finished so XAML-driven events can be ignored during load.</summary>
@@ -106,6 +133,9 @@ public partial class MainWindow : Window
         _isUiInitialized = true;
     }
 
+    /// <summary>Detaches the log-viewer subscription when the window closes.</summary>
+    /// <param name="sender">The window that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
         UiLogSink.MessageLogged -= OnLogMessage;
@@ -116,6 +146,8 @@ public partial class MainWindow : Window
     /// line to the log viewer on the UI thread, truncating the oldest half when the
     /// viewer grows too large.
     /// </summary>
+    /// <param name="sender">The log sink that raised the event.</param>
+    /// <param name="e">The pre-formatted log message.</param>
     private void OnLogMessage(object? sender, UiLogSink.LogMessageEventArgs e)
     {
         var logViewer = LogViewer;
@@ -149,6 +181,7 @@ public partial class MainWindow : Window
     /// Appends text to the log viewer and keeps the caret at the end so the view
     /// scrolls to the newest line.
     /// </summary>
+    /// <param name="line">The text to append, including any trailing newline.</param>
     private void AppendLogText(string line)
     {
         var logViewer = LogViewer;
@@ -156,6 +189,9 @@ public partial class MainWindow : Window
         logViewer.CaretIndex = logViewer.Text.Length;
     }
 
+    /// <summary>Sets the initial navigation style and starts the update check once the window is loaded.</summary>
+    /// <param name="sender">The window that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private async void Window_LoadedAsync(object? sender, RoutedEventArgs e)
     {
         try
@@ -178,6 +214,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Negotiates the close asynchronously instead of closing synchronously.</summary>
+    /// <param name="sender">The window that raised the event.</param>
+    /// <param name="e">The closing event data whose cancellation flag is set.</param>
     private void Window_Closing(object? sender, WindowClosingEventArgs e)
     {
         try
@@ -205,6 +244,7 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Asks for confirmation when an operation is running, then closes the window.</summary>
     private async Task HandleClosingAsync()
     {
         try
@@ -237,6 +277,7 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Cancels the running operation and waits briefly for it before closing the window.</summary>
     private async Task WaitForOperationAndCloseAsync()
     {
         try
@@ -253,7 +294,6 @@ public partial class MainWindow : Window
             if (timedOut)
             {
                 _logger.Warning("Operation did not complete within timeout. Closing anyway.");
-                timedOut = true;
             }
             else
             {
@@ -272,7 +312,7 @@ public partial class MainWindow : Window
             // queued message box or another modal dialog. Force a process-level exit
             // after a delay as a last resort — this skips normal cleanup but prevents
             // a permanently hung process.
-            if (timedOut || !_isForceClosing)
+            if (timedOut)
             {
                 ThreadPool.QueueUserWorkItem(static _ =>
                 {
@@ -289,6 +329,7 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Stops the timers and disk monitoring and disposes the explorer and cancellation token source.</summary>
     private void CleanupResources()
     {
         try
@@ -324,6 +365,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Updates the memory usage display.</summary>
+    /// <param name="sender">The timer that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void MemoryTimer_Tick(object? sender, EventArgs e)
     {
         try
@@ -337,6 +381,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Closes the window so the normal closing negotiation runs.</summary>
+    /// <param name="sender">The menu item that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void ExitMenuItem_Click(object? sender, RoutedEventArgs e)
     {
         // Close the window instead of calling desktop.Shutdown(): Shutdown() forces the
@@ -345,6 +392,9 @@ public partial class MainWindow : Window
         Close();
     }
 
+    /// <summary>Handles the F8 screenshot shortcut.</summary>
+    /// <param name="sender">The window that raised the event.</param>
+    /// <param name="e">The key event data.</param>
     private async void Window_KeyDownAsync(object? sender, KeyEventArgs e)
     {
         try

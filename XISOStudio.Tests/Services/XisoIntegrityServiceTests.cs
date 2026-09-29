@@ -6,6 +6,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests structural and deep integrity validation of XISO, CSO, ZAR, and CHD images in <c>XisoIntegrityService</c>.</summary>
 public sealed class XisoIntegrityServiceTests : IDisposable
 {
     private readonly string _tempRoot =

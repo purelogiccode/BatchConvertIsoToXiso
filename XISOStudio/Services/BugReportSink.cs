@@ -73,6 +73,12 @@ public class BugReportSink : ILogEventSink
         });
     }
 
+    /// <summary>
+    /// Checks whether the log event originates from Avalonia's internal diagnostics, which
+    /// must not be auto-reported.
+    /// </summary>
+    /// <param name="logEvent">Log event to inspect.</param>
+    /// <returns><c>true</c> when the event came from Avalonia; otherwise <c>false</c>.</returns>
     private static bool IsFrameworkEvent(LogEvent logEvent)
     {
         return logEvent.Properties.TryGetValue("SourceContext", out var value) &&

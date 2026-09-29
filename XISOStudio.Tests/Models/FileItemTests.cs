@@ -3,6 +3,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Models;
 
+/// <summary>Tests <c>FileItem</c> property defaults, change notifications, and file size formatting.</summary>
 public class FileItemTests
 {
     [Fact]

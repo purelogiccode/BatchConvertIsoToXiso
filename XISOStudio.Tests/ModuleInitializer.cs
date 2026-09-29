@@ -9,6 +9,7 @@ using Xunit;
 
 namespace XISOStudio.Tests;
 
+/// <summary>Registers the required code page encoding provider before any test in the assembly runs.</summary>
 internal static class ModuleInitializer
 {
     [ModuleInitializer]

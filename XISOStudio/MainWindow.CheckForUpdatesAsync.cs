@@ -3,8 +3,10 @@ using XISOStudio.Services;
 
 namespace XISOStudio;
 
+/// <summary>Checks for application updates at startup and offers to open the download page.</summary>
 public partial class MainWindow
 {
+    /// <summary>Checks GitHub for a newer release and offers to open its download page.</summary>
     private async Task CheckForUpdatesAsync()
     {
         try

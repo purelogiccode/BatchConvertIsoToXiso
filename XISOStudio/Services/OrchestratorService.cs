@@ -13,18 +13,34 @@ namespace XISOStudio.Services;
 /// </summary>
 public class OrchestratorService : IOrchestratorService
 {
+    /// <summary>Extracts archive contents to a temporary folder.</summary>
     private readonly IFileExtractor _fileExtractor;
+    /// <summary>Moves tested images into the success or failed folder.</summary>
     private readonly IFileMover _fileMover;
+    /// <summary>Logger used for diagnostics.</summary>
     private readonly ILogger _logger;
+    /// <summary>Validates image structure and readability.</summary>
     private readonly IXisoIntegrityService _integrityService;
+    /// <summary>Converts images to XISO, ZAR or CSO.</summary>
     private readonly IXisoSharpService _xisoSharpService;
+    /// <summary>Converts images to CHD.</summary>
     private readonly IChdService _chdService;
+    /// <summary>Resolves temporary directories based on free disk space.</summary>
     private readonly IDiskMonitorService _diskMonitorService;
 
+    /// <summary>
+    /// Per-batch shared state: tracks the next global file index and the output paths that
+    /// processed files have already reserved.
+    /// </summary>
     private class ProcessingContext
     {
-        public int GlobalFileIndex { get; set; } = 1;
+        /// <summary>
+        /// Gets or sets the one-based index of the next file in the batch, used to generate
+        /// unique temporary file names.
+        /// </summary>
+        internal int GlobalFileIndex { get; set; } = 1;
 
+        /// <summary>Output paths already reserved by processed files in this batch.</summary>
         private readonly HashSet<string> _reservedOutputPaths = new(
             OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
                 ? StringComparer.OrdinalIgnoreCase
@@ -36,7 +52,11 @@ public class OrchestratorService : IOrchestratorService
         ///     <c>Disc1/game.iso</c> and <c>Disc2/game.iso</c>) would otherwise overwrite each
         ///     other; with "delete originals" enabled that loses one result and both sources.
         /// </summary>
-        public string ReserveOutputPath(string outputFolder, string baseName, string extension)
+        /// <param name="outputFolder">Folder where the output file is written.</param>
+        /// <param name="baseName">Base file name of the source file, without extension.</param>
+        /// <param name="extension">Extension (including the leading dot) of the requested output format.</param>
+        /// <returns>A unique output path that no earlier file in the batch has reserved.</returns>
+        internal string ReserveOutputPath(string outputFolder, string baseName, string extension)
         {
             var candidate = Path.Combine(outputFolder, baseName + extension);
             for (var counter = 2; !_reservedOutputPaths.Add(candidate); counter++)
@@ -212,6 +232,19 @@ public class OrchestratorService : IOrchestratorService
         });
     }
 
+    /// <summary>
+    /// Converts the given batch entries, unpacking archives and delegating every image to the
+    /// conversion services while reporting progress and cleaning up temporary folders.
+    /// </summary>
+    /// <param name="entries">Paths of the files to process.</param>
+    /// <param name="outputFolder">Folder where the converted files are written.</param>
+    /// <param name="deleteOriginals">Whether to delete each source file after a successful conversion.</param>
+    /// <param name="skipSystemUpdate">Whether to remove the $SystemUpdate folder from the output image.</param>
+    /// <param name="checkIntegrity">Whether to validate the image structure during conversion.</param>
+    /// <param name="outputFormat">The format to convert to.</param>
+    /// <param name="progress">Receives progress updates for the batch.</param>
+    /// <param name="onCloudRetryRequired">Callback invoked when a cloud file cannot be read and a retry decision is needed.</param>
+    /// <param name="token">Token used to cancel the batch.</param>
     private async Task ConvertEntriesCoreAsync(
         IReadOnlyList<string> entries,
         string outputFolder,
@@ -363,6 +396,12 @@ public class OrchestratorService : IOrchestratorService
             topLevelProcessed, entries.Count);
     }
 
+    /// <summary>
+    /// Runs a batch operation, logging failures with the operation name and rethrowing them so
+    /// the caller can report them.
+    /// </summary>
+    /// <param name="operationName">Name of the operation, used in log messages.</param>
+    /// <param name="operation">Delegate that performs the operation.</param>
     private async Task RunWithErrorHandlingAsync(string operationName, Func<Task> operation)
     {
         try
@@ -393,11 +432,32 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
+    /// <summary>
+    /// Resolves a temporary directory that can hold the required number of bytes.
+    /// </summary>
+    /// <param name="requiredSize">Number of bytes the temporary directory must be able to hold.</param>
+    /// <param name="tempSubfolder">Name of the subfolder to create under the temporary root.</param>
+    /// <returns>Full path of the temporary directory to use.</returns>
     private string ResolveTempDirectory(long requiredSize, string tempSubfolder)
     {
         return PathHelper.ResolveTempDirectory(requiredSize, tempSubfolder, _diskMonitorService);
     }
 
+    /// <summary>
+    /// Extracts an archive to a temporary folder, converts the ISOs it contains, and deletes
+    /// the archive when deletion is enabled and every entry was converted.
+    /// </summary>
+    /// <param name="archivePath">Path of the archive to process.</param>
+    /// <param name="outputFolder">Folder where the converted files are written.</param>
+    /// <param name="deleteOriginal">Whether to delete the archive after a fully successful batch.</param>
+    /// <param name="skipUpdate">Whether to remove the $SystemUpdate folder from the output images.</param>
+    /// <param name="checkIntegrity">Whether to validate the image structure during conversion.</param>
+    /// <param name="outputFormat">The format to convert to.</param>
+    /// <param name="context">Per-batch shared state used for file indexing and output path reservation.</param>
+    /// <param name="tempFolders">Temporary folders registered for cleanup after the batch.</param>
+    /// <param name="progress">Receives progress updates for the archive.</param>
+    /// <param name="cloudRetry">Callback invoked when a cloud file cannot be read and a retry decision is needed.</param>
+    /// <param name="token">Token used to cancel the operation.</param>
     private async Task ProcessArchiveAsync(string archivePath, string outputFolder, bool deleteOriginal,
         bool skipUpdate, bool checkIntegrity, OutputFormat outputFormat, ProcessingContext context,
         List<string> tempFolders, IProgress<BatchOperationProgress> progress,
@@ -571,6 +631,10 @@ public class OrchestratorService : IOrchestratorService
     ///     Explains why an archive was kept when "delete originals" is enabled but not every
     ///     entry could be converted (deleting it would lose content).
     /// </summary>
+    /// <param name="progress">Receives the explanation messages.</param>
+    /// <param name="skippedEntries">Archive entries that could not be extracted.</param>
+    /// <param name="unprocessedImages">Extracted images that are not plain ISOs and were not converted.</param>
+    /// <param name="skippedImages">Number of images that were already optimized and not rewritten.</param>
     private static void ReportKeptArchive(IProgress<BatchOperationProgress> progress,
         IReadOnlyList<string> skippedEntries, List<string> unprocessedImages, int skippedImages)
     {
@@ -605,6 +669,22 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
+    /// <summary>
+    /// Converts a single image, copying unreadable cloud files to a local temporary file
+    /// first, and optionally deletes the original after a successful conversion.
+    /// </summary>
+    /// <param name="inputFile">Path of the source image to convert.</param>
+    /// <param name="outputFolder">Folder where the converted file is written.</param>
+    /// <param name="deleteOriginal">Whether to delete the source file after a successful conversion.</param>
+    /// <param name="fileIndex">One-based index of the file, used to generate temporary file names.</param>
+    /// <param name="context">Per-batch shared state used for output path reservation.</param>
+    /// <param name="skipSystemUpdate">Whether to remove the $SystemUpdate folder from the output image.</param>
+    /// <param name="checkIntegrity">Whether to validate the image structure during conversion.</param>
+    /// <param name="outputFormat">The format to convert to.</param>
+    /// <param name="progress">Receives progress updates for the file.</param>
+    /// <param name="onCloudRetryRequired">Callback invoked when a cloud file cannot be read and a retry decision is needed.</param>
+    /// <param name="token">Token used to cancel the conversion.</param>
+    /// <returns>The outcome of the conversion.</returns>
     private async Task<FileProcessingStatus> ConvertFileInternalAsync(string inputFile, string outputFolder,
         bool deleteOriginal, int fileIndex, ProcessingContext context, bool skipSystemUpdate, bool checkIntegrity,
         OutputFormat outputFormat, IProgress<BatchOperationProgress> progress,
@@ -867,6 +947,18 @@ public class OrchestratorService : IOrchestratorService
         });
     }
 
+    /// <summary>
+    /// Tests the given images and moves each image to the success or failed subfolder when
+    /// the corresponding option is enabled.
+    /// </summary>
+    /// <param name="inputFolder">Folder that contains the "_success" and "_failed" subfolders.</param>
+    /// <param name="imageFiles">Paths of the images to test.</param>
+    /// <param name="moveSuccessful">Whether images that pass the test are moved to the "_success" subfolder.</param>
+    /// <param name="moveFailed">Whether images that fail the test are moved to the "_failed" subfolder.</param>
+    /// <param name="performDeepScan">Whether to read all image data to detect media or decompression errors.</param>
+    /// <param name="progress">Receives progress updates for the batch.</param>
+    /// <param name="onCloudRetryRequired">Callback invoked when a cloud file cannot be read and a retry decision is needed.</param>
+    /// <param name="token">Token used to cancel the batch.</param>
     private async Task TestEntriesCoreAsync(string inputFolder, IReadOnlyList<string> imageFiles, bool moveSuccessful,
         bool moveFailed, bool performDeepScan, IProgress<BatchOperationProgress> progress,
         Func<string, Task<CloudRetryResult>> onCloudRetryRequired, CancellationToken token)
@@ -976,6 +1068,10 @@ public class OrchestratorService : IOrchestratorService
     /// through its first part (<c>game.1.cso</c>), so the continuation parts
     /// (<c>game.2.cso</c>, …) travel with it — moving part 1 alone would break the set.
     /// </summary>
+    /// <param name="imagePath">Path of the image that was tested.</param>
+    /// <param name="destinationFolder">Folder that receives the image and, for a split set, its continuation parts.</param>
+    /// <param name="moveReason">Reason logged by the file mover.</param>
+    /// <param name="token">Token used to cancel the move.</param>
     private async Task MoveTestedImageAsync(string imagePath, string destinationFolder, string moveReason,
         CancellationToken token)
     {
@@ -1004,6 +1100,8 @@ public class OrchestratorService : IOrchestratorService
     ///     Enumerates the existing parts of a split CISO set starting at its first part
     ///     (<c>game.1.cso</c>, <c>game.2.cso</c>, …), preserving the original extension casing.
     /// </summary>
+    /// <param name="firstPartPath">Path of the first part of the split CISO set (for example <c>game.1.cso</c>).</param>
+    /// <returns>The existing parts of the set, starting with the first part.</returns>
     private static IEnumerable<string> EnumerateSplitCisoParts(string firstPartPath)
     {
         var basePath = firstPartPath[..^".1.cso".Length];
@@ -1018,6 +1116,17 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
+    /// <summary>
+    /// Tests a single image, copying unreadable cloud files (including every part of a split
+    /// CISO set) to a temporary folder first.
+    /// </summary>
+    /// <param name="isoPath">Path of the image to test.</param>
+    /// <param name="index">One-based index of the image, used to generate temporary file names.</param>
+    /// <param name="performDeepScan">Whether to read all image data to detect media or decompression errors.</param>
+    /// <param name="cloudRetry">Callback invoked when a cloud file cannot be read and a retry decision is needed.</param>
+    /// <param name="progress">Receives progress updates during the test.</param>
+    /// <param name="token">Token used to cancel the test.</param>
+    /// <returns>The outcome of the test.</returns>
     private async Task<IsoTestResultStatus> TestSingleIsoInternalAsync(string isoPath, int index, bool performDeepScan,
         Func<string, Task<CloudRetryResult>> cloudRetry, IProgress<BatchOperationProgress> progress,
         CancellationToken token)
@@ -1126,6 +1235,12 @@ public class OrchestratorService : IOrchestratorService
 
     #region Helpers
 
+    /// <summary>
+    /// Determines whether an exception indicates that the source or output device is
+    /// unavailable, so the batch cannot continue.
+    /// </summary>
+    /// <param name="ex">Exception to inspect.</param>
+    /// <returns><c>true</c> when the error is fatal for the batch; otherwise <c>false</c>.</returns>
     internal static bool IsFatalEnvironmentalError(Exception ex)
     {
         if (PathHelper.IsDeviceIoError(ex)) return true;
@@ -1147,6 +1262,12 @@ public class OrchestratorService : IOrchestratorService
                     StringComparison.OrdinalIgnoreCase)); // Czech translation from bug reports
     }
 
+    /// <summary>
+    /// Reports the outcome of a single conversion to the progress sink.
+    /// </summary>
+    /// <param name="status">Outcome returned by the conversion service.</param>
+    /// <param name="path">Path reported for failed entries.</param>
+    /// <param name="progress">Receives the progress update.</param>
     private static void ReportStatus(FileProcessingStatus status, string path,
         IProgress<BatchOperationProgress> progress)
     {
@@ -1164,6 +1285,16 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
+    /// <summary>
+    /// Copies a file, retrying network failures and asking the caller to hydrate cloud
+    /// placeholders when needed.
+    /// </summary>
+    /// <param name="source">Path of the file to copy.</param>
+    /// <param name="dest">Destination path of the copy.</param>
+    /// <param name="cloudRetry">Callback invoked when a cloud file cannot be read and a retry decision is needed.</param>
+    /// <param name="progress">Receives progress updates for the copy.</param>
+    /// <param name="token">Token used to cancel the copy.</param>
+    /// <returns><c>true</c> when the file was copied; otherwise <c>false</c>.</returns>
     private async Task<bool> CopyFileWithCloudRetryAsync(string source, string dest,
         Func<string, Task<CloudRetryResult>> cloudRetry, IProgress<BatchOperationProgress> progress,
         CancellationToken token)
@@ -1230,6 +1361,11 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
+    /// <summary>
+    /// Deletes the temporary folders registered during the batch, retrying failures.
+    /// </summary>
+    /// <param name="folders">Temporary folders to delete.</param>
+    /// <param name="progress">Receives progress updates for the cleanup.</param>
     private async Task CleanupTempFoldersAsync(List<string> folders, IProgress<BatchOperationProgress> progress)
     {
         if (folders.Count == 0) return;

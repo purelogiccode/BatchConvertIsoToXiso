@@ -3,6 +3,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests disk monitoring, free space queries, and drive selection in <c>DiskMonitorService</c>.</summary>
 public class DiskMonitorServiceTests
 {
     private static DiskMonitorService CreateService()

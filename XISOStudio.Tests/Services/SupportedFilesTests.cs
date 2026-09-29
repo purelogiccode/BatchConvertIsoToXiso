@@ -3,6 +3,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests supported file extension checks in <c>SupportedFiles</c>.</summary>
 public class SupportedFilesTests
 {
     [Theory]

@@ -18,6 +18,12 @@ public class FileExtractorService : IFileExtractor
     private readonly ILogger _logger;
     private readonly string _sevenZipExePath;
 
+    /// <summary>
+    /// Locates the optional 7-Zip executable: an architecture-specific binary shipped with
+    /// the application, a standard Windows installation, or a <c>7z</c> tool on the PATH
+    /// of Linux and macOS.
+    /// </summary>
+    /// <returns>Full path of the 7-Zip executable, or <c>null</c> when none was found.</returns>
     private string? FindSevenZipExe()
     {
         var appDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -108,6 +114,8 @@ public class FileExtractorService : IFileExtractor
     /// <summary>
     /// Checks if a file is a cloud file (OneDrive, Dropbox, etc.) and not fully downloaded locally.
     /// </summary>
+    /// <param name="filePath">Path of the file to inspect.</param>
+    /// <returns><c>true</c> when the file is a placeholder that still needs to be downloaded; otherwise <c>false</c>.</returns>
     private bool IsCloudFile(string filePath)
     {
         try
@@ -131,6 +139,9 @@ public class FileExtractorService : IFileExtractor
     /// <summary>
     /// Attempts to ensure a cloud file is hydrated (downloaded locally) before accessing it.
     /// </summary>
+    /// <param name="filePath">Path of the cloud file to hydrate.</param>
+    /// <param name="token">Token used to cancel the hydration attempt.</param>
+    /// <returns><c>true</c> when the file is available locally; otherwise <c>false</c>.</returns>
     private async Task<bool> EnsureCloudFileHydratedAsync(string filePath, CancellationToken token)
     {
         try
@@ -162,6 +173,8 @@ public class FileExtractorService : IFileExtractor
     /// <summary>
     /// Determines if an exception is related to cloud file provider issues.
     /// </summary>
+    /// <param name="ex">Exception raised while accessing the file.</param>
+    /// <returns><c>true</c> when the exception indicates a cloud file provider problem; otherwise <c>false</c>.</returns>
     private static bool IsCloudFileProviderError(Exception ex)
     {
         if (ex is IOException ioEx)
@@ -185,6 +198,7 @@ public class FileExtractorService : IFileExtractor
     /// <summary>
     /// Verifies that the drive containing the specified path is ready.
     /// </summary>
+    /// <param name="filePath">Path whose drive is probed.</param>
     private void VerifyDriveReady(string filePath)
     {
         try
@@ -216,6 +230,9 @@ public class FileExtractorService : IFileExtractor
     /// (files locked by another process, network glitches). Permanent errors — corrupt
     /// archives, a full disk, unsupported content — are not retried.
     /// </summary>
+    /// <param name="action">Asynchronous extraction step to execute.</param>
+    /// <param name="operationDescription">Description used in the retry diagnostics.</param>
+    /// <param name="token">Token used to cancel the retries and their delays.</param>
     private async Task ExecuteWithRetryAsync(Func<Task> action, string operationDescription, CancellationToken token)
     {
         const int maxRetries = 3;
@@ -244,6 +261,8 @@ public class FileExtractorService : IFileExtractor
     /// Returns true for IO errors that may resolve on their own: a file locked by another
     /// process (antivirus, download manager) or a transient network failure.
     /// </summary>
+    /// <param name="ex">IO exception to classify.</param>
+    /// <returns><c>true</c> when the error may resolve on its own; otherwise <c>false</c>.</returns>
     internal static bool IsTransientIoError(IOException ex)
     {
         if (PathHelper.IsDiskSpaceError(ex)) return false;
@@ -258,6 +277,9 @@ public class FileExtractorService : IFileExtractor
     /// <summary>
     /// Checks if there is enough disk space on the target drive for the extraction.
     /// </summary>
+    /// <param name="extractionPath">Destination folder whose drive is checked.</param>
+    /// <param name="totalSize">Total uncompressed size of the extraction in bytes.</param>
+    /// <param name="archiveFileName">Archive name used in the error message.</param>
     private void CheckDiskSpace(string extractionPath, long totalSize, string archiveFileName)
     {
         try
@@ -344,6 +366,9 @@ public class FileExtractorService : IFileExtractor
     /// exponential backoff. Locks are typically transient (antivirus scans, downloads
     /// finishing, zip tools flushing) and resolve on their own within a few seconds.
     /// </summary>
+    /// <param name="archivePath">Full path of the archive being waited on.</param>
+    /// <param name="archiveFileName">Archive name used in the log and error messages.</param>
+    /// <param name="token">Token used to cancel the wait.</param>
     private async Task WaitForFileUnlockedAsync(string archivePath, string archiveFileName, CancellationToken token)
     {
         const int maxAttempts = 6;
@@ -370,6 +395,14 @@ public class FileExtractorService : IFileExtractor
         }
     }
 
+    /// <summary>
+    /// Extracts an archive with the 7-Zip command-line tool, killing the process when the
+    /// operation is canceled.
+    /// </summary>
+    /// <param name="archivePath">Path of the archive to extract.</param>
+    /// <param name="extractionPath">Folder that receives the extracted files.</param>
+    /// <param name="token">Token used to cancel the extraction.</param>
+    /// <returns><c>true</c> when 7-Zip extracted the archive successfully; otherwise <c>false</c>.</returns>
     private async Task<bool> TryExtractWithSevenZipCliAsync(string archivePath, string extractionPath,
         CancellationToken token)
     {

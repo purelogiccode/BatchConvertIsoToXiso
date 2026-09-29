@@ -3,6 +3,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests drive letter, UNC, network error, disk space, and safety buffer helpers in <c>PathHelper</c>.</summary>
 public class PathHelperTests
 {
     [Theory]

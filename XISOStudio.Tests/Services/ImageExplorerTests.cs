@@ -4,6 +4,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests listing and extracting entries from XISO, CSO, ZAR, and CHD images via <c>ImageExplorerFactory</c>.</summary>
 public sealed class ImageExplorerTests : IDisposable
 {
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"ImageExplorerTests_{Guid.NewGuid():N}");

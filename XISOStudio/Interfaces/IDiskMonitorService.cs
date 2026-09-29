@@ -22,12 +22,14 @@ public interface IDiskMonitorService
     /// Gets the current read speed formatted for display (for example "12.5 MB/s"),
     /// or "N/A" when monitoring is unavailable.
     /// </summary>
+    /// <returns>The formatted read speed, or "N/A" when monitoring is unavailable.</returns>
     string GetCurrentReadSpeedFormatted();
 
     /// <summary>
     /// Gets the current write speed formatted for display (for example "12.5 MB/s"),
     /// or "N/A" when monitoring is unavailable.
     /// </summary>
+    /// <returns>The formatted write speed, or "N/A" when monitoring is unavailable.</returns>
     string GetCurrentWriteSpeedFormatted();
 
     /// <summary>
@@ -35,6 +37,7 @@ public interface IDiskMonitorService
     /// or 0 when it cannot be determined.
     /// </summary>
     /// <param name="path">A path on the drive to query.</param>
+    /// <returns>The available free space in bytes, or 0 when it cannot be determined.</returns>
     long GetAvailableFreeSpace(string? path);
 
     /// <summary>

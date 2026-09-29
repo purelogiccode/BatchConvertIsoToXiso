@@ -11,6 +11,11 @@ public static class TempFolderCleanupHelper
     /// <summary>
     /// Deletes a directory with retry logic for locked files
     /// </summary>
+    /// <param name="directoryPath">Directory to delete.</param>
+    /// <param name="maxRetries">Maximum number of deletion attempts.</param>
+    /// <param name="delayMs">Delay between attempts, in milliseconds.</param>
+    /// <param name="logger">Optional logger that receives cleanup progress; may be <c>null</c>.</param>
+    /// <param name="cancellationToken">Cancellation token for the retry delays.</param>
     public static async Task TryDeleteDirectoryWithRetryAsync(string directoryPath, int maxRetries, int delayMs,
         ILogger? logger, CancellationToken cancellationToken = default)
     {
@@ -83,6 +88,10 @@ public static class TempFolderCleanupHelper
     ///     children older than <see cref="MinimumOrphanAge" /> are returned; everything
     ///     else is considered user data or still in use.
     /// </summary>
+    /// <param name="rootsToScan">Root folders scanned for stale work directories.</param>
+    /// <param name="utcNow">Current UTC time used to compute the age of each candidate.</param>
+    /// <param name="logger">Optional logger that receives scan diagnostics; may be <c>null</c>.</param>
+    /// <returns>The list of stale GUID-named work directories found under the roots.</returns>
     internal static List<string> FindOrphanedWorkDirectories(IEnumerable<string> rootsToScan, DateTime utcNow,
         ILogger? logger)
     {
@@ -128,6 +137,8 @@ public static class TempFolderCleanupHelper
     /// <summary>
     /// Cleans up orphaned XISOStudio work folders on all fixed drives
     /// </summary>
+    /// <param name="logger">Logger that receives cleanup progress and failures.</param>
+    /// <param name="cancellationToken">Cancellation token for the cleanup.</param>
     public static async Task CleanupTempFoldersAsync(ILogger logger,
         CancellationToken cancellationToken = default)
     {

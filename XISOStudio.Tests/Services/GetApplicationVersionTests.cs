@@ -3,6 +3,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests application version retrieval in <c>GetApplicationVersion</c>.</summary>
 public class GetApplicationVersionTests
 {
     [Fact]

@@ -20,7 +20,9 @@ public class XisoSharpService : IXisoSharpService
     /// </summary>
     private const int CsoCompressionLevel = 9;
 
+    /// <summary>Logger used for diagnostics.</summary>
     private readonly ILogger _logger;
+    /// <summary>Resolves temporary directories based on free disk space.</summary>
     private readonly IDiskMonitorService _diskMonitorService;
 
     /// <summary>
@@ -139,6 +141,18 @@ public class XisoSharpService : IXisoSharpService
             }, token);
     }
 
+    /// <summary>
+    /// Rewrites an image to an optimized XISO, optionally removing the $SystemUpdate folder
+    /// and validating the output structure.
+    /// </summary>
+    /// <param name="inputFile">Path of the source image to convert.</param>
+    /// <param name="outputFolder">Folder passed to the library as the output location.</param>
+    /// <param name="outputPath">Full path of the converted output file.</param>
+    /// <param name="skipSystemUpdate">Whether to remove the $SystemUpdate folder from the output image.</param>
+    /// <param name="checkIntegrity">Whether to validate the output image structure.</param>
+    /// <param name="progress">Receives progress updates during the conversion.</param>
+    /// <param name="token">Token used to cancel the conversion.</param>
+    /// <returns>The outcome of the conversion.</returns>
     private FileProcessingStatus ConvertToXisoCore(string inputFile, string outputFolder,
         string outputPath, bool skipSystemUpdate, bool checkIntegrity, IProgress<BatchOperationProgress> progress,
         CancellationToken token)
@@ -277,6 +291,12 @@ public class XisoSharpService : IXisoSharpService
     ///     itself in the output, so the image is extracted to a temporary directory and packed
     ///     from there (both steps honor <c>Logger.RemoveSystemUpdate</c>).
     /// </summary>
+    /// <param name="inputFile">Path of the source image to repack.</param>
+    /// <param name="outputPath">Full path of the converted output file.</param>
+    /// <param name="checkIntegrity">Whether to validate the output image structure.</param>
+    /// <param name="progress">Receives progress updates during the conversion.</param>
+    /// <param name="token">Token used to cancel the conversion.</param>
+    /// <returns>The outcome of the conversion.</returns>
     private FileProcessingStatus RepackWithoutSystemUpdate(string inputFile, string outputPath,
         bool checkIntegrity, IProgress<BatchOperationProgress> progress, CancellationToken token)
     {
@@ -368,6 +388,14 @@ public class XisoSharpService : IXisoSharpService
     /// the archive; CSO first rewrites the image to a temporary optimized XISO (CISO has no
     /// partition-aware writer) and compresses that.
     /// </summary>
+    /// <param name="outputFormat">The compressed format to produce (ZAR or CSO).</param>
+    /// <param name="inputFile">Path of the source image to convert.</param>
+    /// <param name="outputPath">Full path of the converted output file.</param>
+    /// <param name="skipSystemUpdate">Whether to remove the $SystemUpdate folder from the output image.</param>
+    /// <param name="checkIntegrity">Whether to validate the source image structure.</param>
+    /// <param name="progress">Receives progress updates during the conversion.</param>
+    /// <param name="token">Token used to cancel the conversion.</param>
+    /// <returns>The outcome of the conversion.</returns>
     private FileProcessingStatus ConvertToCompressedCore(OutputFormat outputFormat, string inputFile,
         string outputPath, bool skipSystemUpdate, bool checkIntegrity,
         IProgress<BatchOperationProgress> progress, CancellationToken token)
@@ -570,6 +598,8 @@ public class XisoSharpService : IXisoSharpService
     /// Resolves the byte offset of the game partition for Redump full-disc images, mirroring the
     /// XISOSharp CLI. Returns 0 for XISO/plain images whose partition starts at the file start.
     /// </summary>
+    /// <param name="inputFile">Path of the source image.</param>
+    /// <returns>The byte offset of the game partition, or 0 when the partition starts at the beginning of the file.</returns>
     private long GetGamePartitionOffset(string inputFile)
     {
         var redumpType = XgdTables.GetRedumpIsoTypeBySize(new FileInfo(inputFile).Length);
@@ -602,6 +632,9 @@ public class XisoSharpService : IXisoSharpService
     /// Validates the image that is about to be packed/compressed. Compressed outputs cannot be
     /// audited with the XISO reader, so the structural check runs on the source image instead.
     /// </summary>
+    /// <param name="sourcePath">Path of the image to validate.</param>
+    /// <param name="fileName">File name used in log messages.</param>
+    /// <returns><c>true</c> when the image passes the structural audit; otherwise <c>false</c>.</returns>
     private bool AuditSourceImage(string sourcePath, string fileName)
     {
         _logger.Information("Verifying source image integrity for '{FileName}'...", fileName);
@@ -625,6 +658,11 @@ public class XisoSharpService : IXisoSharpService
         return true;
     }
 
+    /// <summary>
+    /// Adapts XISOSharp rewrite progress to batch progress status text.
+    /// </summary>
+    /// <param name="progress">Receives the converted progress updates.</param>
+    /// <returns>An adapter that reports rewrite progress to the batch.</returns>
     private static IProgress<ProgressInfo> CreateRewriteProgressAdapter(IProgress<BatchOperationProgress> progress)
     {
         return new Progress<ProgressInfo>(info =>
@@ -651,6 +689,8 @@ public class XisoSharpService : IXisoSharpService
     /// CISO progress arrives once per 2048-byte sector; report only at 5% steps so the UI is
     /// not flooded for multi-gigabyte images.
     /// </summary>
+    /// <param name="progress">Receives the converted progress updates.</param>
+    /// <returns>An adapter that reports CISO compression progress to the batch.</returns>
     private static IProgress<ProgressInfo> CreateCisoProgressAdapter(IProgress<BatchOperationProgress> progress)
     {
         var totalBlocks = 0L;
@@ -682,6 +722,8 @@ public class XisoSharpService : IXisoSharpService
     /// <summary>
     /// ZAR progress reports per packed file; report at 5% steps (or the current file name).
     /// </summary>
+    /// <param name="progress">Receives the converted progress updates.</param>
+    /// <returns>An adapter that reports ZAR packing progress to the batch.</returns>
     private static IProgress<ZarProgress> CreateZarProgressAdapter(IProgress<BatchOperationProgress> progress)
     {
         var lastPercent = -1;
@@ -706,6 +748,8 @@ public class XisoSharpService : IXisoSharpService
     /// than an application defect. XISOSharp's low-level reader reports truncated
     /// images as a plain IOException with a "Read error" message.
     /// </summary>
+    /// <param name="ex">Exception to inspect.</param>
+    /// <returns><c>true</c> when the error indicates an invalid input image; otherwise <c>false</c>.</returns>
     private static bool IsInvalidImageError(Exception ex)
     {
         return ex is XisoFormatException or XisoEmptyException or XisoFileTooLargeException or InvalidDataException
@@ -714,6 +758,11 @@ public class XisoSharpService : IXisoSharpService
                 ioException.Message.StartsWith("Read error", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Deletes a partially written output file, ignoring failures because the error has
+    /// already been reported to the user.
+    /// </summary>
+    /// <param name="path">Path of the partial output file; ignored when null or empty.</param>
     private void DeletePartialOutput(string? path)
     {
         if (string.IsNullOrEmpty(path)) return;
@@ -734,6 +783,11 @@ public class XisoSharpService : IXisoSharpService
     /// starts. Returns an error message when the output drive is full or uses a file system
     /// that cannot store files of this size (FAT32 4 GB limit); otherwise returns null.
     /// </summary>
+    /// <param name="inputFile">Path of the source image.</param>
+    /// <param name="inputFileSize">Size of the source image in bytes.</param>
+    /// <param name="outputFolder">Folder that receives the converted file.</param>
+    /// <param name="outputFormat">The format to convert to.</param>
+    /// <returns>An error message when the output drive cannot hold the file; otherwise <c>null</c>.</returns>
     private string? CheckOutputDrive(string inputFile, long inputFileSize, string outputFolder,
         OutputFormat outputFormat)
     {

@@ -5,6 +5,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests archive inspection, extraction, transient I/O detection, and zip-slip protection in <c>FileExtractorService</c>.</summary>
 public class FileExtractorServiceTests : IDisposable
 {
     private readonly TestLogger _logger = new();

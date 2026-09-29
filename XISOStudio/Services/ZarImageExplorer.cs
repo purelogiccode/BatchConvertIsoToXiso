@@ -16,7 +16,13 @@ internal sealed class ZarImageExplorer : IImageExplorer
     private readonly ZArchiveReader _reader;
     private readonly ILogger? _logger;
 
-    public ZarImageExplorer(string zarPath, ILogger? logger = null)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ZarImageExplorer"/> class and opens the
+    /// ZAR archive in keep-open mode.
+    /// </summary>
+    /// <param name="zarPath">Path of the ZAR archive to explore.</param>
+    /// <param name="logger">Optional logger used for diagnostics.</param>
+    internal ZarImageExplorer(string zarPath, ILogger? logger = null)
     {
         _logger = logger?.ForContext<ZarImageExplorer>();
         _reader = ZArchiveReader.TryOpen(zarPath, out var failure)
@@ -71,6 +77,12 @@ internal sealed class ZarImageExplorer : IImageExplorer
         }
     }
 
+    /// <summary>
+    /// Resolves an archive path to its node handle.
+    /// </summary>
+    /// <param name="normalizedPath">Normalized path of the entry to resolve.</param>
+    /// <param name="internalPath">Original path reported in the error message.</param>
+    /// <returns>Node handle of the resolved entry.</returns>
     private uint LookUpOrThrow(string normalizedPath, string internalPath)
     {
         var node = _reader.LookUp(normalizedPath);
@@ -82,6 +94,11 @@ internal sealed class ZarImageExplorer : IImageExplorer
         return node;
     }
 
+    /// <summary>
+    /// Copies a file or directory tree out of the archive to the destination path.
+    /// </summary>
+    /// <param name="node">Node handle of the entry to copy.</param>
+    /// <param name="destPath">Destination path on disk.</param>
     private void CopyNodeOut(uint node, string destPath)
     {
         if (_reader.IsFile(node))
@@ -120,6 +137,8 @@ internal sealed class ZarImageExplorer : IImageExplorer
     /// no separators, not relative (".", ".."), not rooted or drive-qualified, and
     /// not a reserved Windows device name.
     /// </summary>
+    /// <param name="name">Archive entry name to validate.</param>
+    /// <returns><c>true</c> when the name is safe to use as a single destination path component; otherwise <c>false</c>.</returns>
     private static bool IsSafeEntryName(string name)
     {
         if (name.Length == 0 || name is "." or ".."
@@ -137,6 +156,11 @@ internal sealed class ZarImageExplorer : IImageExplorer
         return !IsReservedDeviceName(name);
     }
 
+    /// <summary>
+    /// Checks whether a name stem matches a reserved Windows device name.
+    /// </summary>
+    /// <param name="name">Entry name to check.</param>
+    /// <returns><c>true</c> when the name is a reserved device name; otherwise <c>false</c>.</returns>
     private static bool IsReservedDeviceName(string name)
     {
         var dot = name.IndexOf('.');

@@ -21,6 +21,8 @@ public static class PathHelper
     /// <summary>
     /// Extracts the drive letter (e.g., "C:") from a given path.
     /// </summary>
+    /// <param name="path">Path to inspect; may be <c>null</c>.</param>
+    /// <returns>The drive letter without a trailing separator (for example, "C:"), or <c>null</c> when the path is empty, UNC, or the drive cannot be determined.</returns>
     public static string? GetDriveLetter(string? path)
     {
         if (string.IsNullOrEmpty(path)) return null;
@@ -48,6 +50,8 @@ public static class PathHelper
     /// Determines if the given path is a UNC (Universal Naming Convention) network path.
     /// Examples: \\server\share, \\server\share\folder\file.txt
     /// </summary>
+    /// <param name="path">Path to inspect; may be <c>null</c>.</param>
+    /// <returns><c>true</c> when the path starts with <c>\\</c>; otherwise <c>false</c>.</returns>
     public static bool IsUncPath(string? path)
     {
         if (string.IsNullOrEmpty(path)) return false;
@@ -58,6 +62,8 @@ public static class PathHelper
     /// <summary>
     /// Determines if the given path is a network path (either UNC or a mapped network drive).
     /// </summary>
+    /// <param name="path">Path to inspect; may be <c>null</c>.</param>
+    /// <returns><c>true</c> when the path is UNC or resides on a mapped network drive; otherwise <c>false</c>.</returns>
     public static bool IsNetworkPath(string? path)
     {
         if (string.IsNullOrEmpty(path)) return false;
@@ -86,6 +92,8 @@ public static class PathHelper
     /// Returns null if the path is not a valid UNC path.
     /// Example: \\server\share\folder -> (server: "server", share: "share")
     /// </summary>
+    /// <param name="path">Path to inspect; may be <c>null</c>.</param>
+    /// <returns>The server and share name of the UNC path, or <c>null</c> when the path is not a valid UNC path.</returns>
     public static (string Server, string Share)? TryGetUncShareInfo(string? path)
     {
         if (string.IsNullOrEmpty(path) || !IsUncPath(path))
@@ -117,7 +125,7 @@ public static class PathHelper
     /// Common network-related error messages that indicate transient network failures.
     /// These errors may be resolved by retrying the operation.
     /// </summary>
-    public static readonly string[] NetworkErrorPatterns =
+    private static readonly string[] NetworkErrorPatterns =
     [
         "network path was not found",
         "network name is no longer available",
@@ -145,6 +153,8 @@ public static class PathHelper
     /// that suggest a transient network failure. Supports messages in multiple
     /// languages (English, German, French, Spanish, Italian).
     /// </summary>
+    /// <param name="exception">Exception to inspect; may be <c>null</c>.</param>
+    /// <returns><c>true</c> when the exception or its inner exception describes a transient network failure; otherwise <c>false</c>.</returns>
     public static bool IsNetworkError(Exception? exception)
     {
         if (exception == null) return false;
@@ -158,6 +168,12 @@ public static class PathHelper
         return false;
     }
 
+    /// <summary>
+    /// Checks whether a message matches a known network error pattern, including localized
+    /// and device-related phrases.
+    /// </summary>
+    /// <param name="message">Message to inspect.</param>
+    /// <returns><c>true</c> when a network error pattern matches; otherwise <c>false</c>.</returns>
     private static bool MatchesNetworkPatterns(string message)
     {
         // English patterns
@@ -208,6 +224,8 @@ public static class PathHelper
     /// Checks HResult codes for ERROR_DISK_FULL and ERROR_HANDLE_DISK_FULL,
     /// as well as multilingual error messages.
     /// </summary>
+    /// <param name="ex">Exception to inspect.</param>
+    /// <returns><c>true</c> when the exception indicates a full disk; otherwise <c>false</c>.</returns>
     public static bool IsDiskSpaceError(Exception ex)
     {
         if (ex is IOException ioEx)
@@ -248,6 +266,8 @@ public static class PathHelper
     /// Windows localizes the message, so the Win32 error code is checked first, with
     /// localized message patterns as a fallback for wrapped exceptions that lost the code.
     /// </summary>
+    /// <param name="exception">Exception to inspect; may be <c>null</c>.</param>
+    /// <returns><c>true</c> when the exception or its inner exception was caused by a hardware I/O failure; otherwise <c>false</c>.</returns>
     public static bool IsDeviceIoError(Exception? exception)
     {
         if (exception == null) return false;
@@ -259,11 +279,22 @@ public static class PathHelper
                 MatchesDeviceIoPatterns(exception.InnerException.Message));
     }
 
+    /// <summary>
+    /// Checks whether an exception is an <see cref="IOException" /> carrying the Win32
+    /// ERROR_IO_DEVICE error code.
+    /// </summary>
+    /// <param name="exception">Exception to inspect.</param>
+    /// <returns><c>true</c> when the exception carries the I/O device error code; otherwise <c>false</c>.</returns>
     private static bool HasDeviceIoErrorCode(Exception exception)
     {
         return exception is IOException ioException && (ioException.HResult & 0xFFFF) == ErrorIoDevice;
     }
 
+    /// <summary>
+    /// Checks whether a message contains a localized hardware I/O device error pattern.
+    /// </summary>
+    /// <param name="message">Message to inspect.</param>
+    /// <returns><c>true</c> when a device I/O pattern matches; otherwise <c>false</c>.</returns>
     private static bool MatchesDeviceIoPatterns(string message)
     {
         // English, Italian, German, French and Spanish variants of the Windows message
@@ -279,6 +310,8 @@ public static class PathHelper
     /// size, saturating at <see cref="long.MaxValue" /> so extreme sizes cannot wrap around
     /// and make an undersized drive look sufficient.
     /// </summary>
+    /// <param name="requiredBytes">Base size in bytes before the safety buffer is added.</param>
+    /// <returns>The required size plus the safety buffer, saturated at <see cref="long.MaxValue" />.</returns>
     internal static long AddSafetyBuffer(long requiredBytes)
     {
         var buffer = Math.Max(requiredBytes / 10, 200L * 1024 * 1024);
@@ -289,6 +322,10 @@ public static class PathHelper
     /// Resolves a temporary directory path with sufficient disk space.
     /// First checks the system temp drive, then falls back to other local drives.
     /// </summary>
+    /// <param name="requiredSize">Number of bytes the temporary files will need.</param>
+    /// <param name="tempSubfolder">Name of the subfolder created under the selected drive.</param>
+    /// <param name="diskMonitorService">Service used to locate an alternative drive with sufficient free space.</param>
+    /// <returns>The full path of a new unique temporary directory on a drive with sufficient free space.</returns>
     public static string ResolveTempDirectory(long requiredSize, string tempSubfolder,
         IDiskMonitorService diskMonitorService)
     {

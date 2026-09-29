@@ -17,6 +17,7 @@ public interface IImageExplorer : IDisposable
     /// <exception cref="InvalidDataException">
     /// Thrown when the path does not exist or names a file instead of a directory.
     /// </exception>
+    /// <returns>The entries directly inside the directory.</returns>
     IReadOnlyList<ImageEntry> ListChildren(string internalPath);
 
     /// <summary>

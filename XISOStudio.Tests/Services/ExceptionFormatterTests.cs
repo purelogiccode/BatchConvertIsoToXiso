@@ -4,6 +4,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests exception detail formatting, including nested exceptions and indentation, in <c>ExceptionFormatter</c>.</summary>
 public class ExceptionFormatterTests
 {
     [Fact]

@@ -7,6 +7,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests anonymous usage stats submission behavior of <c>StatsService</c>.</summary>
 public class StatsServiceTests
 {
     private readonly TestLogger _logger = new();

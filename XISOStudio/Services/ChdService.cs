@@ -21,14 +21,18 @@ public class ChdService : IChdService
     /// <summary>chdman <c>createdvd</c> defaults: 4096-byte hunks, 2048-byte units.</summary>
     private const uint DvdHunkBytes = 4096;
 
+    /// <summary>chdman <c>createdvd</c> default unit size in bytes.</summary>
     private const uint DvdUnitBytes = 2048;
 
     /// <summary>chdman <c>createdvd</c> default codec list (best ratio).</summary>
     private const string DvdCodecList = "lzma,zlib,huff,flac";
 
+    /// <summary>Subfolder under the system temp directory used for temporary CHD working files.</summary>
     private const string TempSubfolder = "XISOStudio_Chd";
 
+    /// <summary>Logger used to report conversion progress and failures.</summary>
     private readonly ILogger _logger;
+    /// <summary>XISO service used to prepare optimized source images.</summary>
     private readonly IXisoSharpService _xisoSharpService;
 
     /// <summary>
@@ -231,6 +235,12 @@ public class ChdService : IChdService
     /// Encodes the prepared XISO into a DVD CHD and verifies the result: a header check
     /// always, and a full deep verification (all hunks and hashes) when requested.
     /// </summary>
+    /// <param name="sourcePath">Path of the prepared XISO to encode.</param>
+    /// <param name="outputPath">Full path of the CHD file to produce.</param>
+    /// <param name="checkIntegrity">Whether to perform a full deep verification of the encoded CHD.</param>
+    /// <param name="progress">Receives progress updates during encoding and verification.</param>
+    /// <param name="token">Token used to cancel the operation.</param>
+    /// <returns>The outcome of the conversion.</returns>
     private FileProcessingStatus EncodeAndVerify(string sourcePath, string outputPath, bool checkIntegrity,
         IProgress<BatchOperationProgress> progress, CancellationToken token)
     {
@@ -282,6 +292,8 @@ public class ChdService : IChdService
     /// Reports encoding progress at 5% steps; CHDSharp invokes the callback once per
     /// compressed hunk (in hunk order), which would otherwise flood the UI.
     /// </summary>
+    /// <param name="progress">Receives the converted progress updates.</param>
+    /// <returns>A callback that reports encoding progress to the batch.</returns>
     private static Action<HunkProgress> CreateEncodeProgressCallback(IProgress<BatchOperationProgress> progress)
     {
         var lastPercent = -1;
@@ -298,6 +310,8 @@ public class ChdService : IChdService
     }
 
     /// <summary>Reports deep-verification progress at 5% steps.</summary>
+    /// <param name="progress">Receives the converted progress updates.</param>
+    /// <returns>An adapter that reports deep-verification progress to the batch.</returns>
     private static IProgress<ChdProgress> CreateVerifyProgressAdapter(IProgress<BatchOperationProgress> progress)
     {
         var lastPercent = -1;
@@ -316,6 +330,8 @@ public class ChdService : IChdService
     /// than an application defect. XISOSharp's low-level reader reports truncated
     /// images as a plain IOException with a "Read error" message.
     /// </summary>
+    /// <param name="ex">Exception to inspect.</param>
+    /// <returns><c>true</c> when the error indicates an invalid input image; otherwise <c>false</c>.</returns>
     private static bool IsInvalidImageError(Exception ex)
     {
         return ex is XisoFormatException or XisoEmptyException or XisoFileTooLargeException or InvalidDataException
@@ -324,6 +340,11 @@ public class ChdService : IChdService
                 ioException.Message.StartsWith("Read error", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Deletes a partially written output file, ignoring failures because the error has
+    /// already been reported to the user.
+    /// </summary>
+    /// <param name="path">Path of the partial output file; ignored when null or empty.</param>
     private void DeletePartialOutput(string? path)
     {
         if (string.IsNullOrEmpty(path)) return;

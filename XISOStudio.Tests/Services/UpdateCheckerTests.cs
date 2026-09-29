@@ -8,6 +8,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests GitHub release version comparison and update detection in <c>UpdateChecker</c>.</summary>
 public class UpdateCheckerTests
 {
     private readonly TestLogger _logger = new();

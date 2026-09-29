@@ -6,6 +6,7 @@ using XISOStudio.Services;
 
 namespace XISOStudio;
 
+/// <summary>Event handlers for browsing input/output folders and starting batch conversion or testing.</summary>
 [SuppressMessage("ReSharper", "UnusedMember.Local",
     Justification =
         "XAML event handlers are resolved by the Avalonia markup compiler, which ReSharper does not link across partial class files.")]
@@ -13,6 +14,9 @@ namespace XISOStudio;
     Justification = "Parameters are required by XAML event handler signatures (sender, event args).")]
 public partial class MainWindow
 {
+    /// <summary>Prompts for the conversion input folder and refreshes the conversion file list.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private async void BrowseConversionInputButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
@@ -36,6 +40,9 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Prompts for the conversion output folder.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private async void BrowseConversionOutputButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
@@ -58,6 +65,9 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Prompts for the integrity-test input folder and refreshes the test file list.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private async void BrowseTestInputButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
@@ -82,6 +92,9 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Validates the selection and runs the batch conversion.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private async void StartConversionButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
@@ -272,6 +285,9 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Validates the selection and runs the batch integrity test.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private async void StartTestButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try

@@ -10,6 +10,7 @@ using XISOStudio.Services;
 
 namespace XISOStudio;
 
+/// <summary>Shared UI helpers, status and summary updates, and window event handlers.</summary>
 [SuppressMessage("ReSharper", "UnusedMember.Local",
     Justification =
         "XAML event handlers are resolved by the Avalonia markup compiler, which ReSharper does not link across partial class files.")]
@@ -17,6 +18,7 @@ namespace XISOStudio;
     Justification = "Parameters are required by XAML event handler signatures (sender, event args).")]
 public partial class MainWindow
 {
+    /// <summary>Stops the operation timers and restores the final elapsed-time display.</summary>
     private void FinalizeUiState()
     {
         try
@@ -37,6 +39,9 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Asks the user how to handle a file that must be downloaded from the cloud.</summary>
+    /// <param name="fileName">Name of the cloud-only file.</param>
+    /// <returns>The retry, skip, or cancel action chosen by the user.</returns>
     private async Task<CloudRetryResult> HandleCloudRetryRequestAsync(string fileName)
     {
         try
@@ -67,6 +72,7 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Removes stale temporary folders before a batch operation starts.</summary>
     private async Task PreOperationCleanupAsync()
     {
         try
@@ -82,6 +88,9 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Requests cancellation of the running operation.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void CancelButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         try
@@ -97,6 +106,9 @@ public partial class MainWindow
         _logger.Information("Cancellation requested. Finishing current file...");
     }
 
+    /// <summary>Shows the About dialog.</summary>
+    /// <param name="sender">The menu item that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private async void AboutMenuItem_ClickAsync(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         try
@@ -110,6 +122,9 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Opens the donation page in the default browser.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void DonateButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         try
@@ -123,6 +138,9 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Shows the folder picker and returns the selected local path.</summary>
+    /// <param name="description">Title shown in the folder picker.</param>
+    /// <returns>The selected folder path, or <c>null</c> when the user cancels or the picker fails.</returns>
     private async Task<string?> SelectFolderAsync(string description)
     {
         try
@@ -142,6 +160,10 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Ensures the input and output folders differ and are not nested.</summary>
+    /// <param name="inputFolder">Folder containing the source files.</param>
+    /// <param name="outputFolder">Folder receiving the converted files.</param>
+    /// <returns><c>true</c> when the folders are valid; otherwise <c>false</c> after an error dialog.</returns>
     private async Task<bool> ValidateInputOutputFoldersAsync(string inputFolder, string outputFolder)
     {
         try
@@ -176,6 +198,7 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Writes the current summary counters to the stats panel.</summary>
     private void UpdateSummaryStatsUi()
     {
         TotalFilesValue.Text = _uiTotalFiles.ToString(CultureInfo.InvariantCulture);
@@ -184,6 +207,9 @@ public partial class MainWindow
         SkippedValue.Text = _uiSkippedCount.ToString(CultureInfo.InvariantCulture);
     }
 
+    /// <summary>Updates the progress bar and its text for the processed-file count.</summary>
+    /// <param name="current">Number of files processed so far.</param>
+    /// <param name="total">Total number of files in the batch.</param>
     private void UpdateProgressUi(int current, int total)
     {
         // Don't update determinate text if we haven't received a total yet
@@ -204,6 +230,9 @@ public partial class MainWindow
     ///     The controls are re-enabled before the summary dialog is shown so that a dialog
     ///     failure can never leave the window permanently disabled.
     /// </summary>
+    /// <param name="operationType">Operation name ("Conversion" or "Test").</param>
+    /// <param name="operationStarted">Whether the batch actually started.</param>
+    /// <param name="operationCanceled">Whether the user canceled the batch.</param>
     private async Task FinishOperationAsync(string operationType, bool operationStarted, bool operationCanceled)
     {
         FinalizeUiState();
@@ -222,6 +251,10 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Writes the batch summary to the log and shows the result dialog.</summary>
+    /// <param name="operationType">Operation name ("Conversion" or "Test").</param>
+    /// <param name="operationStarted">Whether the batch actually started.</param>
+    /// <param name="operationCanceled">Whether the user canceled the batch.</param>
     private async Task LogOperationSummaryAsync(string operationType, bool operationStarted, bool operationCanceled)
     {
         try
@@ -288,6 +321,9 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Updates the elapsed time and disk read/write speed display.</summary>
+    /// <param name="sender">The timer that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void ProcessingTimer_Tick(object? sender, EventArgs e)
     {
         try
@@ -323,6 +359,8 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Enables or disables the navigation and settings controls for a running operation.</summary>
+    /// <param name="enabled"><c>true</c> to restore the idle UI; <c>false</c> while an operation runs.</param>
     private void SetControlsState(bool enabled)
     {
         // Disable/Enable the navigation buttons in the header
@@ -344,6 +382,7 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Resets the summary counters, the progress bar, and the failed-file set.</summary>
     private void ResetSummaryStats()
     {
         _uiTotalFiles = _uiSuccessCount = _uiFailedCount = _uiSkippedCount = 0;
@@ -360,6 +399,9 @@ public partial class MainWindow
         ProgressTextBlock.Text = "";
     }
 
+    /// <summary>Switches to the conversion view.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void NavConvert_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         ConvertView.IsVisible = true;
@@ -372,6 +414,9 @@ public partial class MainWindow
         UpdateNavigationButtonStyles(BtnNavConvert);
     }
 
+    /// <summary>Switches to the integrity-test view.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void NavTest_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         ConvertView.IsVisible = false;
@@ -384,6 +429,9 @@ public partial class MainWindow
         UpdateNavigationButtonStyles(BtnNavTest);
     }
 
+    /// <summary>Switches to the explorer view and hides the log panel.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void NavExplorer_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         ConvertView.IsVisible = false;
@@ -396,7 +444,9 @@ public partial class MainWindow
         UpdateNavigationButtonStyles(BtnNavExplorer);
     }
 
+    /// <summary>Log column width saved while the explorer hides the log panel.</summary>
     private GridLength _savedLogColumnWidth = new(1, GridUnitType.Star);
+    /// <summary>Splitter column width saved while the explorer hides the log panel.</summary>
     private GridLength _savedSplitterColumnWidth = new(10);
 
     /// <summary>The splitter column of the main content grid (see MainWindow.axaml).</summary>
@@ -433,6 +483,8 @@ public partial class MainWindow
         LogBorder.IsVisible = true;
     }
 
+    /// <summary>Highlights the active navigation button and resets the others.</summary>
+    /// <param name="selectedButton">Button to give the selected style.</param>
     private void UpdateNavigationButtonStyles(Button selectedButton)
     {
         try
@@ -451,8 +503,10 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Indicates that the disk performance counter has already been stopped.</summary>
     private bool _isPerformanceCounterStopped;
 
+    /// <summary>Stops disk monitoring and clears the speed display.</summary>
     private void StopPerformanceCounter()
     {
         if (_isPerformanceCounterStopped) return;
@@ -479,11 +533,15 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Writes a status message to the status bar.</summary>
+    /// <param name="status">Status text to display.</param>
     private void UpdateStatus(string status)
     {
         StatusTextBlock?.Text = status;
     }
 
+    /// <summary>Starts disk monitoring for the drive used by the current operation.</summary>
+    /// <param name="driveLetter">Drive letter to monitor, or <c>null</c> when unknown.</param>
     private void SetCurrentOperationDrive(string? driveLetter)
     {
         try

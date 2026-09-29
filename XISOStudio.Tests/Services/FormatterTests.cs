@@ -4,6 +4,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests byte and transfer rate formatting in <c>Formatter</c>.</summary>
 public class FormatterTests
 {
     [Theory]

@@ -5,6 +5,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests file relocation behavior of <c>FileMoverService</c>, including destination collisions and free space handling.</summary>
 public class FileMoverServiceTests : IDisposable
 {
     private readonly TestLogger _logger = new();

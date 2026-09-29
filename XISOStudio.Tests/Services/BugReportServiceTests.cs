@@ -6,6 +6,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests bug report message construction and sending behavior of <c>BugReportService</c>.</summary>
 public class BugReportServiceTests
 {
     [Fact]
@@ -160,6 +161,7 @@ public class BugReportServiceTests
         }
     }
 
+    /// <summary>Synchronization context double that never runs posted continuations, simulating a blocked UI thread.</summary>
     private sealed class NonPumpingSynchronizationContext : SynchronizationContext
     {
         public override void Post(SendOrPostCallback d, object? state)
@@ -168,11 +170,12 @@ public class BugReportServiceTests
         }
     }
 
+    /// <summary>HTTP handler double that delays the response by a fixed interval.</summary>
     private sealed class DelayingHandler : HttpMessageHandler
     {
         private readonly TimeSpan _delay;
 
-        public DelayingHandler(TimeSpan delay)
+        internal DelayingHandler(TimeSpan delay)
         {
             _delay = delay;
         }
@@ -185,11 +188,12 @@ public class BugReportServiceTests
         }
     }
 
+    /// <summary>HTTP handler double that captures the API key header and returns a fixed status code.</summary>
     private sealed class CapturingHandler : HttpMessageHandler
     {
         private readonly HttpStatusCode _statusCode;
 
-        public CapturingHandler(HttpStatusCode statusCode)
+        internal CapturingHandler(HttpStatusCode statusCode)
         {
             _statusCode = statusCode;
         }
@@ -206,6 +210,7 @@ public class BugReportServiceTests
         }
     }
 
+    /// <summary>HTTP handler double that always throws an <c>HttpRequestException</c>.</summary>
     private sealed class ThrowingHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,

@@ -10,7 +10,7 @@ namespace XISOStudio.Tests;
 /// </summary>
 internal static class ChdTestHelper
 {
-    public static string CreateDvdChd(string sourcePath, string chdPath)
+    internal static string CreateDvdChd(string sourcePath, string chdPath)
     {
         var options = new ChdEncodeOptions { Metadata = [MetadataWriter.BuildDvdMetadata()] };
         using var source = File.OpenRead(sourcePath);
@@ -18,7 +18,7 @@ internal static class ChdTestHelper
         return chdPath;
     }
 
-    public static string CreateRawChd(string sourcePath, string chdPath)
+    internal static string CreateRawChd(string sourcePath, string chdPath)
     {
         using var source = File.OpenRead(sourcePath);
         ChdEncoder.EncodeRaw(source, chdPath, 4096, 512, [CodecTags.Zlib]);

@@ -4,6 +4,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests the folder/file emoji conversion performed by <c>FolderIconConverter</c>.</summary>
 public class FolderIconConverterTests
 {
     private readonly FolderIconConverter _converter = new();

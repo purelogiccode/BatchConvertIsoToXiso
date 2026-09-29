@@ -4,6 +4,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests URL opening and failure logging in <c>UrlOpenerService</c>.</summary>
 public class UrlOpenerServiceTests
 {
     private readonly TestLogger _logger = new();

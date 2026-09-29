@@ -21,6 +21,7 @@ public class UiLogSink : ILogEventSink
     /// Event arguments for <see cref="MessageLogged"/>: a pre-formatted, timestamped
     /// log line ready for display.
     /// </summary>
+    /// <param name="message">The formatted log line.</param>
     public sealed class LogMessageEventArgs(string message) : EventArgs
     {
         /// <summary>The formatted log line.</summary>

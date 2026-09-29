@@ -19,7 +19,13 @@ internal sealed class ChdImageExplorer : IImageExplorer
     private readonly string _imageName;
     private readonly ILogger? _logger;
 
-    public ChdImageExplorer(string chdPath, ILogger? logger = null)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ChdImageExplorer"/> class and opens the
+    /// CHD image in keep-open mode.
+    /// </summary>
+    /// <param name="chdPath">Path of the Xbox DVD CHD image to explore.</param>
+    /// <param name="logger">Optional logger used for diagnostics.</param>
+    internal ChdImageExplorer(string chdPath, ILogger? logger = null)
     {
         _logger = logger?.ForContext<ChdImageExplorer>();
         _imageName = Path.GetFileName(chdPath);

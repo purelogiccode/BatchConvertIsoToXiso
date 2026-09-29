@@ -14,7 +14,7 @@ internal sealed class TestLogger : ILogEventSink
     private readonly List<LogEvent> _events = [];
     private readonly Lock _lock = new();
 
-    public TestLogger()
+    internal TestLogger()
     {
         Logger = new LoggerConfiguration()
             .MinimumLevel.Verbose()
@@ -22,9 +22,9 @@ internal sealed class TestLogger : ILogEventSink
             .CreateLogger();
     }
 
-    public ILogger Logger { get; }
+    internal ILogger Logger { get; }
 
-    public IReadOnlyList<LogEvent> Events
+    internal IReadOnlyList<LogEvent> Events
     {
         get
         {
@@ -43,19 +43,14 @@ internal sealed class TestLogger : ILogEventSink
         }
     }
 
-    public bool HasMessage(string substring)
+    internal bool HasMessage(string substring)
     {
         return Events.Any(e => Render(e).Contains(substring, StringComparison.OrdinalIgnoreCase));
     }
 
-    public bool HasMessage(LogEventLevel level, string substring)
+    internal bool HasMessage(LogEventLevel level, string substring)
     {
         return Events.Any(e => e.Level == level && Render(e).Contains(substring, StringComparison.OrdinalIgnoreCase));
-    }
-
-    public bool HasLevel(LogEventLevel level)
-    {
-        return Events.Any(e => e.Level == level);
     }
 
     private static string Render(LogEvent logEvent)

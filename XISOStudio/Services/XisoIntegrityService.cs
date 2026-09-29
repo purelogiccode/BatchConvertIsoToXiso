@@ -133,6 +133,8 @@ public class XisoIntegrityService : IXisoIntegrityService
     /// than an application defect. XISOSharp's low-level reader reports truncated
     /// images as a plain IOException with a "Read error" message.
     /// </summary>
+    /// <param name="ex">Exception raised while testing an image.</param>
+    /// <returns><c>true</c> when the exception indicates a missing, unsupported, or corrupt input image; otherwise <c>false</c>.</returns>
     private static bool IsInputError(Exception ex)
     {
         return ex is XisoFormatException or XisoEmptyException or InvalidDataException or ExtractErrorException
@@ -145,6 +147,7 @@ public class XisoIntegrityService : IXisoIntegrityService
     /// Signals that the failed test was caused by an invalid image, so the UI can count
     /// genuinely invalid files instead of treating every failure as one.
     /// </summary>
+    /// <param name="progress">Progress receiver that counts the invalid image.</param>
     private static void ReportInvalidIso(IProgress<BatchOperationProgress> progress)
     {
         progress.Report(new BatchOperationProgress { InvalidIsoCount = 1 });
@@ -156,6 +159,11 @@ public class XisoIntegrityService : IXisoIntegrityService
     /// <paramref name="performDeepScan"/> decompresses every file to prove all blocks
     /// are readable. ZAR holds compressed blocks, so there is no separate surface scan.
     /// </summary>
+    /// <param name="zarPath">Path of the ZAR archive to validate.</param>
+    /// <param name="performDeepScan">Whether to decompress and read every file in the archive.</param>
+    /// <param name="progress">Receives progress updates during the test.</param>
+    /// <param name="token">Token used to cancel the test.</param>
+    /// <returns><c>true</c> when the archive passes the test; otherwise <c>false</c>.</returns>
     private bool TestZarIntegrity(string zarPath, bool performDeepScan,
         IProgress<BatchOperationProgress> progress, CancellationToken token)
     {
@@ -247,6 +255,11 @@ public class XisoIntegrityService : IXisoIntegrityService
     /// <paramref name="performDeepScan"/> is set — and the Xbox filesystem structure is
     /// then audited over the decompressed image through XISOSharp.
     /// </summary>
+    /// <param name="chdPath">Path of the CHD image to validate.</param>
+    /// <param name="performDeepScan">Whether to verify every hunk and checksum in addition to the header.</param>
+    /// <param name="progress">Receives progress updates during the deep verification.</param>
+    /// <param name="token">Token used to cancel the test.</param>
+    /// <returns><c>true</c> when the image passes the test; otherwise <c>false</c>.</returns>
     private bool TestChdIntegrity(string chdPath, bool performDeepScan,
         IProgress<BatchOperationProgress> progress, CancellationToken token)
     {
@@ -320,6 +333,8 @@ public class XisoIntegrityService : IXisoIntegrityService
     }
 
     /// <summary>Reports CHD deep-verification progress at 5% steps.</summary>
+    /// <param name="progress">Progress receiver that receives the throttled updates.</param>
+    /// <returns>An adapter that forwards CHD verification progress in 5% steps.</returns>
     private static IProgress<ChdProgress> CreateChdVerifyProgressAdapter(IProgress<BatchOperationProgress> progress)
     {
         var lastPercent = -1;
@@ -342,24 +357,37 @@ public class XisoIntegrityService : IXisoIntegrityService
     {
         private readonly ChdImageStream _stream;
 
-        public ChdBlockDevice(ChdImageStream stream)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ChdBlockDevice"/> class.
+        /// </summary>
+        /// <param name="stream">Decompressed CHD image stream owned by the device.</param>
+        internal ChdBlockDevice(ChdImageStream stream)
         {
             _stream = stream;
         }
 
+        /// <summary>Length of the decompressed image in bytes.</summary>
         public long Length => _stream.Length;
 
+        /// <summary>Reads decompressed image data at the specified offset.</summary>
+        /// <param name="offset">Absolute byte offset in the decompressed image.</param>
+        /// <param name="buffer">Destination buffer for the data read.</param>
+        /// <returns>Number of bytes read into <paramref name="buffer"/>.</returns>
         public int Read(long offset, Span<byte> buffer)
         {
             _stream.Position = offset;
             return _stream.Read(buffer);
         }
 
+        /// <summary>Not supported: CHD images are read-only, so this method always throws.</summary>
+        /// <param name="offset">Absolute byte offset in the decompressed image.</param>
+        /// <param name="buffer">Source buffer that would have been written.</param>
         public void Write(long offset, ReadOnlySpan<byte> buffer)
         {
             throw new NotSupportedException("CHD images are read-only.");
         }
 
+        /// <summary>Disposes the underlying decompressed image stream.</summary>
         public void Dispose()
         {
             _stream.Dispose();
@@ -367,6 +395,9 @@ public class XisoIntegrityService : IXisoIntegrityService
     }
 
     /// <summary>A file discovered by the ZAR tree walk.</summary>
+    /// <param name="Node">Archive node handle of the file.</param>
+    /// <param name="Path">Full archive path of the file.</param>
+    /// <param name="Size">Uncompressed size of the file in bytes.</param>
     private readonly record struct ZarFileEntry(uint Node, string Path, ulong Size);
 
     /// <summary>
@@ -381,6 +412,13 @@ public class XisoIntegrityService : IXisoIntegrityService
     /// and full path. Directories whose stored names cannot be decoded are skipped by
     /// the reader, mirroring its mount/host behavior.
     /// </summary>
+    /// <param name="reader">Reader positioned on the archive being walked.</param>
+    /// <param name="directoryNode">Node handle of the directory to walk.</param>
+    /// <param name="directoryPath">Full archive path of the directory being walked.</param>
+    /// <param name="files">Collects every file discovered in the tree.</param>
+    /// <param name="directoryCount">Counts the directories visited.</param>
+    /// <param name="token">Token used to cancel the walk.</param>
+    /// <param name="depth">Current recursion depth, used to enforce the nesting cap.</param>
     private static void WalkZarDirectory(ZArchiveReader reader, uint directoryNode, string directoryPath,
         // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
         List<ZarFileEntry> files, ref int directoryCount, CancellationToken token, int depth = 0)
@@ -414,6 +452,14 @@ public class XisoIntegrityService : IXisoIntegrityService
         }
     }
 
+    /// <summary>
+    /// Reads the whole image sequentially to exercise every sector, reporting progress in
+    /// 1% steps.
+    /// </summary>
+    /// <param name="isoPath">Path of the image to scan.</param>
+    /// <param name="progress">Receives progress updates during the scan.</param>
+    /// <param name="token">Token used to cancel the scan.</param>
+    /// <returns><c>true</c> when the entire image was read; otherwise <c>false</c>.</returns>
     private bool PerformSurfaceScan(string isoPath, IProgress<BatchOperationProgress> progress, CancellationToken token)
     {
         _logger.Information("Performing deep surface scan (sequential read of all sectors)...");

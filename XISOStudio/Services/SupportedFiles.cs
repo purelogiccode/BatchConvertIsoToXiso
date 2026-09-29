@@ -11,6 +11,8 @@ public static class SupportedFiles
     /// <summary>
     ///     Returns true when the path has an extension the conversion engine can process.
     /// </summary>
+    /// <param name="path">Path to inspect.</param>
+    /// <returns><c>true</c> when the extension is <c>.iso</c>, <c>.zip</c>, <c>.7z</c>, or <c>.rar</c>; otherwise <c>false</c>.</returns>
     public static bool IsConvertible(string path)
     {
         var extension = Path.GetExtension(path).ToLowerInvariant();
@@ -21,6 +23,8 @@ public static class SupportedFiles
     ///     Returns true when the path is a plain ISO image (<c>.iso</c>). Used for
     ///     ISO files extracted from archives, which are the only convertible entries.
     /// </summary>
+    /// <param name="path">Path to inspect.</param>
+    /// <returns><c>true</c> when the path has the <c>.iso</c> extension; otherwise <c>false</c>.</returns>
     public static bool IsIso(string path)
     {
         return Path.GetExtension(path).Equals(".iso", StringComparison.OrdinalIgnoreCase);
@@ -31,11 +35,19 @@ public static class SupportedFiles
     ///     plain ISO, CISO (<c>.cso</c>, including the first part of a split set),
     ///     ZAR archive, or CHD image.
     /// </summary>
+    /// <param name="path">Path to inspect.</param>
+    /// <returns><c>true</c> when the path is an image the integrity test can verify; otherwise <c>false</c>.</returns>
     public static bool IsTestable(string path)
     {
         return IsImage(path);
     }
 
+    /// <summary>
+    ///     Returns true when the path has an image extension the integrity test understands,
+    ///     excluding continuation parts of a split CISO set.
+    /// </summary>
+    /// <param name="path">Path to inspect.</param>
+    /// <returns><c>true</c> when the path is a testable image; otherwise <c>false</c>.</returns>
     private static bool IsImage(string path)
     {
         var extension = Path.GetExtension(path).ToLowerInvariant();
@@ -52,6 +64,8 @@ public static class SupportedFiles
     ///     carries the header and opens the whole image, so part 2+ must not be listed as
     ///     standalone images.
     /// </summary>
+    /// <param name="path">Path to inspect.</param>
+    /// <returns><c>true</c> when the file name ends in a split part number of 2 or greater; otherwise <c>false</c>.</returns>
     private static bool IsSplitContinuationPart(string path)
     {
         var stem = Path.GetFileNameWithoutExtension(path);

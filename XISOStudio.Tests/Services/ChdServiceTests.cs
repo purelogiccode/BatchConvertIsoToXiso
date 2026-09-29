@@ -10,6 +10,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Services;
 
+/// <summary>Tests ISO to CHD conversion, including optimization handling and output validation, in <c>ChdService</c>.</summary>
 public sealed class ChdServiceTests : IDisposable
 {
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"ChdServiceTests_{Guid.NewGuid():N}");

@@ -7,6 +7,7 @@ using XISOStudio.Services;
 
 namespace XISOStudio;
 
+/// <summary>Selectable file lists for the conversion and test views, including folder scans and selection commands.</summary>
 [SuppressMessage("ReSharper", "UnusedMember.Local",
     Justification =
         "XAML event handlers are resolved by the Avalonia markup compiler, which ReSharper does not link across partial class files.")]
@@ -14,13 +15,17 @@ namespace XISOStudio;
     Justification = "Parameters are required by XAML event handler signatures (sender, event args).")]
 public partial class MainWindow
 {
+    /// <summary>Files discovered for batch conversion.</summary>
     private readonly ObservableCollection<FileItem> _conversionFiles = new();
+    /// <summary>Files discovered for batch integrity testing.</summary>
     private readonly ObservableCollection<FileItem> _testFiles = new();
 
     // A scan generation per file list: a refresh only mutates its list while it is still
     // the newest scan for that list, so an older, slower scan cannot clear or repopulate
     // the list after a newer one (e.g. when the user changes the source folder quickly).
+    /// <summary>Guards the per-list scan generation counters.</summary>
     private readonly Lock _fileListRefreshLock = new();
+    /// <summary>Newest scan generation for each file list.</summary>
     private readonly Dictionary<ObservableCollection<FileItem>, int> _fileListRefreshGeneration = new();
 
     /// <summary>
@@ -32,6 +37,9 @@ public partial class MainWindow
         TestFilesDataGrid.ItemsSource = _testFiles;
     }
 
+    /// <summary>Refreshes the affected file list when the search-subfolders option changes.</summary>
+    /// <param name="sender">The check box that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void SearchSubfoldersCheckBox_Changed(object? sender, RoutedEventArgs e)
     {
         if (!_isUiInitialized) return;
@@ -46,36 +54,53 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Selects every file in the conversion list.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void SelectAllConversion_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var file in _conversionFiles) file.IsSelected = true;
     }
 
+    /// <summary>Deselects every file in the conversion list.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void DeselectAllConversion_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var file in _conversionFiles) file.IsSelected = false;
     }
 
+    /// <summary>Selects every file in the test list.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void SelectAllTest_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var file in _testFiles) file.IsSelected = true;
     }
 
+    /// <summary>Deselects every file in the test list.</summary>
+    /// <param name="sender">The button that raised the event.</param>
+    /// <param name="e">The event data.</param>
     private void DeselectAllTest_Click(object? sender, RoutedEventArgs e)
     {
         foreach (var file in _testFiles) file.IsSelected = false;
     }
 
+    /// <summary>Gets the conversion files the user selected.</summary>
+    /// <returns>The full paths of the selected conversion files.</returns>
     private IReadOnlyList<string> GetSelectedConversionFiles()
     {
         return _conversionFiles.Where(static f => f.IsSelected).Select(static f => f.FullPath).ToList();
     }
 
+    /// <summary>Gets the test files the user selected.</summary>
+    /// <returns>The full paths of the selected test files.</returns>
     private IReadOnlyList<string> GetSelectedTestFiles()
     {
         return _testFiles.Where(static f => f.IsSelected).Select(static f => f.FullPath).ToList();
     }
 
+    /// <summary>Rescans the conversion input folder and repopulates the conversion list.</summary>
     private Task RefreshConversionFileListAsync()
     {
         return LoadFileListAsync(ConversionInputFolderTextBox.Text,
@@ -83,6 +108,7 @@ public partial class MainWindow
             "conversion");
     }
 
+    /// <summary>Rescans the test input folder and repopulates the test list.</summary>
     private Task RefreshTestFileListAsync()
     {
         return LoadFileListAsync(TestInputFolderTextBox.Text, SearchSubfoldersTestCheckBox.IsChecked == true,
@@ -93,6 +119,11 @@ public partial class MainWindow
     ///     Scans the input folder and repopulates the given list with every supported file,
     ///     adding items in small chunks so the UI stays responsive with thousands of files.
     /// </summary>
+    /// <param name="inputFolder">Folder to scan; an empty or missing folder clears the list.</param>
+    /// <param name="searchSubfolders">Whether to recurse into subfolders.</param>
+    /// <param name="target">List to repopulate.</param>
+    /// <param name="filter">Predicate selecting the supported files.</param>
+    /// <param name="purpose">Label used in log messages ("conversion" or "testing").</param>
     private async Task LoadFileListAsync(string? inputFolder, bool searchSubfolders,
         ObservableCollection<FileItem> target, Func<string, bool> filter, string purpose)
     {
@@ -168,6 +199,9 @@ public partial class MainWindow
     ///     Returns true when <paramref name="generation" /> is still the newest scan for
     ///     <paramref name="target" />; results from an older, slower scan must be discarded.
     /// </summary>
+    /// <param name="target">File list whose newest scan generation is checked.</param>
+    /// <param name="generation">Scan generation to test.</param>
+    /// <returns><c>true</c> when the generation is still the newest scan for the list.</returns>
     private bool IsFileListRefreshCurrent(ObservableCollection<FileItem> target, int generation)
     {
         lock (_fileListRefreshLock)
@@ -180,6 +214,8 @@ public partial class MainWindow
     ///     Returns the file length, or 0 when the file vanished, is locked, or is otherwise
     ///     unreadable: one such file must not abort the whole folder scan.
     /// </summary>
+    /// <param name="path">File whose length is read.</param>
+    /// <returns>The file length in bytes, or 0 when it cannot be read.</returns>
     private long GetFileSizeSafe(string path)
     {
         try

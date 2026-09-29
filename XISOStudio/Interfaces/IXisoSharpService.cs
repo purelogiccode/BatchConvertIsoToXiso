@@ -13,6 +13,15 @@ public interface IXisoSharpService
     /// The caller supplies the name explicitly so the result always matches the user-visible original
     /// file name, even when the input is a temporary working copy.
     /// </summary>
+    /// <param name="inputFile">Path of the ISO image to convert.</param>
+    /// <param name="outputFolder">Folder that receives the converted file.</param>
+    /// <param name="outputFileName">File name to use for the result.</param>
+    /// <param name="outputFormat">Target format (XISO, ZAR, or CSO).</param>
+    /// <param name="skipSystemUpdate">Whether to exclude the $SystemUpdate folder from the optimized image.</param>
+    /// <param name="checkIntegrity">Whether to verify the result after conversion.</param>
+    /// <param name="progress">Receives batch progress and status updates.</param>
+    /// <param name="token">Token that cancels the conversion.</param>
+    /// <returns>The status of the completed conversion.</returns>
     Task<FileProcessingStatus> ConvertIsoAsync(string inputFile, string outputFolder, string outputFileName,
         OutputFormat outputFormat, bool skipSystemUpdate, bool checkIntegrity,
         IProgress<BatchOperationProgress> progress, CancellationToken token);

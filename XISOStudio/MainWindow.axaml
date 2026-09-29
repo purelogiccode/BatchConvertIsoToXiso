@@ -60,7 +60,7 @@
                                     <RadioButton x:Name="OutputFormatXisoRadio" Content="XISO" IsChecked="True" GroupName="OutputFormat" Margin="0,0,14,0" ToolTip.Tip="Optimized XISO image (.iso) — the standard trimmed Xbox image" />
                                     <RadioButton x:Name="OutputFormatZarRadio" Content="ZAR" GroupName="OutputFormat" Margin="0,0,14,0" ToolTip.Tip="ZArchive (.zar) — zstd-compressed image, loadable in Xenia canary" />
                                     <RadioButton x:Name="OutputFormatCsoRadio" Content="CSO" GroupName="OutputFormat" Margin="0,0,14,0" ToolTip.Tip="Compressed ISO (.cso) — CISO v2 (LZ4), xdvdfs-compatible" />
-                                    <RadioButton x:Name="OutputFormatChdRadio" Content="CHD" GroupName="OutputFormat" ToolTip.Tip="Compressed Hunks of Data (.chd) — CHD v5 with the chdman createdvd preset, readable by MAME-compatible tools" />
+                                    <RadioButton Content="CHD" GroupName="OutputFormat" ToolTip.Tip="Compressed Hunks of Data (.chd) — CHD v5 with the chdman createdvd preset, readable by MAME-compatible tools" />
                                 </StackPanel>
                                 <CheckBox x:Name="DeleteOriginalsCheckBox" Content="Delete original files after successful conversion" Margin="0,2,0,2" HorizontalAlignment="Left" ToolTip.Tip="Deletes the original ISO/archive if conversion is successful. Use with caution!" />
                                 <CheckBox x:Name="SearchSubfoldersConversionCheckBox" Content="Search for files in subfolders" Margin="0,8,0,8" HorizontalAlignment="Left" ToolTip.Tip="Include files found in subdirectories of the source folder" IsCheckedChanged="SearchSubfoldersCheckBox_Changed" />
@@ -80,7 +80,7 @@
                             <Button Content="Select All" Click="SelectAllConversion_Click" Theme="{StaticResource ActionButtonStyle}" Padding="10,5" ToolTip.Tip="Tick every file in the list" />
                             <Button Content="Deselect All" Click="DeselectAllConversion_Click" Theme="{StaticResource ActionButtonStyle}" Padding="10,5" ToolTip.Tip="Untick every file in the list" />
                         </StackPanel>
-                        <Button x:Name="StartConversionButton" Grid.Row="6" Content="Start Conversion" Theme="{StaticResource StartButtonStyle}" HorizontalAlignment="Center" Margin="0,5,0,0" Click="StartConversionButton_ClickAsync" ToolTip.Tip="Begin the batch conversion process" />
+                        <Button Grid.Row="6" Content="Start Conversion" Theme="{StaticResource StartButtonStyle}" HorizontalAlignment="Center" Margin="0,5,0,0" Click="StartConversionButton_ClickAsync" ToolTip.Tip="Begin the batch conversion process" />
                     </Grid>
 
                     <!-- Test View (Hidden by default) -->
@@ -110,7 +110,7 @@
                             <Button Content="Select All" Click="SelectAllTest_Click" Theme="{StaticResource ActionButtonStyle}" Padding="10,5" ToolTip.Tip="Tick every file in the list" />
                             <Button Content="Deselect All" Click="DeselectAllTest_Click" Theme="{StaticResource ActionButtonStyle}" Padding="10,5" ToolTip.Tip="Untick every file in the list" />
                         </StackPanel>
-                        <Button x:Name="StartTestButton" Grid.Row="5" Content="Start Integrity Test" Theme="{StaticResource StartButtonStyle}" HorizontalAlignment="Center" Margin="0,5,0,0" Click="StartTestButton_ClickAsync" ToolTip.Tip="Begin the batch integrity test process" />
+                        <Button Grid.Row="5" Content="Start Integrity Test" Theme="{StaticResource StartButtonStyle}" HorizontalAlignment="Center" Margin="0,5,0,0" Click="StartTestButton_ClickAsync" ToolTip.Tip="Begin the batch integrity test process" />
                     </Grid>
 
                     <!-- Explorer View: file picker with the explorer below it -->
@@ -121,7 +121,7 @@
                             <Button Content="Browse..." Grid.Column="2" Click="BrowseExplorerFile_ClickAsync" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for an Xbox image" />
                         </Grid>
 
-                        <Border x:Name="ExplorerBorder" Grid.Row="1" Margin="0,10,0,0" BorderBrush="{StaticResource TerminalBorderBrush}" BorderThickness="2" CornerRadius="4" Background="{StaticResource TerminalBackgroundBrush}" Padding="10">
+                        <Border Grid.Row="1" Margin="0,10,0,0" BorderBrush="{StaticResource TerminalBorderBrush}" BorderThickness="2" CornerRadius="4" Background="{StaticResource TerminalBackgroundBrush}" Padding="10">
                             <Grid RowDefinitions="Auto,*">
 
                                 <!-- Navigation Bar -->

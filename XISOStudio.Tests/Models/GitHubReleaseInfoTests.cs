@@ -3,6 +3,7 @@ using Xunit;
 
 namespace XISOStudio.Tests.Models;
 
+/// <summary>Tests the default values and settable properties of <c>GitHubReleaseInfo</c>.</summary>
 public class GitHubReleaseInfoTests
 {
     [Fact]
