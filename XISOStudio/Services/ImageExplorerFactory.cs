@@ -1,4 +1,5 @@
 using XISOStudio.Interfaces;
+using Serilog;
 
 namespace XISOStudio.Services;
 
@@ -13,17 +14,26 @@ public static class ImageExplorerFactory
     /// Opens an image explorer appropriate for the format of the specified file.
     /// </summary>
     /// <param name="imagePath">Path of the image to open.</param>
+    /// <param name="logger">Optional logger used to record failures.</param>
     /// <returns>An explorer for the image, selected by its file extension.</returns>
-    public static IImageExplorer Open(string imagePath)
+    public static IImageExplorer Open(string imagePath, ILogger? logger = null)
     {
-        var extension = Path.GetExtension(imagePath);
+        try
+        {
+            var extension = Path.GetExtension(imagePath);
 
-        if (extension.Equals(".zar", StringComparison.OrdinalIgnoreCase))
-            return new ZarImageExplorer(imagePath);
+            if (extension.Equals(".zar", StringComparison.OrdinalIgnoreCase))
+                return new ZarImageExplorer(imagePath, logger);
 
-        if (extension.Equals(".chd", StringComparison.OrdinalIgnoreCase))
-            return new ChdImageExplorer(imagePath);
+            if (extension.Equals(".chd", StringComparison.OrdinalIgnoreCase))
+                return new ChdImageExplorer(imagePath, logger);
 
-        return new XisoImageExplorer(imagePath);
+            return new XisoImageExplorer(imagePath, logger);
+        }
+        catch (Exception ex)
+        {
+            logger?.Error(ex, "Failed to open an image explorer for {ImagePath}", imagePath);
+            throw;
+        }
     }
 }

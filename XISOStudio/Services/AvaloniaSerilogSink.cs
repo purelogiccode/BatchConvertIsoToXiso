@@ -40,9 +40,19 @@ public sealed class AvaloniaSerilogSink : ILogSink
     public void Log(AvaloniaLogEventLevel level, string area, object? source, string messageTemplate,
         params object?[] propertyValues)
     {
-        _logger
-            .ForContext("Area", area)
-            .ForContext("Source", source)
-            .Write((SerilogLogEventLevel)(int)level, messageTemplate, propertyValues);
+        try
+        {
+            _logger
+                .ForContext("Area", area)
+                .ForContext("Source", source)
+                .Write((SerilogLogEventLevel)(int)level, messageTemplate, propertyValues);
+        }
+        catch (Exception ex)
+        {
+            // Never let a logging failure escape into Avalonia's diagnostics path; logging
+            // about the failure through Serilog could recurse, so use the self-log instead.
+            Serilog.Debugging.SelfLog.WriteLine(
+                "AvaloniaSerilogSink failed to forward an Avalonia log event: {0}", ex);
+        }
     }
 }

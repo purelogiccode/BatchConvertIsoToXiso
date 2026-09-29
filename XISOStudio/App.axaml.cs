@@ -298,7 +298,7 @@ public class App : Application
         services.AddTransient<MainWindow>();
     }
 
-    private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+    private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
     {
         if (e.ExceptionObject is Exception exception)
         {
@@ -368,7 +368,7 @@ public class App : Application
     /// logging pipeline has already shut down the report is still delivered.
     /// For fatal exceptions this blocks with a 5-second timeout.
     /// </summary>
-    private void TryReportFatal(string source, Exception exception, bool isFatal = true)
+    private static void TryReportFatal(string source, Exception exception, bool isFatal = true)
     {
         try
         {

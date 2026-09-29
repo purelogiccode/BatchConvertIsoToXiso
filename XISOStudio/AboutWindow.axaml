@@ -106,23 +106,23 @@
 
                     <StackPanel Margin="10,0,0,0">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8" ToolTip.Tip="Visit XISOSharp on GitHub — the library that powers all XISO reading, writing, and conversion">
-                            <Button Content="XISOSharp" Theme="{StaticResource LinkButtonStyle}" Tag="https://github.com/purelogiccode/XISOSharp" Click="Hyperlink_Click" />
-                            <TextBlock Text=" - XISO/XDVDFS reading, writing, and conversion library" Foreground="{StaticResource TextMutedBrush}" />
+                            <Button Content="XISOSharp" Theme="{StaticResource LinkButtonStyle}" Tag="https://github.com/purelogiccode/XISOSharp" Click="Hyperlink_Click" ToolTip.Tip="Open the XISOSharp GitHub repository" />
+                            <TextBlock Text=" - XISO/XDVDFS reading, writing, and conversion library" Foreground="{StaticResource TextMutedBrush}" ToolTip.Tip="XISO/XDVDFS reading, writing, and conversion library used by XISO Studio" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8" ToolTip.Tip="Visit ZArchiveSharp on GitHub — ZArchive/zstd compression library">
-                            <Button Content="ZArchiveSharp" Theme="{StaticResource LinkButtonStyle}" Tag="https://github.com/purelogiccode/ZArchiveSharp" Click="Hyperlink_Click" />
-                            <TextBlock Text=" - ZArchive/zstd compression library" Foreground="{StaticResource TextMutedBrush}" />
+                            <Button Content="ZArchiveSharp" Theme="{StaticResource LinkButtonStyle}" Tag="https://github.com/purelogiccode/ZArchiveSharp" Click="Hyperlink_Click" ToolTip.Tip="Open the ZArchiveSharp GitHub repository" />
+                            <TextBlock Text=" - ZArchive/zstd compression library" Foreground="{StaticResource TextMutedBrush}" ToolTip.Tip="ZArchive/zstd compression library used by XISO Studio" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8" ToolTip.Tip="Visit CHDSharp on GitHub — CHD (Compressed Hunks of Data) reading and writing library">
-                            <Button Content="CHDSharp" Theme="{StaticResource LinkButtonStyle}" Tag="https://github.com/purelogiccode/CHDSharp" Click="Hyperlink_Click" />
-                            <TextBlock Text=" - CHD reading, verification, and creation" Foreground="{StaticResource TextMutedBrush}" />
+                            <Button Content="CHDSharp" Theme="{StaticResource LinkButtonStyle}" Tag="https://github.com/purelogiccode/CHDSharp" Click="Hyperlink_Click" ToolTip.Tip="Open the CHDSharp GitHub repository" />
+                            <TextBlock Text=" - CHD reading, verification, and creation" Foreground="{StaticResource TextMutedBrush}" ToolTip.Tip="CHD reading, verification, and creation library used by XISO Studio" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8" ToolTip.Tip="Visit SharpCompress on GitHub — high-performance archive extraction library">
-                            <Button Content="SharpCompress" Theme="{StaticResource LinkButtonStyle}" Tag="https://github.com/adamhathcock/sharpcompress" Click="Hyperlink_Click" />
-                            <TextBlock Text=" - High-performance archive extraction" Foreground="{StaticResource TextMutedBrush}" />
+                            <Button Content="SharpCompress" Theme="{StaticResource LinkButtonStyle}" Tag="https://github.com/adamhathcock/sharpcompress" Click="Hyperlink_Click" ToolTip.Tip="Open the SharpCompress GitHub repository" />
+                            <TextBlock Text=" - High-performance archive extraction" Foreground="{StaticResource TextMutedBrush}" ToolTip.Tip="High-performance archive extraction library used by XISO Studio" />
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>

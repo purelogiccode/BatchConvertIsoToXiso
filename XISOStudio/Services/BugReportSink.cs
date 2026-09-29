@@ -64,9 +64,11 @@ public class BugReportSink : ILogEventSink
                     await bugReportService.SendBugReportAsync(message);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Silently ignore reporting failures.
+                // Silently ignore reporting failures, but keep a trace through the self-log:
+                // writing to the logging pipeline here would recurse into this sink.
+                Serilog.Debugging.SelfLog.WriteLine("BugReportSink failed to forward a bug report: {0}", ex);
             }
         });
     }

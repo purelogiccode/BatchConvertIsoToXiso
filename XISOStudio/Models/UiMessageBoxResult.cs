@@ -1,4 +1,4 @@
-namespace XISOStudio.Interfaces;
+namespace XISOStudio.Models;
 
 /// <summary>
 /// Button the user clicked in a message box.

@@ -63,31 +63,41 @@ public class XisoSharpService : IXisoSharpService
         }
 
         outputFileName = Path.GetFileName(outputFileName);
-        var outputPath = Path.Combine(outputFolder, outputFileName);
 
-        // XISOSharp reads the source and writes the output directly; converting a file
-        // onto itself would destroy the source.
-        if (XisoPaths.AreSamePath(inputFile, outputPath))
+        string outputPath;
+        try
         {
-            _logger.Information("The output file would overwrite the source file for '{FileName}'. " +
-                                "Please choose a different output folder.", fileName);
-            return FileProcessingStatus.Failed;
+            outputPath = Path.Combine(outputFolder, outputFileName);
+
+            // XISOSharp reads the source and writes the output directly; converting a file
+            // onto itself would destroy the source.
+            if (XisoPaths.AreSamePath(inputFile, outputPath))
+            {
+                _logger.Information("The output file would overwrite the source file for '{FileName}'. " +
+                                    "Please choose a different output folder.", fileName);
+                return FileProcessingStatus.Failed;
+            }
+
+            // XISO output skips images that are already optimized — unless $SystemUpdate must be
+            // stripped, which requires a rewrite. Compressed formats still have to pack those
+            // images (the container is what changes).
+            if (outputFormat == OutputFormat.Xiso && !skipSystemUpdate && XisoReader.IsOptimizedImage(inputFile))
+            {
+                _logger.Information("'{FileName}' is already an optimized XISO. Skipping conversion.", fileName);
+                return FileProcessingStatus.AlreadyOptimized;
+            }
+
+            var inputFileSize = new FileInfo(inputFile).Length;
+            var outputCheck = CheckOutputDrive(inputFile, inputFileSize, outputFolder, outputFormat);
+            if (outputCheck != null)
+            {
+                _logger.Information("{Message:l}", outputCheck);
+                return FileProcessingStatus.Failed;
+            }
         }
-
-        // XISO output skips images that are already optimized — unless $SystemUpdate must be
-        // stripped, which requires a rewrite. Compressed formats still have to pack those
-        // images (the container is what changes).
-        if (outputFormat == OutputFormat.Xiso && !skipSystemUpdate && XisoReader.IsOptimizedImage(inputFile))
+        catch (Exception ex)
         {
-            _logger.Information("'{FileName}' is already an optimized XISO. Skipping conversion.", fileName);
-            return FileProcessingStatus.AlreadyOptimized;
-        }
-
-        var inputFileSize = new FileInfo(inputFile).Length;
-        var outputCheck = CheckOutputDrive(inputFile, inputFileSize, outputFolder, outputFormat);
-        if (outputCheck != null)
-        {
-            _logger.Information("{Message:l}", outputCheck);
+            _logger.Error(ex, "Failed to prepare the conversion of '{FileName}'", fileName);
             return FileProcessingStatus.Failed;
         }
 

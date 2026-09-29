@@ -1,4 +1,4 @@
-namespace XISOStudio.Interfaces;
+namespace XISOStudio.Models;
 
 /// <summary>
 /// Icons available for message boxes.

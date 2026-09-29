@@ -56,9 +56,11 @@ public class UiLogSink : ILogEventSink
             var line = $"[{logEvent.Timestamp:HH:mm:ss}] {message}";
             handler(null, new LogMessageEventArgs(line));
         }
-        catch
+        catch (Exception ex)
         {
-            // A failing subscriber must never propagate back into the Serilog pipeline.
+            // A failing subscriber must never propagate back into the Serilog pipeline, and
+            // logging about the failure through Serilog would recurse, so use the self-log.
+            Serilog.Debugging.SelfLog.WriteLine("UiLogSink subscriber failed to handle a log event: {0}", ex);
         }
         finally
         {

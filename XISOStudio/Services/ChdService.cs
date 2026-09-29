@@ -68,13 +68,23 @@ public class ChdService : IChdService
         }
 
         outputFileName = Path.GetFileName(outputFileName);
-        var outputPath = Path.Combine(outputFolder, outputFileName);
 
-        // CHDSharp writes the output directly; converting a file onto itself would destroy the source.
-        if (XisoPaths.AreSamePath(inputFile, outputPath))
+        string outputPath;
+        try
         {
-            _logger.Information("The output file would overwrite the source file for '{FileName}'. " +
-                                "Please choose a different output folder.", fileName);
+            outputPath = Path.Combine(outputFolder, outputFileName);
+
+            // CHDSharp writes the output directly; converting a file onto itself would destroy the source.
+            if (XisoPaths.AreSamePath(inputFile, outputPath))
+            {
+                _logger.Information("The output file would overwrite the source file for '{FileName}'. " +
+                                    "Please choose a different output folder.", fileName);
+                return FileProcessingStatus.Failed;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to prepare the conversion of '{FileName}'", fileName);
             return FileProcessingStatus.Failed;
         }
 

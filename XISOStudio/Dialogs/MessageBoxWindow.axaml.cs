@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Media;
-using XISOStudio.Interfaces;
+using XISOStudio.Models;
 
 namespace XISOStudio.Dialogs;
 

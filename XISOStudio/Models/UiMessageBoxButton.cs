@@ -1,4 +1,4 @@
-namespace XISOStudio.Interfaces;
+namespace XISOStudio.Models;
 
 /// <summary>
 /// Button sets available for message boxes.

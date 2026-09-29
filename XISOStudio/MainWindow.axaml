@@ -22,7 +22,7 @@
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
                     <Button Content="Donate" Click="DonateButton_Click" Theme="{StaticResource DonateMenuButtonStyle}" ToolTip.Tip="Support the development of this application — opens the PureLogicCode donation page" />
-                    <Button Content="About" Click="AboutMenuItem_Click" Theme="{StaticResource AboutMenuButtonStyle}" ToolTip.Tip="View application information" />
+                    <Button Content="About" Click="AboutMenuItem_ClickAsync" Theme="{StaticResource AboutMenuButtonStyle}" ToolTip.Tip="View application information" />
                     <Button Content="Exit" Click="ExitMenuItem_Click" Theme="{StaticResource ExitMenuButtonStyle}" ToolTip.Tip="Close the application" />
                 </StackPanel>
             </Grid>
@@ -46,17 +46,17 @@
                         <Grid Margin="0,0,0,10" ColumnDefinitions="150,*,Auto">
                             <Label Content="Source Folder:" ToolTip.Tip="The folder containing ISO, ZIP, RAR, or 7z files to convert" />
                             <TextBox x:Name="ConversionInputFolderTextBox" Grid.Column="1" IsReadOnly="True" Margin="5,0" ToolTip.Tip="Select the folder containing ISO or archive files" />
-                            <Button Grid.Column="2" Content="Browse..." Click="BrowseConversionInputButton_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for source folder" />
+                            <Button Grid.Column="2" Content="Browse..." Click="BrowseConversionInputButton_ClickAsync" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for source folder" />
                         </Grid>
                         <Grid Grid.Row="1" Margin="0,0,0,10" ColumnDefinitions="150,*,Auto">
                             <Label Content="Output Folder:" ToolTip.Tip="The folder where converted files will be saved" />
                             <TextBox x:Name="ConversionOutputFolderTextBox" Grid.Column="1" IsReadOnly="True" Margin="5,0" ToolTip.Tip="Select the output folder for converted files" />
-                            <Button Grid.Column="2" Content="Browse..." Click="BrowseConversionOutputButton_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for output folder" />
+                            <Button Grid.Column="2" Content="Browse..." Click="BrowseConversionOutputButton_ClickAsync" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for output folder" />
                         </Grid>
                         <Expander Grid.Row="2" Header="Options" Margin="0,5,0,10" Padding="10,8" IsExpanded="True" ToolTip.Tip="Configure conversion behavior such as file deletion, subfolder search, and integrity checking. Click the header to collapse or expand.">
                             <StackPanel Orientation="Vertical">
                                 <StackPanel Orientation="Horizontal" Margin="0,2,0,4" ToolTip.Tip="Choose the output format: optimized XISO, ZAR (ZArchive/zstd), CSO (compressed ISO), or CHD (Compressed Hunks of Data)">
-                                    <Label Content="Output Format:" VerticalAlignment="Center" Padding="0,0,8,0" />
+                                    <Label Content="Output Format:" VerticalAlignment="Center" Padding="0,0,8,0" ToolTip.Tip="Choose the format for the converted output files" />
                                     <RadioButton x:Name="OutputFormatXisoRadio" Content="XISO" IsChecked="True" GroupName="OutputFormat" Margin="0,0,14,0" ToolTip.Tip="Optimized XISO image (.iso) — the standard trimmed Xbox image" />
                                     <RadioButton x:Name="OutputFormatZarRadio" Content="ZAR" GroupName="OutputFormat" Margin="0,0,14,0" ToolTip.Tip="ZArchive (.zar) — zstd-compressed image, loadable in Xenia canary" />
                                     <RadioButton x:Name="OutputFormatCsoRadio" Content="CSO" GroupName="OutputFormat" Margin="0,0,14,0" ToolTip.Tip="Compressed ISO (.cso) — CISO v2 (LZ4), xdvdfs-compatible" />
@@ -88,7 +88,7 @@
                         <Grid Margin="0,0,0,10" ColumnDefinitions="150,*,Auto">
                             <Label Content="Image Folder:" ToolTip.Tip="The folder containing ISO, CSO, ZAR, or CHD files to test for structural integrity" />
                             <TextBox x:Name="TestInputFolderTextBox" Grid.Column="1" IsReadOnly="True" Margin="5,0" ToolTip.Tip="Select the folder containing ISO, CSO, ZAR, or CHD files to test" />
-                            <Button Grid.Column="2" Content="Browse..." Click="BrowseTestInputButton_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for image folder" />
+                            <Button Grid.Column="2" Content="Browse..." Click="BrowseTestInputButton_ClickAsync" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for image folder" />
                         </Grid>
                         <Expander Grid.Row="1" Header="Options" Margin="0,5,0,5" Padding="10,8" IsExpanded="True" ToolTip.Tip="Configure integrity test behavior such as file sorting and scan depth. Click the header to collapse or expand.">
                             <StackPanel Orientation="Vertical">
@@ -118,7 +118,7 @@
                         <Grid ColumnDefinitions="150,*,Auto">
                             <Label Content="Select Image File:" ToolTip.Tip="Choose an ISO, CSO, ZAR, or CHD file to browse its internal file system" />
                             <TextBox x:Name="ExplorerFilePathTextBox" Grid.Column="1" IsReadOnly="True" Margin="5,0" ToolTip.Tip="Select an Xbox image to explore its contents" />
-                            <Button Content="Browse..." Grid.Column="2" Click="BrowseExplorerFile_Click" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for an Xbox image" />
+                            <Button Content="Browse..." Grid.Column="2" Click="BrowseExplorerFile_ClickAsync" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Browse for an Xbox image" />
                         </Grid>
 
                         <Border x:Name="ExplorerBorder" Grid.Row="1" Margin="0,10,0,0" BorderBrush="{StaticResource TerminalBorderBrush}" BorderThickness="2" CornerRadius="4" Background="{StaticResource TerminalBackgroundBrush}" Padding="10">
@@ -128,12 +128,12 @@
                                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,5">
                                     <Button x:Name="ExplorerUpButton" Content="⬆ Up" Click="ExplorerUpButton_Click" Width="60" Margin="0,0,10,0" IsEnabled="False" Theme="{StaticResource ActionButtonStyle}" ToolTip.Tip="Go up one directory level" />
                                     <TextBlock Text="Current Path: " VerticalAlignment="Center" FontWeight="Bold" Foreground="{StaticResource TerminalForegroundBrush}" ToolTip.Tip="The current directory path within the image file system" />
-                                    <TextBlock x:Name="ExplorerPathTextBlock" Text="/" VerticalAlignment="Center" Foreground="{StaticResource TerminalForegroundBrush}" />
+                                    <TextBlock x:Name="ExplorerPathTextBlock" Text="/" VerticalAlignment="Center" Foreground="{StaticResource TerminalForegroundBrush}" ToolTip.Tip="Full path of the current directory inside the image" />
                                 </StackPanel>
 
                                 <!-- File List -->
                                 <DataGrid x:Name="ExplorerDataGrid" Grid.Row="1" Classes="Explorer"
-                                          DoubleTapped="ExplorerDataGrid_DoubleTapped"
+                                          DoubleTapped="ExplorerDataGrid_DoubleTappedAsync"
                                           PointerPressed="ExplorerDataGrid_PointerPressed"
                                           PointerMoved="ExplorerDataGrid_PointerMovedAsync"
                                           ToolTip.Tip="Double-click directories to navigate, double-click files to extract. Drag and drop files to copy them out of the image.">
@@ -142,8 +142,8 @@
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <StackPanel Orientation="Horizontal">
-                                                        <TextBlock Text="{Binding IsDirectory, Converter={StaticResource FolderIconConverter}}" Margin="0,0,5,0" FontFamily="Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji" Foreground="{StaticResource TerminalForegroundBrush}" />
-                                                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource TerminalForegroundBrush}" />
+                                                        <TextBlock Text="{Binding IsDirectory, Converter={StaticResource FolderIconConverter}}" Margin="0,0,5,0" FontFamily="Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji" Foreground="{StaticResource TerminalForegroundBrush}" ToolTip.Tip="Folder or file indicator" />
+                                                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource TerminalForegroundBrush}" ToolTip.Tip="{Binding Name}" />
                                                     </StackPanel>
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
@@ -188,49 +188,49 @@
             <Grid x:Name="StatsPanel" Grid.Row="1" Margin="0,10,0,0" ColumnDefinitions="*,*,*,*,*,*,*">
                 <Border Grid.Column="0" Theme="{StaticResource StatsCardBorderStyle}" ToolTip.Tip="Total number of files processed in the current batch operation">
                     <StackPanel>
-                        <TextBlock Text="Total Files:" Theme="{StaticResource StatsLabelStyle}"/>
-                        <TextBlock x:Name="TotalFilesValue" Text="0" Theme="{StaticResource StatsValueStyle}"/>
+                        <TextBlock Text="Total Files:" Theme="{StaticResource StatsLabelStyle}" ToolTip.Tip="Total number of files in the current operation"/>
+                        <TextBlock x:Name="TotalFilesValue" Text="0" Theme="{StaticResource StatsValueStyle}" ToolTip.Tip="Total number of files in the current operation"/>
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="1" Theme="{StaticResource StatsCardBorderStyle}" ToolTip.Tip="Number of files that completed successfully">
                     <StackPanel>
-                        <TextBlock Text="Success:" Theme="{StaticResource StatsLabelStyle}" Foreground="{StaticResource SuccessTextBrush}"/>
-                        <TextBlock x:Name="SuccessValue" Text="0" Theme="{StaticResource StatsValueStyle}"/>
+                        <TextBlock Text="Success:" Theme="{StaticResource StatsLabelStyle}" Foreground="{StaticResource SuccessTextBrush}" ToolTip.Tip="Number of files that completed successfully"/>
+                        <TextBlock x:Name="SuccessValue" Text="0" Theme="{StaticResource StatsValueStyle}" ToolTip.Tip="Number of files that completed successfully"/>
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="2" Theme="{StaticResource StatsCardBorderStyle}" ToolTip.Tip="Number of files that failed processing">
                     <StackPanel>
-                        <TextBlock Text="Failed:" Theme="{StaticResource StatsLabelStyle}" Foreground="{StaticResource FailedTextBrush}"/>
-                        <TextBlock x:Name="FailedValue" Text="0" Theme="{StaticResource StatsValueStyle}"/>
+                        <TextBlock Text="Failed:" Theme="{StaticResource StatsLabelStyle}" Foreground="{StaticResource FailedTextBrush}" ToolTip.Tip="Number of files that failed processing"/>
+                        <TextBlock x:Name="FailedValue" Text="0" Theme="{StaticResource StatsValueStyle}" ToolTip.Tip="Number of files that failed processing"/>
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="3" Theme="{StaticResource StatsCardBorderStyle}" ToolTip.Tip="Number of files that were skipped (e.g., already converted or incompatible)">
                     <StackPanel>
-                        <TextBlock Text="Skipped:" Theme="{StaticResource StatsLabelStyle}" Foreground="{StaticResource SkippedTextBrush}"/>
-                        <TextBlock x:Name="SkippedValue" Text="0" Theme="{StaticResource StatsValueStyle}"/>
+                        <TextBlock Text="Skipped:" Theme="{StaticResource StatsLabelStyle}" Foreground="{StaticResource SkippedTextBrush}" ToolTip.Tip="Number of files that were skipped"/>
+                        <TextBlock x:Name="SkippedValue" Text="0" Theme="{StaticResource StatsValueStyle}" ToolTip.Tip="Number of files that were skipped"/>
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="4" Theme="{StaticResource StatsCardBorderStyle}" ToolTip.Tip="Total elapsed processing time for the current batch operation">
                     <StackPanel>
-                        <TextBlock Text="Time:" Theme="{StaticResource StatsLabelStyle}"/>
-                        <TextBlock x:Name="ProcessingTimeValue" Text="00:00:00" Theme="{StaticResource StatsValueStyle}"/>
+                        <TextBlock Text="Time:" Theme="{StaticResource StatsLabelStyle}" ToolTip.Tip="Elapsed time of the current operation"/>
+                        <TextBlock x:Name="ProcessingTimeValue" Text="00:00:00" Theme="{StaticResource StatsValueStyle}" ToolTip.Tip="Elapsed time of the current operation"/>
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="5" Theme="{StaticResource StatsCardBorderStyle}" ToolTip.Tip="Current read speed of the active operation">
                     <StackPanel>
-                        <TextBlock Text="Read Speed:" Theme="{StaticResource StatsLabelStyle}"/>
+                        <TextBlock Text="Read Speed:" Theme="{StaticResource StatsLabelStyle}" ToolTip.Tip="Current read speed of the active drive"/>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <TextBlock x:Name="ReadSpeedValue" Text="N/A" Theme="{StaticResource StatsValueStyle}"/>
-                            <TextBlock x:Name="ReadSpeedDriveIndicator" Text="" Margin="5,0,0,0" Theme="{StaticResource StatsValueStyle}"/>
+                            <TextBlock x:Name="ReadSpeedValue" Text="N/A" Theme="{StaticResource StatsValueStyle}" ToolTip.Tip="Current read speed of the active drive"/>
+                            <TextBlock x:Name="ReadSpeedDriveIndicator" Text="" Margin="5,0,0,0" Theme="{StaticResource StatsValueStyle}" ToolTip.Tip="Drive currently being read"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="6" Theme="{StaticResource StatsCardBorderStyle}" ToolTip.Tip="Current write speed of the active operation">
                     <StackPanel>
-                        <TextBlock Text="Write Speed:" Theme="{StaticResource StatsLabelStyle}"/>
+                        <TextBlock Text="Write Speed:" Theme="{StaticResource StatsLabelStyle}" ToolTip.Tip="Current write speed of the active drive"/>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <TextBlock x:Name="WriteSpeedValue" Text="N/A" Theme="{StaticResource StatsValueStyle}"/>
-                            <TextBlock x:Name="WriteSpeedDriveIndicator" Text="" Margin="5,0,0,0" Theme="{StaticResource StatsValueStyle}"/>
+                            <TextBlock x:Name="WriteSpeedValue" Text="N/A" Theme="{StaticResource StatsValueStyle}" ToolTip.Tip="Current write speed of the active drive"/>
+                            <TextBlock x:Name="WriteSpeedDriveIndicator" Text="" Margin="5,0,0,0" Theme="{StaticResource StatsValueStyle}" ToolTip.Tip="Drive currently being written to"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>

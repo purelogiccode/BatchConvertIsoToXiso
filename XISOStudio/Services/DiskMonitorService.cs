@@ -47,8 +47,21 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
     /// <param name="path">Path whose drive should be monitored; may be <c>null</c>.</param>
     public void StartMonitoring(string? path)
     {
-        var driveLetter = PathHelper.GetDriveLetter(path);
-        var isNetworkPath = PathHelper.IsNetworkPath(path);
+        string? driveLetter;
+        bool isNetworkPath;
+        try
+        {
+            driveLetter = PathHelper.GetDriveLetter(path);
+            isNetworkPath = PathHelper.IsNetworkPath(path);
+        }
+        catch (Exception ex)
+        {
+            // Monitoring is best-effort: an unreadable path must never break the operation.
+            StopMonitoring();
+            StatusMessage = "Disk speed monitoring unavailable - unable to inspect the path";
+            _logger.Warning(ex, "Failed to inspect the path for disk monitoring: {Path}", path);
+            return;
+        }
 
         // Never treat a UNC path (which has no drive letter, so both values are null) as
         // "same drive" before the network check below; otherwise its status is never shown.
@@ -132,12 +145,20 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
     /// </summary>
     public void StopMonitoring()
     {
-        _diskReadSpeedCounter?.Dispose();
-        _diskReadSpeedCounter = null;
-        _diskWriteSpeedCounter?.Dispose();
-        _diskWriteSpeedCounter = null;
-        CurrentDriveLetter = null;
-        StatusMessage = null;
+        try
+        {
+            _diskReadSpeedCounter?.Dispose();
+            _diskReadSpeedCounter = null;
+            _diskWriteSpeedCounter?.Dispose();
+            _diskWriteSpeedCounter = null;
+            CurrentDriveLetter = null;
+            StatusMessage = null;
+        }
+        catch (Exception ex)
+        {
+            // Monitoring is best-effort; never let counter disposal break the caller.
+            _logger.Warning(ex, "Error while releasing the disk performance counters");
+        }
     }
 
     /// <summary>
@@ -306,7 +327,17 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
     /// </summary>
     public void Dispose()
     {
-        StopMonitoring();
-        GC.SuppressFinalize(this);
+        try
+        {
+            StopMonitoring();
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Error while disposing the disk monitor");
+        }
+        finally
+        {
+            GC.SuppressFinalize(this);
+        }
     }
 }

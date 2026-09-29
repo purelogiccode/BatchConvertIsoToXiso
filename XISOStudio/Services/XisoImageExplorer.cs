@@ -1,6 +1,7 @@
 using XISOStudio.Interfaces;
 using XISOStudio.Models;
 using XISOSharp;
+using Serilog;
 
 namespace XISOStudio.Services;
 
@@ -12,24 +13,42 @@ namespace XISOStudio.Services;
 internal sealed class XisoImageExplorer : IImageExplorer
 {
     private readonly XisoExplorer _explorer;
+    private readonly ILogger? _logger;
 
-    public XisoImageExplorer(string imagePath)
+    public XisoImageExplorer(string imagePath, ILogger? logger = null)
     {
+        _logger = logger?.ForContext<XisoImageExplorer>();
         _explorer = new XisoExplorer(imagePath, new XisoExplorerOptions { KeepOpen = true });
     }
 
     /// <inheritdoc/>
     public IReadOnlyList<ImageEntry> ListChildren(string internalPath)
     {
-        return _explorer.ListChildren(internalPath)
-            .Select(static node => new ImageEntry(node.Name, node.FullPath, node.IsDirectory, node.Size))
-            .ToList();
+        try
+        {
+            return _explorer.ListChildren(internalPath)
+                .Select(static node => new ImageEntry(node.Name, node.FullPath, node.IsDirectory, node.Size))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Failed to list '{InternalPath}' in the image", internalPath);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public void CopyOut(string internalPath, string destPath)
     {
-        _explorer.CopyOut(internalPath, destPath);
+        try
+        {
+            _explorer.CopyOut(internalPath, destPath);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Failed to copy out '{InternalPath}' from the image", internalPath);
+            throw;
+        }
     }
 
     /// <inheritdoc/>

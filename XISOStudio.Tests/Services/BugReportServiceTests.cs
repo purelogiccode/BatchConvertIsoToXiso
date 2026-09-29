@@ -37,7 +37,7 @@ public class BugReportServiceTests
         Assert.Contains("OS Version:", result, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Architecture:", result, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Bitness:", result, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Windows Version:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"{BugReportService.GetPlatformVersionLabel()}:", result, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Processor Count:", result, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Base Directory:", result, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Temp Path:", result, StringComparison.OrdinalIgnoreCase);

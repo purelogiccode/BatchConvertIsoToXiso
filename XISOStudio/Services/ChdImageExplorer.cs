@@ -3,6 +3,7 @@ using CHDSharp.Models;
 using XISOStudio.Interfaces;
 using XISOStudio.Models;
 using XISOSharp;
+using Serilog;
 
 namespace XISOStudio.Services;
 
@@ -16,9 +17,11 @@ internal sealed class ChdImageExplorer : IImageExplorer
 {
     private readonly ChdImageStream _stream;
     private readonly string _imageName;
+    private readonly ILogger? _logger;
 
-    public ChdImageExplorer(string chdPath)
+    public ChdImageExplorer(string chdPath, ILogger? logger = null)
     {
+        _logger = logger?.ForContext<ChdImageExplorer>();
         _imageName = Path.GetFileName(chdPath);
 
         // Parsing is limited to Xbox DVD images: reject CD/GD-ROM/hard-disk/unknown CHDs at
@@ -44,19 +47,35 @@ internal sealed class ChdImageExplorer : IImageExplorer
     /// <inheritdoc/>
     public IReadOnlyList<ImageEntry> ListChildren(string internalPath)
     {
-        var path = ImagePaths.Normalize(internalPath);
-        var entries = XisoReader.ListDirectory(_stream, _imageName, path);
+        try
+        {
+            var path = ImagePaths.Normalize(internalPath);
+            var entries = XisoReader.ListDirectory(_stream, _imageName, path);
 
-        return entries.Select(entry => new ImageEntry(entry.Name,
-                ImagePaths.Combine(path, entry.Name), entry.IsDirectory,
-                entry.IsDirectory ? 0 : entry.FileSize))
-            .ToList();
+            return entries.Select(entry => new ImageEntry(entry.Name,
+                    ImagePaths.Combine(path, entry.Name), entry.IsDirectory,
+                    entry.IsDirectory ? 0 : entry.FileSize))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Failed to list '{InternalPath}' in the CHD image", internalPath);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public void CopyOut(string internalPath, string destPath)
     {
-        XisoReader.CopyOut(_stream, _imageName, ImagePaths.Normalize(internalPath), destPath);
+        try
+        {
+            XisoReader.CopyOut(_stream, _imageName, ImagePaths.Normalize(internalPath), destPath);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Failed to copy out '{InternalPath}' from the CHD image", internalPath);
+            throw;
+        }
     }
 
     /// <inheritdoc/>

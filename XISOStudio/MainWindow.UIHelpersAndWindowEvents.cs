@@ -5,7 +5,6 @@ using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Serilog;
-using XISOStudio.Interfaces;
 using XISOStudio.Models;
 using XISOStudio.Services;
 
@@ -20,37 +19,52 @@ public partial class MainWindow
 {
     private void FinalizeUiState()
     {
-        _processingTimer.Stop();
-        _memoryTimer.Stop();
-        _diskMonitorService.StopMonitoring();
-        _isPerformanceCounterStopped = false;
-        StopPerformanceCounter();
-        ProgressBar.IsIndeterminate = false;
+        try
+        {
+            _processingTimer.Stop();
+            _memoryTimer.Stop();
+            _diskMonitorService.StopMonitoring();
+            _isPerformanceCounterStopped = false;
+            StopPerformanceCounter();
+            ProgressBar.IsIndeterminate = false;
 
-        var finalElapsedTime = _operationStopwatch.Elapsed;
-        ProcessingTimeValue.Text = finalElapsedTime.ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture);
+            var finalElapsedTime = _operationStopwatch.Elapsed;
+            ProcessingTimeValue.Text = finalElapsedTime.ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Error while finalizing the operation UI state");
+        }
     }
 
     private async Task<CloudRetryResult> HandleCloudRetryRequestAsync(string fileName)
     {
-        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        try
         {
-            var result = await _messageBoxService.ShowAsync(
-                $"The file '{fileName}' is stored in the cloud and needs to be downloaded.\n\n" +
-                "• Click 'Yes' to Retry.\n" +
-                "• Click 'No' to Skip.\n" +
-                "• Click 'Cancel' to stop the batch.",
-                "Cloud File Required",
-                UiMessageBoxButton.YesNoCancel,
-                UiMessageBoxImage.Information);
-
-            return result switch
+            return await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                UiMessageBoxResult.Yes => CloudRetryResult.Retry,
-                UiMessageBoxResult.No => CloudRetryResult.Skip,
-                _ => CloudRetryResult.Cancel
-            };
-        });
+                var result = await _messageBoxService.ShowAsync(
+                    $"The file '{fileName}' is stored in the cloud and needs to be downloaded.\n\n" +
+                    "• Click 'Yes' to Retry.\n" +
+                    "• Click 'No' to Skip.\n" +
+                    "• Click 'Cancel' to stop the batch.",
+                    "Cloud File Required",
+                    UiMessageBoxButton.YesNoCancel,
+                    UiMessageBoxImage.Information);
+
+                return result switch
+                {
+                    UiMessageBoxResult.Yes => CloudRetryResult.Retry,
+                    UiMessageBoxResult.No => CloudRetryResult.Skip,
+                    _ => CloudRetryResult.Cancel
+                };
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error while asking how to handle cloud file {FileName}", fileName);
+            return CloudRetryResult.Cancel;
+        }
     }
 
     private async Task PreOperationCleanupAsync()
@@ -83,7 +97,7 @@ public partial class MainWindow
         _logger.Information("Cancellation requested. Finishing current file...");
     }
 
-    private async void AboutMenuItem_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private async void AboutMenuItem_ClickAsync(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         try
         {
@@ -92,13 +106,21 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error in method AboutMenuItem_Click");
+            Log.Error(ex, "Error in method AboutMenuItem_ClickAsync");
         }
     }
 
     private void DonateButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        _urlOpener.OpenUrl("https://www.purelogiccode.com/donate");
+        try
+        {
+            _urlOpener.OpenUrl("https://www.purelogiccode.com/donate");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error opening the donation page");
+            _ = _messageBoxService.ShowErrorAsync($"Unable to open the donation page: {ex.Message}");
+        }
     }
 
     private async Task<string?> SelectFolderAsync(string description)
@@ -122,27 +144,36 @@ public partial class MainWindow
 
     private async Task<bool> ValidateInputOutputFoldersAsync(string inputFolder, string outputFolder)
     {
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        var normalizedInput = Path.GetFullPath(inputFolder)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var normalizedOutput = Path.GetFullPath(outputFolder)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-        if (normalizedInput.Equals(normalizedOutput, comparison))
+        try
         {
-            await _messageBoxService.ShowErrorAsync("Input and output folders must be different.");
+            var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            var normalizedInput = Path.GetFullPath(inputFolder)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var normalizedOutput = Path.GetFullPath(outputFolder)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            if (normalizedInput.Equals(normalizedOutput, comparison))
+            {
+                await _messageBoxService.ShowErrorAsync("Input and output folders must be different.");
+                return false;
+            }
+
+            // Check if output folder is a subfolder of input folder
+            if (normalizedOutput.StartsWith(normalizedInput + Path.DirectorySeparatorChar, comparison))
+            {
+                await _messageBoxService.ShowErrorAsync(
+                    "Output folder cannot be a subfolder of the input folder. This would cause recursive processing issues.");
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Could not validate the input and output folders");
+            await _messageBoxService.ShowErrorAsync("The selected input or output folder is not valid.");
             return false;
         }
-
-        // Check if output folder is a subfolder of input folder
-        if (normalizedOutput.StartsWith(normalizedInput + Path.DirectorySeparatorChar, comparison))
-        {
-            await _messageBoxService.ShowErrorAsync(
-                "Output folder cannot be a subfolder of the input folder. This would cause recursive processing issues.");
-            return false;
-        }
-
-        return true;
     }
 
     private void UpdateSummaryStatsUi()
@@ -404,13 +435,20 @@ public partial class MainWindow
 
     private void UpdateNavigationButtonStyles(Button selectedButton)
     {
-        // Reset all navigation buttons to default style
-        BtnNavConvert.Theme = (ControlTheme?)this.FindResource("MenuButtonStyle");
-        BtnNavTest.Theme = (ControlTheme?)this.FindResource("MenuButtonStyle");
-        BtnNavExplorer.Theme = (ControlTheme?)this.FindResource("MenuButtonStyle");
+        try
+        {
+            // Reset all navigation buttons to default style
+            BtnNavConvert.Theme = (ControlTheme?)this.FindResource("MenuButtonStyle");
+            BtnNavTest.Theme = (ControlTheme?)this.FindResource("MenuButtonStyle");
+            BtnNavExplorer.Theme = (ControlTheme?)this.FindResource("MenuButtonStyle");
 
-        // Apply selected style to the active button
-        selectedButton.Theme = (ControlTheme?)this.FindResource("SelectedMenuButtonStyle");
+            // Apply selected style to the active button
+            selectedButton.Theme = (ControlTheme?)this.FindResource("SelectedMenuButtonStyle");
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Error while updating the navigation button styles");
+        }
     }
 
     private bool _isPerformanceCounterStopped;
@@ -421,17 +459,24 @@ public partial class MainWindow
 
         _isPerformanceCounterStopped = true;
 
-        _diskMonitorService.StopMonitoring();
-        _ = Dispatcher.UIThread.InvokeAsync(() =>
+        try
         {
-            ReadSpeedValue?.Text = "N/A";
+            _diskMonitorService.StopMonitoring();
+            _ = Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                ReadSpeedValue?.Text = "N/A";
 
-            ReadSpeedDriveIndicator?.Text = "";
+                ReadSpeedDriveIndicator?.Text = "";
 
-            WriteSpeedValue?.Text = "N/A";
+                WriteSpeedValue?.Text = "N/A";
 
-            WriteSpeedDriveIndicator?.Text = "";
-        });
+                WriteSpeedDriveIndicator?.Text = "";
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Error while stopping the disk performance counter");
+        }
     }
 
     private void UpdateStatus(string status)
@@ -441,6 +486,13 @@ public partial class MainWindow
 
     private void SetCurrentOperationDrive(string? driveLetter)
     {
-        _diskMonitorService.StartMonitoring(driveLetter);
+        try
+        {
+            _diskMonitorService.StartMonitoring(driveLetter);
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Error while starting disk monitoring for {DriveLetter}", driveLetter);
+        }
     }
 }

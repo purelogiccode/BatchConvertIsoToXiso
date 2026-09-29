@@ -145,7 +145,7 @@ public class FileMoverService : IFileMover
     /// drive mount point is used instead; this keeps the free-space guard active for moves
     /// between mount points (for example /tmp to a mounted USB drive).
     /// </summary>
-    private string? GetVolumeRoot(string path)
+    private static string? GetVolumeRoot(string path)
     {
         var fullPath = Path.GetFullPath(path);
         if (OperatingSystem.IsWindows())

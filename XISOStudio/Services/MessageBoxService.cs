@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using XISOStudio.Dialogs;
 using XISOStudio.Interfaces;
+using XISOStudio.Models;
 using Serilog;
 
 namespace XISOStudio.Services;

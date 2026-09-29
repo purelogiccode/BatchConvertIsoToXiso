@@ -134,10 +134,31 @@ public class BugReportService : IBugReportService
         sb.AppendLine(CultureInfo.InvariantCulture, $"Architecture: {RuntimeInformation.ProcessArchitecture}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Bitness: {(Environment.Is64BitProcess ? "64-bit" : "32-bit")}");
         sb.AppendLine(CultureInfo.InvariantCulture,
-            $"Windows Version: {Environment.OSVersion.Version.Major}.{Environment.OSVersion.Version.Minor}.{Environment.OSVersion.Version.Build}");
+            $"{GetPlatformVersionLabel()}: {GetPlatformVersion()}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Processor Count: {Environment.ProcessorCount}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Base Directory: {AppContext.BaseDirectory}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Temp Path: {Path.GetTempPath()}");
+    }
+
+    /// <summary>
+    /// Returns the platform-specific label for the operating system version line, so a
+    /// report from Linux or macOS is not mislabeled as a Windows version.
+    /// </summary>
+    internal static string GetPlatformVersionLabel()
+    {
+        if (OperatingSystem.IsWindows()) return "Windows Version";
+        if (OperatingSystem.IsMacOS()) return "MacOsX Version";
+        if (OperatingSystem.IsLinux()) return "Linux Version";
+        return "OS Platform Version";
+    }
+
+    private static string GetPlatformVersion()
+    {
+        var version = Environment.OSVersion.Version;
+
+        // Some Unix distributions report 0.0.0.0; fall back to the full OS description so
+        // the report still carries a useful platform version.
+        return version == new Version(0, 0, 0, 0) ? Environment.OSVersion.ToString() : version.ToString();
     }
 
     private static string GetEnvironmentSummary()

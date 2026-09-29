@@ -1,6 +1,7 @@
 using XISOStudio.Interfaces;
 using XISOStudio.Models;
 using ZArchiveSharp;
+using Serilog;
 
 namespace XISOStudio.Services;
 
@@ -13,9 +14,11 @@ namespace XISOStudio.Services;
 internal sealed class ZarImageExplorer : IImageExplorer
 {
     private readonly ZArchiveReader _reader;
+    private readonly ILogger? _logger;
 
-    public ZarImageExplorer(string zarPath)
+    public ZarImageExplorer(string zarPath, ILogger? logger = null)
     {
+        _logger = logger?.ForContext<ZarImageExplorer>();
         _reader = ZArchiveReader.TryOpen(zarPath, out var failure)
                   ?? throw new InvalidDataException($"Not a valid ZAR archive ({failure}): {zarPath}");
     }
@@ -23,33 +26,49 @@ internal sealed class ZarImageExplorer : IImageExplorer
     /// <inheritdoc/>
     public IReadOnlyList<ImageEntry> ListChildren(string internalPath)
     {
-        var path = ImagePaths.Normalize(internalPath);
-        var node = LookUpOrThrow(path, internalPath);
-        if (!_reader.IsDirectory(node))
+        try
         {
-            throw new InvalidDataException($"Not a directory: {internalPath}");
-        }
+            var path = ImagePaths.Normalize(internalPath);
+            var node = LookUpOrThrow(path, internalPath);
+            if (!_reader.IsDirectory(node))
+            {
+                throw new InvalidDataException($"Not a directory: {internalPath}");
+            }
 
-        var count = _reader.GetDirEntryCount(node);
-        var entries = new List<ImageEntry>((int)Math.Min(count, int.MaxValue));
-        for (uint i = 0; i < count; i++)
+            var count = _reader.GetDirEntryCount(node);
+            var entries = new List<ImageEntry>((int)Math.Min(count, int.MaxValue));
+            for (uint i = 0; i < count; i++)
+            {
+                if (!_reader.TryGetDirEntry(node, i, out _, out var entry)) continue;
+
+                var fullPath = ImagePaths.Combine(path, entry.Name);
+                entries.Add(new ImageEntry(entry.Name, fullPath, entry.IsDirectory,
+                    entry.IsDirectory ? 0 : (long)Math.Min(entry.Size, long.MaxValue)));
+            }
+
+            return entries;
+        }
+        catch (Exception ex)
         {
-            if (!_reader.TryGetDirEntry(node, i, out _, out var entry)) continue;
-
-            var fullPath = ImagePaths.Combine(path, entry.Name);
-            entries.Add(new ImageEntry(entry.Name, fullPath, entry.IsDirectory,
-                entry.IsDirectory ? 0 : (long)Math.Min(entry.Size, long.MaxValue)));
+            _logger?.Error(ex, "Failed to list '{InternalPath}' in the archive", internalPath);
+            throw;
         }
-
-        return entries;
     }
 
     /// <inheritdoc/>
     public void CopyOut(string internalPath, string destPath)
     {
-        var path = ImagePaths.Normalize(internalPath);
-        var node = LookUpOrThrow(path, internalPath);
-        CopyNodeOut(node, destPath);
+        try
+        {
+            var path = ImagePaths.Normalize(internalPath);
+            var node = LookUpOrThrow(path, internalPath);
+            CopyNodeOut(node, destPath);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error(ex, "Failed to copy out '{InternalPath}' from the archive", internalPath);
+            throw;
+        }
     }
 
     private uint LookUpOrThrow(string normalizedPath, string internalPath)

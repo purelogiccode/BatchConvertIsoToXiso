@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using XISOStudio.Interfaces;
+using XISOStudio.Models;
 using XISOStudio.Services;
 using Serilog;
 
@@ -325,8 +326,15 @@ public partial class MainWindow : Window
 
     private void MemoryTimer_Tick(object? sender, EventArgs e)
     {
-        var memoryMb = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
-        MemoryTextBlock.Text = $"Memory: {memoryMb:F1} MB";
+        try
+        {
+            var memoryMb = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
+            MemoryTextBlock.Text = $"Memory: {memoryMb:F1} MB";
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Error while updating the memory timer UI");
+        }
     }
 
     private void ExitMenuItem_Click(object? sender, RoutedEventArgs e)

@@ -1,3 +1,5 @@
+using XISOStudio.Models;
+
 namespace XISOStudio.Interfaces;
 
 /// <summary>

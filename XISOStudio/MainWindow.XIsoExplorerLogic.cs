@@ -26,7 +26,7 @@ public partial class MainWindow
 
     private const double MinimumDragDistance = 4;
 
-    private async void BrowseExplorerFile_Click(object? sender, RoutedEventArgs e)
+    private async void BrowseExplorerFile_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -56,7 +56,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error in method BrowseExplorerFile_Click");
+            Log.Error(ex, "Error in method BrowseExplorerFile_ClickAsync");
         }
     }
 
@@ -76,7 +76,7 @@ public partial class MainWindow
 
         try
         {
-            var explorer = ImageExplorerFactory.Open(imagePath);
+            var explorer = ImageExplorerFactory.Open(imagePath, _logger);
             lock (_explorerLock)
             {
                 _explorer = explorer;
@@ -196,7 +196,7 @@ public partial class MainWindow
         ExplorerPathTextBlock.Text = _currentInternalPath;
     }
 
-    private async void ExplorerDataGrid_DoubleTapped(object? sender, TappedEventArgs e)
+    private async void ExplorerDataGrid_DoubleTappedAsync(object? sender, TappedEventArgs e)
     {
         try
         {
@@ -209,16 +209,16 @@ public partial class MainWindow
             else
             {
                 // Open the file with the default application
-                await OpenFileFromImage(item.Entry, item.Name);
+                await OpenFileFromImageAsync(item.Entry, item.Name);
             }
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Error in method ExplorerDataGrid_DoubleTapped");
+            _logger.Error(ex, "Error in method ExplorerDataGrid_DoubleTappedAsync");
         }
     }
 
-    private async Task OpenFileFromImage(ImageEntry entry, string fileName)
+    private async Task OpenFileFromImageAsync(ImageEntry entry, string fileName)
     {
         CancellationToken token;
         try
@@ -227,9 +227,10 @@ public partial class MainWindow
             // closed (and the source disposed) before the task actually starts.
             token = _cts.Token;
         }
-        catch (ObjectDisposedException)
+        catch (ObjectDisposedException ex)
         {
             // The window is shutting down.
+            _logger.Debug(ex, "Skipping file extraction because the window is shutting down");
             return;
         }
 
@@ -344,9 +345,10 @@ public partial class MainWindow
             {
                 token = _cts.Token;
             }
-            catch (ObjectDisposedException)
+            catch (ObjectDisposedException ex)
             {
                 // The window is shutting down.
+                _logger.Debug(ex, "Skipping drag operation because the window is shutting down");
                 return;
             }
 
@@ -439,9 +441,16 @@ public partial class MainWindow
 
     private void ExplorerUpButton_Click(object? sender, RoutedEventArgs e)
     {
-        if (string.Equals(_currentInternalPath, "/", StringComparison.Ordinal)) return;
+        try
+        {
+            if (string.Equals(_currentInternalPath, "/", StringComparison.Ordinal)) return;
 
-        LoadDirectory(ImagePaths.GetParent(_currentInternalPath));
+            LoadDirectory(ImagePaths.GetParent(_currentInternalPath));
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error in method ExplorerUpButton_Click");
+        }
     }
 
     private string ResolveExplorerTempDirectory(long requiredSize, string tempSubfolder)
