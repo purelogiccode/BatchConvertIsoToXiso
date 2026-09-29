@@ -35,6 +35,7 @@ public class DisplayInstructionsTests
         Assert.True(logger.HasMessage("Convert"));
         Assert.True(logger.HasMessage("Test Integrity"));
         Assert.True(logger.HasMessage("Explorer"));
+        Assert.True(logger.HasMessage("CHD"));
     }
 
     [Fact]
@@ -60,7 +61,7 @@ public class DisplayInstructionsTests
     }
 
     [Fact]
-    public void DisplayInitialInstructionsLogsXisoSharpStatus()
+    public void DisplayInitialInstructionsLogsEngineStatus()
     {
         var logger = new TestLogger();
         DisplayInstructions.Initialize(logger.Logger);
@@ -68,5 +69,6 @@ public class DisplayInstructionsTests
         DisplayInstructions.DisplayInitialInstructions();
 
         Assert.True(logger.HasMessage("XISOSharp"));
+        Assert.True(logger.HasMessage("CHDSharp"));
     }
 }
