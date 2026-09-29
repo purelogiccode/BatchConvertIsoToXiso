@@ -130,11 +130,13 @@ Safety characteristics of the pipeline:
 
 ## Logging
 
-Logging uses a single [Serilog](https://serilog.net/) pipeline configured in `App` with three sinks:
+Logging uses a single [Serilog](https://serilog.net/) pipeline configured by `App.ConfigureLogging()` — called from `Program.Main` before Avalonia initializes its platform subsystems, and idempotently from the `App` constructor — with three sinks:
 
-1. **UI** (`UiLogSink`) — timestamped lines in the on-screen log pane.
+1. **UI** (`UiLogSink`) — timestamped lines in the on-screen log pane (with a re-entrancy guard so a failing viewer cannot feed back into the pipeline).
 2. **File** — rolling daily log under the per-user application-data folder (`%LocalAppData%\XboxIsoStudio\logs` on Windows, `~/.local/share/XboxIsoStudio/logs` or `~/Library/Application Support/XboxIsoStudio/logs` elsewhere) as `log-*.txt` (10 MB per file, 14 files retained) with level and exception details.
-3. **Bug report** (`BugReportSink`) — every event at **Warning or higher** is forwarded to the bug report API (fire-and-forget, never throws).
+3. **Bug report** (`BugReportSink`) — every event at **Warning or higher** is forwarded to the bug report API (fire-and-forget, never throws). Avalonia framework events (`SourceContext = "Avalonia"`) are written to the viewer and log file but excluded from automatic reports.
+
+Avalonia's own diagnostics are routed into the same pipeline by `AvaloniaSerilogSink`, which is installed before the platform subsystems start so startup warnings are captured too.
 
 Services inject `Serilog.ILogger` and log with structured message templates. Expected user/environmental errors are logged at Information level so they do not generate bug reports; genuine defects log at Warning/Error/Fatal. Failed bug-report deliveries are recorded at Information level instead of being silently dropped.
 

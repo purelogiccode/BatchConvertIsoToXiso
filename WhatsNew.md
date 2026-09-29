@@ -2,9 +2,9 @@
 
 <!-- Keep this file focused on the newest release. Full history lives in docs/Release-Notes.md. -->
 
-## Version 3.0.0 (unreleased)
+## Version 3.0.0
 
-**Release date:** TBD
+**Release date:** September 2026
 
 Version 3.0.0 is the **CHD, cross-platform & logging release**: the application was ported from WPF to **Avalonia** and now runs on **Windows, Linux, and macOS**, the [CHDSharp](https://github.com/purelogiccode/CHDSharp) library is now built in, so Xbox and Xbox 360 images can be converted to **CHD** (`.chd`, Compressed Hunks of Data) and Xbox DVD CHD files can be integrity-tested and explored without extraction, and all logging runs through [Serilog](https://serilog.net/) with automatic bug reporting.
 
@@ -63,6 +63,7 @@ Version 3.0.0 is the **CHD, cross-platform & logging release**: the application 
 - **Fewer false bug reports** — locked files, full disks, offline networks, permission problems, and update-check failures log at Information level; retries only retry genuinely transient errors.
 - **Safer cleanup and shutdown** — temporary-folder cleanup only removes app-created GUID work folders older than six hours, the Exit confirmation can't be bypassed or shown twice, and the explorer is never disposed while a copy-out is still reading from it.
 - **Cross-platform correctness** — path comparisons respect case-sensitive file systems, 7-Zip arguments are escaped per platform, and compressed outputs use a size-aware free-space estimate instead of the uncompressed size.
+- **A pre-release review added more fixes** — explorer extractions run off the UI thread again, drag-and-drop files are kept until the drop target finishes copying, failed extractions clean up their temp folders, split CISO sets keep their original extension casing when moved, and cross-mount-point moves on Linux/macOS check destination free space. The Serilog pipeline is now configured before Avalonia starts (capturing platform-startup diagnostics), Avalonia framework warnings are no longer auto-reported, and the log viewer can no longer feed failures back into the logging pipeline.
 
 ### Upgrading
 Download the archive that matches your platform and architecture. No action is required for existing Windows users — the portable layout and all existing formats keep working unchanged. Version 3.0.0 adds the Serilog logging pipeline, per-file selection lists, ZAR/CSO output, and CHD support (the **CHDSharp** 1.4.3 package, pure managed code), and changes the framework the window is drawn with (WPF → Avalonia). CUE/BIN images are no longer supported — convert them to ISO with another tool first. The workflow changed slightly: previously everything found in the folder was processed automatically; now tick the files you want (all files are ticked by default).

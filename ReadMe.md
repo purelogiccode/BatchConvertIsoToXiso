@@ -67,7 +67,7 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 
 ## What's New
 
-### v3.0.0 — cross-platform Avalonia port, CHD support & structured logging (unreleased)
+### v3.0.0 — cross-platform Avalonia port, CHD support & structured logging
 
 - **Cross-platform UI** — the application was ported from WPF to **[Avalonia](https://avaloniaui.net/)** and now runs on **Windows, Linux, and macOS** (x64 and ARM64) with the same dark theme and layout. All image libraries (XISOSharp, ZArchiveSharp, CHDSharp, SharpCompress) are pure managed code with no native dependencies.
 - **CHD output format** — convert Xbox and Xbox 360 ISOs to **CHD** (`.chd`, CHD v5 with the chdman `createdvd` preset) alongside XISO/ZAR/CSO.
@@ -78,7 +78,7 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 - **Selectable file lists** — after choosing an input folder, the Convert and Test views list every supported file with a **Select** checkbox, file name, and size. Tick the files you want and click **Start**; only ticked files are processed. **Select All** / **Deselect All** toggle the whole list in one click, and **Search Subfolders** rescans the list immediately.
 - **Compressed output formats** — the Convert tab produces **ZAR** (`.zar`, ZArchive/zstd, loadable in Xenia canary) and **CSO** (`.cso`, CISO v2/LZ4, byte-identical to `xdvdfs compress`) in addition to optimized XISO; pick the format in the Options panel.
 - **ISO/XISO only** — the bundled `bchunk.exe` and `.cue`/`.bin` input support were removed; supported inputs are `.iso` (Redump full-disc images or optimized XISO files) and archives (`.zip`, `.7z`, `.rar`).
-- **Reliability pass** — 38 verified defects fixed across the pipeline: archives are deleted only when every entry was converted, same-named inputs can no longer overwrite each other, `Skip $SystemUpdate` is honored for already-optimized CSO/CHD inputs, split CISO cloud copies keep their part markers, a single unreadable file no longer aborts a batch, and environmental errors no longer generate bug reports.
+- **Reliability pass** — 38 verified defects fixed across the pipeline: archives are deleted only when every entry was converted, same-named inputs can no longer overwrite each other, `Skip $SystemUpdate` is honored for already-optimized CSO/CHD inputs, split CISO cloud copies keep their part markers, a single unreadable file no longer aborts a batch, and environmental errors no longer generate bug reports. A pre-release review added further fixes: explorer extraction runs off the UI thread, drag-and-drop sources survive until the drop target finishes copying, failed extractions clean up their temp folders, split CISO sets keep their extension casing on case-sensitive file systems, and cross-mount-point moves on Linux/macOS check free space.
 
 ### v2.8.0 — powered entirely by XISOSharp
 

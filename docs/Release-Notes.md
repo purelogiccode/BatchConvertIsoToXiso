@@ -12,7 +12,7 @@
 
 | Version | Date | Summary |
 |:---|:---|:---|
-| [3.0.0 (unreleased)](#300-unreleased) | — | Cross-platform Avalonia port (Windows/Linux/macOS); CHD output, Xbox CHD integrity testing, and CHD exploration; Serilog logging with automatic bug reporting; per-file selection lists; XISO/ZAR/CSO output formats; extensive reliability and bug-fix pass (38 fixes) |
+| [3.0.0](#300) | September 2026 | Cross-platform Avalonia port (Windows/Linux/macOS); CHD output, Xbox CHD integrity testing, and CHD exploration; Serilog logging with automatic bug reporting; per-file selection lists; XISO/ZAR/CSO output formats; extensive reliability and bug-fix pass (38 fixes) plus a pre-release review |
 | [2.8.0](#280) | September 2026 | XISOSharp migration: in-process conversion, integrity testing, and exploration; external engines removed |
 | [2.7.1](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.7.1) | July 2026 | Resource cleanup, cancellation, better error filtering |
 | [2.7.0](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.7.0) | June 2026 | Improved ISO compatibility, disk-space detection, cancellation and performance |
@@ -21,9 +21,11 @@
 
 ---
 
-## 3.0.0 (unreleased)
+## 3.0.0
 
-> **The cross-platform CHD & logging release (in development).** The application was ported from WPF to
+*September 2026*
+
+> **The cross-platform CHD & logging release.** The application was ported from WPF to
 > **Avalonia** and now runs on Windows, Linux, and macOS (x64 and ARM64), and
 > [CHDSharp](https://github.com/purelogiccode/CHDSharp) is integrated as a second in-process engine:
 > Xbox and Xbox 360 ISOs can be converted to CHD v5, and Xbox DVD CHD files can be integrity-tested
@@ -206,6 +208,36 @@ A full review of the `XboxIsoStudio` and `XboxIsoStudio.Tests` projects found an
 - **The "Invalid ISO" counter counted every failure** (disk errors, access denied, move failures);
   engines and the integrity service now report a dedicated `InvalidIsoCount`, so the "Many files were
   not valid Xbox ISOs" warning only counts genuinely invalid images.
+
+**Pre-release review follow-up**
+
+- **Drag-out and open-from-image extraction blocked the UI thread** — the explorer lease helper invoked
+  its action inline, so dragging large entries out of an image (or opening them) decompressed on the
+  UI thread and froze the window. Explorer actions now run on the thread pool while the lease is held.
+- **Drag-and-drop temp files were deleted before the drop target copied them** — Windows Explorer and
+  some Linux/macOS file managers copy the dropped files asynchronously after the drop returns, so the
+  immediate `Directory.Delete` could truncate the copy. Extracted drag sources are now kept for a few
+  minutes and the startup cleanup collects anything left behind.
+- **Failed or canceled explorer extractions leaked their temp folders** — `%TEMP%\ImageExplorer` and
+  `%TEMP%\ImageExplorer_DragDrop` work folders are now removed after a failed copy-out, and
+  `TempFolderCleanupHelper` also scans those folders (GUID children older than six hours).
+- **Split CISO continuation parts used a hard-coded lowercase extension** — on case-sensitive file
+  systems (Linux/macOS) `game.2.CSO` was never found when moving a set to `_success`/`_failed`; the
+  original extension casing is preserved now.
+- **Cross-volume detection was wrong on Linux/macOS** — `Path.GetPathRoot` always returns `/`, so moves
+  between mount points were treated as same-volume renames and skipped the destination free-space
+  guard. The actual mount point is resolved through `DriveInfo.GetDrives()` (longest matching root).
+- **Background open-from-image could read a disposed `CancellationTokenSource`** — the token is now
+  captured before the task is queued, so closing the window cannot race the extraction.
+- **The re-entrancy guard in the Start handlers tore down the running operation** — the guard sat
+  inside the `try` whose `finally` finishes the operation; it now runs before the `try`.
+- **Avalonia platform-startup diagnostics were dropped** — the Serilog pipeline and the
+  `AvaloniaSerilogSink` are now configured in `Program.Main` before the Avalonia platform subsystems
+  initialize (the constructor call is idempotent).
+- **Avalonia framework warnings were auto-reported as bug reports** — `BugReportSink` now skips events
+  whose `SourceContext` is `Avalonia`; they are still written to the on-screen viewer and log file.
+- **The on-screen log viewer could feed failures back into the logging pipeline** — the UI sink has a
+  re-entrancy guard and viewer failures are written to `Serilog.Debugging.SelfLog` instead of Serilog.
 
 ### Internal
 

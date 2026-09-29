@@ -46,9 +46,9 @@ After extraction, the application folder contains:
 
 | File | Purpose |
 |:---|:---|
-| `XboxIsoStudio` / `XboxIsoStudio.exe` | The main application (conversion engines are built in) |
-| Avalonia/Skia native libraries (`libSkiaSharp`, `libHarfBuzzSharp`, …) | UI rendering for the platform you downloaded |
+| `XboxIsoStudio` / `XboxIsoStudio.exe` | The main application — a single framework-dependent executable with all conversion engines and the Avalonia/Skia rendering libraries bundled (the native libraries are extracted to a temporary folder on first run) |
 | `7za.exe` / `7za_arm64.exe` | Windows builds only: 7-Zip CLI fallback used for complex or password-protected `.7z` archives (on Linux/macOS the system `7z` from `PATH` is used instead) |
+| `ReadMe.md`, `WhatsNew.md`, `LICENSE.txt` | Documentation and license, included in every release archive |
 
 Do not delete or rename the bundled helper files — the corresponding features will fail if they are missing.
 

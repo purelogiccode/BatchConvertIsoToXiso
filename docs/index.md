@@ -13,7 +13,7 @@ Welcome to the official documentation for **Xbox ISO Studio** — a high-perform
 - **Repository:** <https://github.com/purelogiccode/XboxIsoStudio>
 - **Website:** <https://www.purelogiccode.com>
 - **License:** GNU General Public License v3.0
-- **Current version:** 3.0.0 (unreleased)
+- **Current version:** 3.0.0 (September 2026)
 - **Platform:** Windows, Linux, and macOS (x64 / ARM64), .NET 10.0 Runtime
 
 ---

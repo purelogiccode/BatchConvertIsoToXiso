@@ -67,10 +67,11 @@ Both projects enforce analyzer rules (**Meziantou.Analyzer**, **Roslynator**) as
 
 ## Publishing a Release Build
 
-Example for a framework-dependent x64 publish (single file):
+Example for a framework-dependent x64 publish (single file, with the native Avalonia/Skia
+libraries embedded and extracted to a temporary folder on first run):
 
 ```bash
-dotnet publish XboxIsoStudio -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
+dotnet publish XboxIsoStudio -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
 For a self-contained build (no .NET runtime requirement for end users):
