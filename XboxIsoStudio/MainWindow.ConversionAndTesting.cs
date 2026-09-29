@@ -236,9 +236,10 @@ public partial class MainWindow
                 outputFormat,
                 progress, HandleCloudRetryRequestAsync, _cts.Token);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
             operationCanceled = true;
+            _logger.Information(ex, "Batch conversion canceled by the user");
             UpdateStatus("Operation canceled.");
         }
         catch (Exception ex)
@@ -385,9 +386,10 @@ public partial class MainWindow
                 PerformDeepScanCheckBox.IsChecked ?? false,
                 progress, HandleCloudRetryRequestAsync, _cts.Token);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
             operationCanceled = true;
+            _logger.Information(ex, "Batch integrity test canceled by the user");
             UpdateStatus("Operation canceled.");
         }
         catch (Exception ex)

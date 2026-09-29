@@ -2,15 +2,26 @@ using Serilog;
 
 namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Logs the welcome banner and usage instructions shown when the application starts.
+/// </summary>
 public static class DisplayInstructions
 {
     private static volatile ILogger? _logger;
 
+    /// <summary>
+    /// Supplies the logger used by <see cref="DisplayInitialInstructions"/>.
+    /// </summary>
+    /// <param name="logger">Logger that receives the instructions.</param>
     public static void Initialize(ILogger logger)
     {
         _logger = logger;
     }
 
+    /// <summary>
+    /// Writes the welcome message and the description of the application's main tabs to the
+    /// configured logger.
+    /// </summary>
     public static void DisplayInitialInstructions()
     {
         var logger = _logger;

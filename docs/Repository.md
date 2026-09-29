@@ -64,7 +64,7 @@ This page describes the repository itself: where things live, how releases are m
 
 - The primary branch is **`master`**.
 - **Releases** are tagged on GitHub and published on the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page with ready-to-run archives for Windows, Linux, and macOS (x64 and ARM64).
-- **Versioning:** `MAJOR.MINOR.PATCH` (currently 2.9.0). Releases are tagged `release_MAJOR.MINOR.PATCH` (for example `release_2.8.0`). The application's update checker extracts the numeric version from the latest release tag, so keep the `MAJOR.MINOR.PATCH` part intact.
+- **Versioning:** `MAJOR.MINOR.PATCH` (currently 3.0.0, unreleased). Releases are tagged `release_MAJOR.MINOR.PATCH` (for example `release_2.8.0`). The application's update checker extracts the numeric version from the latest release tag, so keep the `MAJOR.MINOR.PATCH` part intact.
 
 ## Contributing
 

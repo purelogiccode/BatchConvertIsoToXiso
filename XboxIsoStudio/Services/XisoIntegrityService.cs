@@ -22,11 +22,24 @@ public class XisoIntegrityService : IXisoIntegrityService
 {
     private readonly ILogger _logger;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="XisoIntegrityService"/> class.
+    /// </summary>
+    /// <param name="logger">Logger used for diagnostics.</param>
     public XisoIntegrityService(ILogger logger)
     {
         _logger = logger.ForContext<XisoIntegrityService>();
     }
 
+    /// <summary>
+    /// Tests the integrity of the image at <paramref name="isoPath"/>, using the structural
+    /// audit that matches its format (plain ISO, CISO, ZAR or Xbox CHD).
+    /// </summary>
+    /// <param name="isoPath">Path of the image to test.</param>
+    /// <param name="performDeepScan">Whether to read all image or archive data in addition to the structural audit.</param>
+    /// <param name="progress">Receives progress updates during the test.</param>
+    /// <param name="token">Token used to cancel the test.</param>
+    /// <returns><c>true</c> when the image passes the test; otherwise <c>false</c>.</returns>
     public Task<bool> TestIsoIntegrityAsync(string isoPath, bool performDeepScan,
         IProgress<BatchOperationProgress> progress, CancellationToken token)
     {

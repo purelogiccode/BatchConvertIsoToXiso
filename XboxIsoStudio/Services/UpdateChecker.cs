@@ -7,6 +7,9 @@ using Serilog;
 
 namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Checks the GitHub releases API for a newer version of the application.
+/// </summary>
 public partial class UpdateChecker : IUpdateChecker
 {
     private const string GitHubApiUrl =
@@ -16,6 +19,12 @@ public partial class UpdateChecker : IUpdateChecker
     private readonly string _currentVersion;
     private readonly ILogger _logger;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="UpdateChecker"/> class using the current
+    /// application version.
+    /// </summary>
+    /// <param name="httpClient">HTTP client used to query the GitHub releases API.</param>
+    /// <param name="logger">Logger used for diagnostics.</param>
     public UpdateChecker(HttpClient httpClient, ILogger logger)
         : this(httpClient, GetApplicationVersion.GetProgramVersion(), logger)
     {
@@ -30,6 +39,14 @@ public partial class UpdateChecker : IUpdateChecker
         _logger = logger.ForContext<UpdateChecker>();
     }
 
+    /// <summary>
+    /// Queries the latest GitHub release and compares its version with the current application
+    /// version.
+    /// </summary>
+    /// <returns>
+    /// A tuple containing whether a newer version is available, the latest version string when
+    /// one was found, and the release download URL.
+    /// </returns>
     public async Task<(bool IsNewVersionAvailable, string? LatestVersion, string? DownloadUrl)> CheckForUpdateAsync()
     {
         try

@@ -3,8 +3,19 @@ using System.Text;
 
 namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Formats exceptions, including aggregate and inner exceptions, as human-readable text
+/// appended to a <see cref="StringBuilder"/>.
+/// </summary>
 public static class ExceptionFormatter
 {
+    /// <summary>
+    /// Appends the type, message, source, and stack trace of the specified exception and all
+    /// of its inner or aggregate exceptions to the builder.
+    /// </summary>
+    /// <param name="sb">Builder that receives the formatted details.</param>
+    /// <param name="exception">Exception to format.</param>
+    /// <param name="level">Current nesting level used for indentation.</param>
     public static void AppendExceptionDetails(StringBuilder sb, Exception exception, int level = 0)
     {
         while (true)

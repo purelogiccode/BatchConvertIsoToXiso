@@ -9,6 +9,11 @@ namespace XboxIsoStudio.Services;
 /// </summary>
 public static class ImageExplorerFactory
 {
+    /// <summary>
+    /// Opens an image explorer appropriate for the format of the specified file.
+    /// </summary>
+    /// <param name="imagePath">Path of the image to open.</param>
+    /// <returns>An explorer for the image, selected by its file extension.</returns>
     public static IImageExplorer Open(string imagePath)
     {
         var extension = Path.GetExtension(imagePath);

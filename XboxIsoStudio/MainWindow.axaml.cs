@@ -9,6 +9,11 @@ using Serilog;
 
 namespace XboxIsoStudio;
 
+/// <summary>
+/// Main application window: batch conversion and integrity testing, the on-screen log
+/// viewer, and the XISO/ZAR/CHD image explorer. The class is split across several
+/// partial files by feature.
+/// </summary>
 public partial class MainWindow : Window
 {
     private const int MaxLogLength = 100000; // Approx 1000-2000 lines depending on length
@@ -51,11 +56,26 @@ public partial class MainWindow : Window
     /// <summary>Set once the constructor finished so XAML-driven events can be ignored during load.</summary>
     private readonly bool _isUiInitialized;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MainWindow"/> class for the XAML designer;
+    /// use the dependency-injection constructor at runtime.
+    /// </summary>
     public MainWindow()
     {
         InitializeComponent();
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MainWindow"/> class with all of its
+    /// runtime dependencies.
+    /// </summary>
+    /// <param name="updateChecker">Checks GitHub for a newer release.</param>
+    /// <param name="logger">Serilog logger for the window and its services.</param>
+    /// <param name="messageBoxService">Service used to show modal dialogs.</param>
+    /// <param name="urlOpener">Service used to open links in the default browser.</param>
+    /// <param name="screenshotService">Service that captures the active window (F8).</param>
+    /// <param name="orchestratorService">Batch conversion and integrity-test orchestrator.</param>
+    /// <param name="diskMonitorService">Live disk read/write speed monitor.</param>
     public MainWindow(IUpdateChecker updateChecker, ILogger logger,
         IMessageBoxService messageBoxService, IUrlOpener urlOpener, IScreenshotService screenshotService,
         IOrchestratorService orchestratorService, IDiskMonitorService diskMonitorService)
@@ -101,16 +121,24 @@ public partial class MainWindow : Window
 
         _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var text = logViewer.Text ?? string.Empty;
-            if (text.Length > MaxLogLength)
+            try
             {
-                // Keep the last ~50% of the log, try to cut at a newline
-                var cutIndex = text.IndexOf('\n', text.Length / 2);
-                text = cutIndex >= 0 ? text.Substring(cutIndex + 1) : text.Substring(text.Length / 2);
-                logViewer.Text = text;
-            }
+                var text = logViewer.Text ?? string.Empty;
+                if (text.Length > MaxLogLength)
+                {
+                    // Keep the last ~50% of the log, try to cut at a newline
+                    var cutIndex = text.IndexOf('\n', text.Length / 2);
+                    text = cutIndex >= 0 ? text.Substring(cutIndex + 1) : text.Substring(text.Length / 2);
+                    logViewer.Text = text;
+                }
 
-            AppendLogText($"{e.Message}{Environment.NewLine}");
+                AppendLogText($"{e.Message}{Environment.NewLine}");
+            }
+            catch (Exception ex)
+            {
+                // Never let a log-viewer failure propagate back into the Serilog pipeline.
+                _logger.Debug(ex, "Failed to append a message to the on-screen log viewer");
+            }
         });
     }
 

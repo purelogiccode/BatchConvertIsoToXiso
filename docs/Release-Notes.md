@@ -12,8 +12,7 @@
 
 | Version | Date | Summary |
 |:---|:---|:---|
-| [3.0.0 (unreleased)](#300-unreleased) | — | Cross-platform Avalonia port (Windows/Linux/macOS); CHDSharp integration: CHD output, Xbox CHD integrity testing, and CHD exploration; extensive reliability and bug-fix pass (38 fixes) |
-| [2.9.0](#290) | September 2026 | Serilog logging with automatic bug reporting; per-file selection lists; XISO/ZAR/CSO output formats; CUE/BIN support removed |
+| [3.0.0 (unreleased)](#300-unreleased) | — | Cross-platform Avalonia port (Windows/Linux/macOS); CHD output, Xbox CHD integrity testing, and CHD exploration; Serilog logging with automatic bug reporting; per-file selection lists; XISO/ZAR/CSO output formats; extensive reliability and bug-fix pass (38 fixes) |
 | [2.8.0](#280) | September 2026 | XISOSharp migration: in-process conversion, integrity testing, and exploration; external engines removed |
 | [2.7.1](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.7.1) | July 2026 | Resource cleanup, cancellation, better error filtering |
 | [2.7.0](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.7.0) | June 2026 | Improved ISO compatibility, disk-space detection, cancellation and performance |
@@ -24,11 +23,13 @@
 
 ## 3.0.0 (unreleased)
 
-> **The cross-platform CHD release (in development).** The application was ported from WPF to
+> **The cross-platform CHD & logging release (in development).** The application was ported from WPF to
 > **Avalonia** and now runs on Windows, Linux, and macOS (x64 and ARM64), and
 > [CHDSharp](https://github.com/purelogiccode/CHDSharp) is integrated as a second in-process engine:
 > Xbox and Xbox 360 ISOs can be converted to CHD v5, and Xbox DVD CHD files can be integrity-tested
-> and explored without extraction.
+> and explored without extraction. All logging runs through [Serilog](https://serilog.net/) with
+> automatic bug reporting, and the Convert and Test views now offer per-file selection lists with
+> XISO/ZAR/CSO/CHD output formats.
 
 ### New Features
 
@@ -56,6 +57,64 @@
   (hunks decompressed on demand) and lists and copies out entries with the XISOSharp stream APIs.
   Both game-partition-only CHDs (produced by this app) and full Redump-image CHDs (produced by
   `chdman createdvd`) are supported — partition offsets are auto-detected.
+- **Serilog logging pipeline** — three sinks: the on-screen log viewer (`UiLogSink`), a rolling daily
+  file log (`%LocalAppData%\XboxIsoStudio\logs\log-*.txt`, 10 MB per file, 14 files retained),
+  and a bug-report sink (`BugReportSink`) that forwards every Warning-or-higher event to the Bug
+  Report API. Avalonia's internal diagnostics are routed through the same pipeline
+  (`AvaloniaSerilogSink`) instead of the Trace-based default. The custom `ILogger`/`LoggerService`
+  abstraction was removed.
+- **Complete bug reports** — every report contains `=== Environment Details ===` (date, application
+  name/version, OS version, architecture, bitness, Windows version, processor count, base directory,
+  temp path), `=== Error Details ===`, and — when an exception is attached — `=== Exception Details ===`
+  (type, message, source, and stack trace, including nested and aggregate exceptions). The API's
+  `environment` and `stackTrace` fields are populated as well.
+- **Fatal-error reporting** — global handlers (`AppDomain.UnhandledException`,
+  `DispatcherUnhandledException`, `TaskScheduler.UnobservedTaskException`) report through the same
+  pipeline, and fatal shutdown paths send a blocking report before the process exits.
+- **Selectable file lists** — after choosing an input folder, the Convert view lists every supported
+  file (`.iso`, `.zip`, `.7z`, `.rar`) and the Test view lists every ISO, each with a
+  **Select** checkbox, file name (relative to the input folder), and formatted size. Only ticked
+  files are processed. **Select All** / **Deselect All** buttons toggle the whole list in one click,
+  and toggling **Search Subfolders** refreshes the list immediately (the list also refreshes after
+  each batch so it reflects deleted originals and files moved to `_success`/`_failed`).
+- **Compressed output formats** — the Convert tab now produces **ZAR** (`.zar`, ZArchive/zstd,
+  loadable directly in Xenia canary) and **CSO** (`.cso`, CISO v2/LZ4, byte-identical to
+  `xdvdfs compress`) in addition to optimized XISO. ZAR streams the game-partition tree straight
+  into the archive; CSO repacks non-optimized inputs to a temporary XISO first. `Skip $SystemUpdate`,
+  `Delete Originals`, and integrity checking apply to all formats, and the file list stays
+  ISO/archive-only.
+
+### Improvements
+
+- **Every catch block now logs** — previously silent cleanup, retry, and ignore paths log at an
+  appropriate level, and public service methods log failures with context.
+- **Fewer false reports** — expected user/environmental problems (corrupt or password-protected
+  archives, missing files, unsupported images, disk-space/network errors) are logged at Information
+  level so they never generate bug reports; genuine failures are logged at Warning/Error/Fatal.
+- **Diagnostics on disk** — the rolling log file records the startup version and the full session log
+  for troubleshooting.
+- **Single source of truth for supported files** — the `SupportedFiles` filter is shared by the UI
+  lists and the orchestrator folder scans, so the UI can never offer a file the converter cannot handle.
+- **Responsive with large folders** — list items are added in chunks of 100 on the UI thread, so
+  folders with thousands of files stay responsive.
+- **New orchestrator API** — `IOrchestratorService.ConvertFilesAsync` and `TestFilesAsync` process an
+  explicit file list; the folder-scanning `ConvertAsync`/`TestAsync` remain for compatibility.
+- **Side-by-side layout** — the Convert and Test views (folder pickers, options, and the selectable
+  file list) now occupy the left panel, while the log viewer / XISO explorer fills the right panel,
+  with a draggable splitter between them. On the Explorer tab the file picker and the explorer list
+  share the full window width and the log panel is hidden.
+- **Collapsible Options** — the Options panel on both tabs is an `Expander` styled to match the
+  theme; click its header to collapse or expand it and give the file list more room.
+- **Theme-consistent list styling** — new `FileListDataGridStyle` and related styles match the dark
+  terminal theme.
+
+### Breaking Changes
+
+- **CUE/BIN input support was removed.** The bundled `bchunk.exe` and the `.cue` file type are gone:
+  the application now supports only `.iso` (Redump full-disc images) and already-optimized XISO
+  files, plus the archive formats (`.zip`, `.7z`, `.rar`). `.cue`/`.bin` files are no longer listed
+  or processed. The application and test projects report version **3.0.0**
+  (`AssemblyVersion`/`FileVersion`) so the update checker sees this release over 2.8.0.
 
 ### Bug Fixes
 
@@ -176,85 +235,10 @@ A full review of the `XboxIsoStudio` and `XboxIsoStudio.Tests` projects found an
 - Tests for the new service (valid/optimized/non-optimized inputs, cancellation-safe cleanup,
   invalid images), CHD integrity testing (valid, deep scan, non-DVD rejection, corruption), the CHD
   explorer (listing, copy-out, missing paths, invalid files), and orchestrator CHD routing.
-
----
-
-## 2.9.0
-
-> **The logging & output formats release.** All logging runs through
-> [Serilog](https://serilog.net/) with automatic bug reporting, the Convert and Test views show
-> selectable per-file lists, and the Convert tab can produce optimized XISO, compressed ZAR, or
-> compressed CSO output.
-
-### New Features
-
-- **Serilog logging pipeline** — three sinks: the on-screen log viewer (`UiLogSink`), a rolling daily
-  file log (`%LocalAppData%\XboxIsoStudio\logs\log-*.txt`, 10 MB per file, 14 files retained),
-  and a bug-report sink (`BugReportSink`) that forwards every Warning-or-higher event to the Bug
-  Report API. The custom `ILogger`/`LoggerService` abstraction was removed.
-- **Complete bug reports** — every report contains `=== Environment Details ===` (date, application
-  name/version, OS version, architecture, bitness, Windows version, processor count, base directory,
-  temp path), `=== Error Details ===`, and — when an exception is attached — `=== Exception Details ===`
-  (type, message, source, and stack trace, including nested and aggregate exceptions). The API's
-  `environment` and `stackTrace` fields are populated as well.
-- **Fatal-error reporting** — global handlers (`AppDomain.UnhandledException`,
-  `DispatcherUnhandledException`, `TaskScheduler.UnobservedTaskException`) report through the same
-  pipeline, and fatal shutdown paths send a blocking report before the process exits.
-- **Selectable file lists** — after choosing an input folder, the Convert view lists every supported
-  file (`.iso`, `.zip`, `.7z`, `.rar`) and the Test view lists every ISO, each with a
-  **Select** checkbox, file name (relative to the input folder), and formatted size. Only ticked
-  files are processed.
-- **Select All / Deselect All** buttons toggle the whole list in one click.
-- **Live rescan** — toggling **Search Subfolders** refreshes the list immediately, and the list is
-  refreshed automatically after each batch so it reflects deleted originals and files moved to
-  `_success`/`_failed`.
-- **Compressed output formats** — the Convert tab now produces **ZAR** (`.zar`, ZArchive/zstd,
-  loadable directly in Xenia canary) and **CSO** (`.cso`, CISO v2/LZ4, byte-identical to
-  `xdvdfs compress`) in addition to optimized XISO. ZAR streams the game-partition tree straight
-  into the archive; CSO repacks non-optimized inputs to a temporary XISO first. `Skip $SystemUpdate`,
-  `Delete Originals`, and integrity checking apply to all formats, and the file list stays
-  ISO/archive-only.
-
-### Improvements
-
-- **Every catch block now logs** — previously silent cleanup, retry, and ignore paths log at an
-  appropriate level, and public service methods log failures with context.
-- **Fewer false reports** — expected user/environmental problems (corrupt or password-protected
-  archives, missing files, unsupported images, disk-space/network errors) are logged at Information
-  level so they never generate bug reports; genuine failures are logged at Warning/Error/Fatal.
-- **Diagnostics on disk** — the rolling log file records the startup version and full session log for
-  troubleshooting.
-- **Single source of truth for supported files** — the new `SupportedFiles` filter is shared by the
-  UI lists and the orchestrator folder scans, so the UI can never offer a file the converter cannot
-  handle.
-- **Responsive with large folders** — list items are added in chunks of 100 on the UI thread, so
-  folders with thousands of files stay responsive.
-- **New orchestrator API** — `IOrchestratorService.ConvertFilesAsync` and `TestFilesAsync` process an
-  explicit file list; the folder-scanning `ConvertAsync`/`TestAsync` remain for compatibility.
-- **Side-by-side layout** — the Convert and Test views (folder pickers, options, and the selectable
-  file list) now occupy the left panel, while the log viewer / XISO explorer fills the right panel,
-  with a draggable splitter between them (matching the layout of the other BatchConvert tools). On
-  the Explorer tab the file picker and the explorer list share the full window width (explorer below
-  the picker) and the log panel is hidden.
-- **Collapsible Options** — the Options panel on both the Convert and Test Integrity tabs is now an
-  `Expander` styled to match the theme; click its header to collapse or expand it and give the file
-  list more room.
-- **Theme-consistent list styling** — new `FileListDataGridStyle` and related styles match the dark
-  terminal theme.
-
-### Breaking Changes
-
-- **CUE/BIN input support was removed.** The bundled `bchunk.exe` and the `.cue` file type are gone:
-  the application now supports only `.iso` (Redump full-disc images) and already-optimized XISO
-  files, plus the archive formats (`.zip`, `.7z`, `.rar`). `.cue`/`.bin` files are no longer listed
-  or processed. The application and test projects report version **2.9.0**
-  (`AssemblyVersion`/`FileVersion`) so the update checker sees this release over 2.8.0.
-
-### Internal
-
-- Added `Serilog` 4.4.0 and `Serilog.Sinks.File` 7.0.0, plus new `UiLogSink`, `BugReportSink`, and
-  `LoggingSinkExtensions` (`WriteTo.Ui()` / `WriteTo.BugReport()` configuration).
-- Services and windows now inject `Serilog.ILogger`; `Interfaces/ILogger` and `Services/LoggerService`
+- Added `Serilog` 4.4.0 and `Serilog.Sinks.File` 7.0.0, plus `UiLogSink`, `BugReportSink`,
+  `AvaloniaSerilogSink`, and `LoggingSinkExtensions` (`WriteTo.Ui()` / `WriteTo.BugReport()`
+  configuration).
+- Services and windows inject `Serilog.ILogger`; `Interfaces/ILogger` and `Services/LoggerService`
   were deleted.
 - Tests migrated from `Mock<ILogger>` to a capturing `TestLogger` sink; added `BugReportSinkTests`.
 - Added `Models/FileItem` (selectable list item with `INotifyPropertyChanged`) and
@@ -271,8 +255,10 @@ A full review of the `XboxIsoStudio` and `XboxIsoStudio.Tests` projects found an
 - Added tests for `FileItem`, `SupportedFiles`, the new `ConvertFilesAsync`/`TestFilesAsync`
   orchestrator overloads (file-list filtering, empty lists, pass/fail moves), ZAR/CSO output
   (round-trip extraction/decompression, `$SystemUpdate` exclusion, format/extension plumbing).
+- Enabled XML documentation generation for the application project; every public type and member
+  is documented and the build reports zero warnings.
 
-**Full Changelog**: <https://github.com/purelogiccode/XboxIsoStudio/compare/release_2.8.0...release_2.9.0>
+**Full Changelog**: <https://github.com/purelogiccode/XboxIsoStudio/compare/release_2.8.0...release_3.0.0>
 
 ---
 

@@ -31,12 +31,29 @@ public class ChdService : IChdService
     private readonly ILogger _logger;
     private readonly IXisoSharpService _xisoSharpService;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ChdService"/> class.
+    /// </summary>
+    /// <param name="logger">Logger used to report conversion progress and failures.</param>
+    /// <param name="xisoSharpService">XISO service used to prepare optimized source images.</param>
     public ChdService(ILogger logger, IXisoSharpService xisoSharpService)
     {
         _logger = logger.ForContext<ChdService>();
         _xisoSharpService = xisoSharpService;
     }
 
+    /// <summary>
+    /// Converts an Xbox ISO image to a DVD CHD v5 file, rewriting non-optimized inputs through
+    /// the XISO pipeline first and optionally verifying the encoded output.
+    /// </summary>
+    /// <param name="inputFile">Path of the ISO image to convert.</param>
+    /// <param name="outputFolder">Folder that receives the generated CHD file.</param>
+    /// <param name="outputFileName">File name for the generated CHD file.</param>
+    /// <param name="skipSystemUpdate">Whether to strip the $SystemUpdate folder while preparing the source.</param>
+    /// <param name="checkIntegrity">Whether to perform a full deep verification of the encoded CHD.</param>
+    /// <param name="progress">Progress sink that receives status updates.</param>
+    /// <param name="token">Cancellation token for the conversion.</param>
+    /// <returns>The conversion status, or a failure status when the input is invalid or conversion fails.</returns>
     public async Task<FileProcessingStatus> ConvertIsoToChdAsync(string inputFile, string outputFolder,
         string outputFileName, bool skipSystemUpdate, bool checkIntegrity,
         IProgress<BatchOperationProgress> progress, CancellationToken token)

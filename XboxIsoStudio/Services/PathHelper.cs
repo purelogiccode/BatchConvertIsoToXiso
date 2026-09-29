@@ -3,6 +3,10 @@ using Serilog;
 
 namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Provides helpers for working with filesystem paths, including drive letters, UNC shares,
+/// and classification of network, disk-space, and device I/O errors.
+/// </summary>
 public static class PathHelper
 {
     /// <summary>

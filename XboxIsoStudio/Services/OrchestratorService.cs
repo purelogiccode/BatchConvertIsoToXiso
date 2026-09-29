@@ -6,6 +6,11 @@ using XISOSharp;
 
 namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Runs batch conversion and integrity testing of Xbox images: enumerates the requested
+/// inputs, extracts archives, delegates the per-file work to the conversion services and
+/// reports progress to the caller.
+/// </summary>
 public class OrchestratorService : IOrchestratorService
 {
     private readonly IFileExtractor _fileExtractor;
@@ -43,6 +48,16 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="OrchestratorService"/> class.
+    /// </summary>
+    /// <param name="fileExtractor">Extracts archive contents to a temporary folder.</param>
+    /// <param name="fileMover">Moves tested images into the success or failed folder.</param>
+    /// <param name="logger">Logger used for diagnostics.</param>
+    /// <param name="integrityService">Validates image structure and readability.</param>
+    /// <param name="xisoSharpService">Converts images to XISO, ZAR or CSO.</param>
+    /// <param name="chdService">Converts images to CHD.</param>
+    /// <param name="diskMonitorService">Resolves temporary directories based on free disk space.</param>
     public OrchestratorService(
         IFileExtractor fileExtractor,
         IFileMover fileMover,
@@ -63,6 +78,21 @@ public class OrchestratorService : IOrchestratorService
 
     #region Conversion Logic
 
+    /// <summary>
+    /// Converts every convertible file in <paramref name="inputFolder"/> to the requested
+    /// output format and writes the results to <paramref name="outputFolder"/>.
+    /// </summary>
+    /// <param name="inputFolder">Folder to scan for convertible files.</param>
+    /// <param name="outputFolder">Folder where the converted files are written.</param>
+    /// <param name="deleteOriginals">Whether to delete each source file after a successful conversion.</param>
+    /// <param name="skipSystemUpdate">Whether to remove the $SystemUpdate folder from the output image.</param>
+    /// <param name="checkIntegrity">Whether to validate the image structure during conversion.</param>
+    /// <param name="outputFormat">The format to convert to.</param>
+    /// <param name="searchSubfolders">Whether to include files in subfolders of the input folder.</param>
+    /// <param name="progress">Receives progress updates for the batch.</param>
+    /// <param name="onCloudRetryRequired">Callback invoked when a cloud file cannot be read and a retry decision is needed.</param>
+    /// <param name="token">Token used to cancel the batch.</param>
+    /// <returns>A task that completes when the batch conversion has finished.</returns>
     public Task ConvertAsync(
         string inputFolder,
         string outputFolder,
@@ -140,6 +170,20 @@ public class OrchestratorService : IOrchestratorService
         });
     }
 
+    /// <summary>
+    /// Converts the given files to the requested output format and writes the results to
+    /// <paramref name="outputFolder"/>.
+    /// </summary>
+    /// <param name="files">The files to convert; files that are not convertible are ignored.</param>
+    /// <param name="outputFolder">Folder where the converted files are written.</param>
+    /// <param name="deleteOriginals">Whether to delete each source file after a successful conversion.</param>
+    /// <param name="skipSystemUpdate">Whether to remove the $SystemUpdate folder from the output image.</param>
+    /// <param name="checkIntegrity">Whether to validate the image structure during conversion.</param>
+    /// <param name="outputFormat">The format to convert to.</param>
+    /// <param name="progress">Receives progress updates for the batch.</param>
+    /// <param name="onCloudRetryRequired">Callback invoked when a cloud file cannot be read and a retry decision is needed.</param>
+    /// <param name="token">Token used to cancel the batch.</param>
+    /// <returns>A task that completes when the batch conversion has finished.</returns>
     public Task ConvertFilesAsync(
         IReadOnlyList<string> files,
         string outputFolder,
@@ -723,6 +767,19 @@ public class OrchestratorService : IOrchestratorService
 
     #region Testing Logic
 
+    /// <summary>
+    /// Tests every supported image in <paramref name="inputFolder"/> and optionally moves each
+    /// image to a success or failed subfolder based on the result.
+    /// </summary>
+    /// <param name="inputFolder">Folder to scan for testable images.</param>
+    /// <param name="moveSuccessful">Whether images that pass the test are moved to the "_success" subfolder.</param>
+    /// <param name="moveFailed">Whether images that fail the test are moved to the "_failed" subfolder.</param>
+    /// <param name="searchSubfolders">Whether to include images in subfolders of the input folder.</param>
+    /// <param name="performDeepScan">Whether to read all image data to detect media or decompression errors.</param>
+    /// <param name="progress">Receives progress updates for the batch.</param>
+    /// <param name="onCloudRetryRequired">Callback invoked when a cloud file cannot be read and a retry decision is needed.</param>
+    /// <param name="token">Token used to cancel the batch.</param>
+    /// <returns>A task that completes when the batch test has finished.</returns>
     public Task TestAsync(string inputFolder, bool moveSuccessful, bool moveFailed, bool searchSubfolders,
         bool performDeepScan, IProgress<BatchOperationProgress> progress,
         Func<string, Task<CloudRetryResult>> onCloudRetryRequired, CancellationToken token)
@@ -776,6 +833,19 @@ public class OrchestratorService : IOrchestratorService
         });
     }
 
+    /// <summary>
+    /// Tests the given images and optionally moves each image to a success or failed subfolder
+    /// of <paramref name="inputFolder"/> based on the result.
+    /// </summary>
+    /// <param name="inputFolder">Folder that receives the "_success" and "_failed" subfolders when images are moved.</param>
+    /// <param name="files">The files to test; files that are not testable are ignored.</param>
+    /// <param name="moveSuccessful">Whether images that pass the test are moved to the "_success" subfolder.</param>
+    /// <param name="moveFailed">Whether images that fail the test are moved to the "_failed" subfolder.</param>
+    /// <param name="performDeepScan">Whether to read all image data to detect media or decompression errors.</param>
+    /// <param name="progress">Receives progress updates for the batch.</param>
+    /// <param name="onCloudRetryRequired">Callback invoked when a cloud file cannot be read and a retry decision is needed.</param>
+    /// <param name="token">Token used to cancel the batch.</param>
+    /// <returns>A task that completes when the batch test has finished.</returns>
     public Task TestFilesAsync(string inputFolder, IReadOnlyList<string> files, bool moveSuccessful, bool moveFailed,
         bool performDeepScan, IProgress<BatchOperationProgress> progress,
         Func<string, Task<CloudRetryResult>> onCloudRetryRequired, CancellationToken token)

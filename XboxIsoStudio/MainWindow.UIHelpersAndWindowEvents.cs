@@ -259,29 +259,36 @@ public partial class MainWindow
 
     private void ProcessingTimer_Tick(object? sender, EventArgs e)
     {
-        var elapsedTime = _operationStopwatch.Elapsed;
-        ProcessingTimeValue.Text = elapsedTime.ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture);
-
-        // Update read speed
-        ReadSpeedValue?.Text = _diskMonitorService.GetCurrentReadSpeedFormatted();
-
-        ReadSpeedDriveIndicator?.Text = _diskMonitorService.CurrentDriveLetter != null
-            ? $"({_diskMonitorService.CurrentDriveLetter})"
-            : "";
-
-        // Update write speed
-        WriteSpeedValue?.Text = _diskMonitorService.GetCurrentWriteSpeedFormatted();
-
-        WriteSpeedDriveIndicator?.Text = _diskMonitorService.CurrentDriveLetter != null
-            ? $"({_diskMonitorService.CurrentDriveLetter})"
-            : "";
-
-        // Show status message in status bar if disk speed is unavailable
-        var statusMessage = _diskMonitorService.StatusMessage;
-        if (!string.IsNullOrEmpty(statusMessage) && StatusTextBlock != null &&
-            !statusMessage.Equals(StatusTextBlock.Text, StringComparison.Ordinal))
+        try
         {
-            StatusTextBlock.Text = statusMessage;
+            var elapsedTime = _operationStopwatch.Elapsed;
+            ProcessingTimeValue.Text = elapsedTime.ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture);
+
+            // Update read speed
+            ReadSpeedValue?.Text = _diskMonitorService.GetCurrentReadSpeedFormatted();
+
+            ReadSpeedDriveIndicator?.Text = _diskMonitorService.CurrentDriveLetter != null
+                ? $"({_diskMonitorService.CurrentDriveLetter})"
+                : "";
+
+            // Update write speed
+            WriteSpeedValue?.Text = _diskMonitorService.GetCurrentWriteSpeedFormatted();
+
+            WriteSpeedDriveIndicator?.Text = _diskMonitorService.CurrentDriveLetter != null
+                ? $"({_diskMonitorService.CurrentDriveLetter})"
+                : "";
+
+            // Show status message in status bar if disk speed is unavailable
+            var statusMessage = _diskMonitorService.StatusMessage;
+            if (!string.IsNullOrEmpty(statusMessage) && StatusTextBlock != null &&
+                !statusMessage.Equals(StatusTextBlock.Text, StringComparison.Ordinal))
+            {
+                StatusTextBlock.Text = statusMessage;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Error while updating the processing timer UI");
         }
     }
 

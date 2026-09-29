@@ -5,15 +5,26 @@ using Serilog;
 
 namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Monitors disk read and write speed for a drive using Windows performance counters and
+/// resolves available free space for local drives and network shares.
+/// </summary>
 public class DiskMonitorService : IDiskMonitorService, IDisposable
 {
     private readonly ILogger _logger;
     private PerformanceCounter? _diskReadSpeedCounter;
     private PerformanceCounter? _diskWriteSpeedCounter;
 
+    /// <summary>Drive letter currently being monitored, or <c>null</c> when monitoring is inactive.</summary>
     public string? CurrentDriveLetter { get; private set; }
+
+    /// <summary>Reason monitoring is unavailable, or <c>null</c> when monitoring is active.</summary>
     public string? StatusMessage { get; private set; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DiskMonitorService"/> class.
+    /// </summary>
+    /// <param name="logger">Logger used to report monitoring state changes and errors.</param>
     public DiskMonitorService(ILogger logger)
     {
         _logger = logger.ForContext<DiskMonitorService>();
@@ -28,6 +39,12 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         out ulong lpTotalNumberOfBytes,
         out ulong lpTotalNumberOfFreeBytes);
 
+    /// <summary>
+    /// Starts monitoring disk speed for the drive containing the specified path, stopping any
+    /// previous monitoring first. Network paths and non-Windows platforms are reported through
+    /// <see cref="StatusMessage"/> instead.
+    /// </summary>
+    /// <param name="path">Path whose drive should be monitored; may be <c>null</c>.</param>
     public void StartMonitoring(string? path)
     {
         var driveLetter = PathHelper.GetDriveLetter(path);
@@ -109,6 +126,10 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         }
     }
 
+    /// <summary>
+    /// Stops monitoring, releases the performance counters, and clears the drive letter and
+    /// status message.
+    /// </summary>
     public void StopMonitoring()
     {
         _diskReadSpeedCounter?.Dispose();
@@ -119,6 +140,11 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         StatusMessage = null;
     }
 
+    /// <summary>
+    /// Gets the current disk read speed formatted for display, stopping monitoring when the
+    /// counter cannot be read.
+    /// </summary>
+    /// <returns>The formatted read speed, or "N/A" when monitoring is unavailable.</returns>
     public string GetCurrentReadSpeedFormatted()
     {
         if (!OperatingSystem.IsWindows()) return "N/A";
@@ -137,6 +163,11 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         }
     }
 
+    /// <summary>
+    /// Gets the current disk write speed formatted for display, stopping monitoring when the
+    /// counter cannot be read.
+    /// </summary>
+    /// <returns>The formatted write speed, or "N/A" when monitoring is unavailable.</returns>
     public string GetCurrentWriteSpeedFormatted()
     {
         if (!OperatingSystem.IsWindows()) return "N/A";
@@ -155,6 +186,12 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         }
     }
 
+    /// <summary>
+    /// Gets the number of free bytes available on the drive or network share containing the
+    /// specified path.
+    /// </summary>
+    /// <param name="path">Path to inspect; may be <c>null</c>.</param>
+    /// <returns>The available free bytes, or 0 when the value cannot be determined.</returns>
     public long GetAvailableFreeSpace(string? path)
     {
         if (string.IsNullOrEmpty(path))
@@ -215,6 +252,13 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         return 0;
     }
 
+    /// <summary>
+    /// Finds the first eligible local drive with enough free space for the required size plus
+    /// the standard safety buffer.
+    /// </summary>
+    /// <param name="requiredBytes">Number of bytes that must be available.</param>
+    /// <param name="excludeDrive">Optional drive root to skip during the search.</param>
+    /// <returns>The name of a suitable drive, or <c>null</c> when none has enough free space.</returns>
     public string? FindDriveWithFreeSpace(long requiredBytes, string? excludeDrive = null)
     {
         try
@@ -257,6 +301,9 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         return null;
     }
 
+    /// <summary>
+    /// Stops monitoring and releases all resources used by the service.
+    /// </summary>
     public void Dispose()
     {
         StopMonitoring();

@@ -1,7 +1,15 @@
 ﻿namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Converts verbs to their past-tense form for user-facing status messages.
+/// </summary>
 public static class ConvertToPastTense
 {
+    /// <summary>
+    /// Returns the past-tense form of the specified verb using standard English rules.
+    /// </summary>
+    /// <param name="verb">Verb to convert (for example, "move" or "test").</param>
+    /// <returns>The past-tense form of <paramref name="verb"/>.</returns>
     public static string GetPastTense(string verb)
     {
         var lower = verb.ToLowerInvariant();

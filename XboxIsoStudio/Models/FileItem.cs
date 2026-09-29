@@ -97,6 +97,10 @@ public class FileItem : INotifyPropertyChanged
     /// </summary>
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>
+    ///     Raises the <see cref="PropertyChanged" /> event.
+    /// </summary>
+    /// <param name="propertyName">Name of the property that changed; defaults to the caller member name.</param>
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

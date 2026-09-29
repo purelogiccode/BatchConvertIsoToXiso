@@ -1,5 +1,9 @@
 ﻿namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Provides helpers for detecting whether a user-selected path lies inside the system
+/// temporary directory.
+/// </summary>
 public static class CheckForTempPath
 {
     /// <summary>

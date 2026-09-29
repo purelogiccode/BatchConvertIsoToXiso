@@ -2,6 +2,10 @@ using Serilog;
 
 namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Cleans up orphaned XboxIsoStudio work folders on the system temp path and fixed drives,
+/// retrying deletions of locked files.
+/// </summary>
 public static class TempFolderCleanupHelper
 {
     /// <summary>
@@ -149,6 +153,7 @@ public static class TempFolderCleanupHelper
                 }
                 catch (OperationCanceledException)
                 {
+                    logger.Debug("Drive enumeration for temp folder cleanup was canceled");
                     throw;
                 }
                 catch (Exception ex)

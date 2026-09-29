@@ -8,15 +8,27 @@ using Serilog;
 
 namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Captures a screenshot of the application's active main window and saves it as a PNG file
+/// in a "Screenshots" folder next to the executable.
+/// </summary>
 public class ScreenshotService : IScreenshotService
 {
     private readonly ILogger _logger;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ScreenshotService"/> class.
+    /// </summary>
+    /// <param name="logger">Logger used for diagnostics.</param>
     public ScreenshotService(ILogger logger)
     {
         _logger = logger.ForContext<ScreenshotService>();
     }
 
+    /// <summary>
+    /// Captures the active main window at its current device scale.
+    /// </summary>
+    /// <returns>The path of the saved screenshot, or <c>null</c> when no window is available or the capture fails.</returns>
     public async Task<string?> CaptureActiveWindowAsync()
     {
         try

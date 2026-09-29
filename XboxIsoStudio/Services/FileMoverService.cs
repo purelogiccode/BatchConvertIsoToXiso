@@ -3,6 +3,10 @@ using Serilog;
 
 namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Moves processed files to their destination folder, retrying transient failures and checking
+/// free space before cross-volume moves.
+/// </summary>
 public class FileMoverService : IFileMover
 {
     private readonly ILogger _logger;
@@ -14,12 +18,25 @@ public class FileMoverService : IFileMover
     // Initial delay in milliseconds (will be used for exponential backoff)
     private const int InitialRetryDelayMs = 1000;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FileMoverService"/> class.
+    /// </summary>
+    /// <param name="logger">Logger used to report move progress and failures.</param>
+    /// <param name="diskMonitorService">Service used to check free space before cross-volume moves.</param>
     public FileMoverService(ILogger logger, IDiskMonitorService diskMonitorService)
     {
         _logger = logger.ForContext<FileMoverService>();
         _diskMonitorService = diskMonitorService;
     }
 
+    /// <summary>
+    /// Moves a tested file into the destination folder, creating the folder when needed and
+    /// skipping the move when the source is missing or the destination file already exists.
+    /// </summary>
+    /// <param name="sourceFile">Path of the file to move.</param>
+    /// <param name="destinationFolder">Folder that receives the file.</param>
+    /// <param name="moveReason">Reason for the move, recorded in the log.</param>
+    /// <param name="token">Cancellation token for the operation.</param>
     public async Task MoveTestedFileAsync(string sourceFile, string destinationFolder, string moveReason,
         CancellationToken token)
     {
@@ -100,7 +117,7 @@ public class FileMoverService : IFileMover
     /// Returns true when the source and destination resolve to different volumes (or when
     /// either root cannot be determined, in which case the space check is kept as a guard).
     /// </summary>
-    private static bool IsCrossVolumeMove(string sourceFile, string destinationFolder)
+    private bool IsCrossVolumeMove(string sourceFile, string destinationFolder)
     {
         try
         {
@@ -113,9 +130,11 @@ public class FileMoverService : IFileMover
                 : StringComparison.Ordinal;
             return !sourceRoot.Equals(destinationRoot, comparison);
         }
-        catch
+        catch (Exception ex)
         {
             // Unresolvable paths fail later with their own error; keep the space check.
+            _logger.Debug(ex, "Could not resolve volume roots for {SourceFile} and {DestinationFolder}",
+                sourceFile, destinationFolder);
             return true;
         }
     }

@@ -1,7 +1,15 @@
 ﻿namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Formats byte counts and transfer speeds as human-readable strings for the UI.
+/// </summary>
 public static class Formatter
 {
+    /// <summary>
+    /// Formats a byte count as a human-readable size using binary units (B, KB, MB, GB, TB).
+    /// </summary>
+    /// <param name="bytes">Number of bytes to format.</param>
+    /// <returns>The formatted size string.</returns>
     public static string FormatBytes(long bytes)
     {
         const long kilobyte = 1024;
@@ -19,6 +27,11 @@ public static class Formatter
         };
     }
 
+    /// <summary>
+    /// Formats a transfer rate as a human-readable speed using B/s, KB/s, or MB/s.
+    /// </summary>
+    /// <param name="bytesPerSecond">Transfer rate in bytes per second.</param>
+    /// <returns>The formatted speed string.</returns>
     public static string FormatBytesPerSecond(double bytesPerSecond)
     {
         const int kilobyte = 1024;

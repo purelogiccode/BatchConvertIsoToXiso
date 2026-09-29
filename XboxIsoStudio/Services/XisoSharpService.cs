@@ -23,12 +23,32 @@ public class XisoSharpService : IXisoSharpService
     private readonly ILogger _logger;
     private readonly IDiskMonitorService _diskMonitorService;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="XisoSharpService"/> class.
+    /// </summary>
+    /// <param name="logger">Logger used for diagnostics.</param>
+    /// <param name="diskMonitorService">Resolves temporary directories based on free disk space.</param>
     public XisoSharpService(ILogger logger, IDiskMonitorService diskMonitorService)
     {
         _logger = logger.ForContext<XisoSharpService>();
         _diskMonitorService = diskMonitorService;
     }
 
+    /// <summary>
+    /// Converts <paramref name="inputFile"/> and writes the result into <paramref name="outputFolder"/>
+    /// using <paramref name="outputFileName"/> in the requested <paramref name="outputFormat"/>. The
+    /// caller supplies the name explicitly so the result always matches the user-visible original
+    /// file name, even when the input is a temporary working copy.
+    /// </summary>
+    /// <param name="inputFile">Path of the source image to convert.</param>
+    /// <param name="outputFolder">Folder where the converted file is written.</param>
+    /// <param name="outputFileName">File name to use for the converted output.</param>
+    /// <param name="outputFormat">The format to convert to.</param>
+    /// <param name="skipSystemUpdate">Whether to remove the $SystemUpdate folder from the output image.</param>
+    /// <param name="checkIntegrity">Whether to validate the source or output image structure.</param>
+    /// <param name="progress">Receives progress updates during the conversion.</param>
+    /// <param name="token">Token used to cancel the conversion.</param>
+    /// <returns>The outcome of the conversion.</returns>
     public async Task<FileProcessingStatus> ConvertIsoAsync(string inputFile, string outputFolder,
         string outputFileName, OutputFormat outputFormat, bool skipSystemUpdate, bool checkIntegrity,
         IProgress<BatchOperationProgress> progress, CancellationToken token)

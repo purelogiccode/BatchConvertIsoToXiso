@@ -7,5 +7,8 @@ namespace XboxIsoStudio.Models;
 /// </summary>
 public sealed record ArchiveExtractionResult(bool Success, IReadOnlyList<string> SkippedEntries)
 {
+    /// <summary>
+    ///     A failed extraction result: nothing was extracted and no entries were skipped.
+    /// </summary>
     public static ArchiveExtractionResult Failed { get; } = new(Success: false, SkippedEntries: []);
 }

@@ -13,11 +13,17 @@ using Serilog.Events;
 
 namespace XboxIsoStudio;
 
+/// <summary>
+/// Application entry point: configures the Serilog pipeline, the dependency injection
+/// container, and the global unhandled-exception handlers.
+/// </summary>
 public class App : Application
 {
     private const string BugReportApiUrl = "https://www.purelogiccode.com/bugreport/api/send-bug-report";
     private const string BugReportApiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
     private const string StatsApiUrl = "https://www.purelogiccode.com/ApplicationStats/stats";
+
+    /// <summary>Name reported to the bug report and application statistics APIs.</summary>
     public const string ApplicationName = "XboxIsoStudio";
 
     private IBugReportService? _bugReportService;
@@ -26,6 +32,10 @@ public class App : Application
     private IMessageBoxService? _messageBoxService;
     private IClassicDesktopStyleApplicationLifetime? _desktop;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="App"/> class and bootstraps the
+    /// Serilog pipeline before the UI starts.
+    /// </summary>
     public App()
     {
         // Bootstrap Serilog before the UI starts so every message emitted during
@@ -53,17 +63,27 @@ public class App : Application
                 retainedFileCountLimit: 14)
             .CreateLogger();
 
+        // Route Avalonia's internal diagnostics through the same Serilog pipeline.
+        Avalonia.Logging.Logger.Sink = new AvaloniaSerilogSink(Log.Logger);
+
         Log.Information("XboxIsoStudio v{Version} starting", GetApplicationVersion.GetProgramVersion());
 
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
         TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
     }
 
+    /// <summary>
+    /// Loads the application XAML resources.
+    /// </summary>
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
     }
 
+    /// <summary>
+    /// Starts the desktop lifetime, wires the unhandled-exception handlers, and begins
+    /// the asynchronous service startup.
+    /// </summary>
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -280,10 +300,17 @@ public class App : Application
 
         _ = Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            if (_messageBoxService != null)
+            try
             {
-                await _messageBoxService.ShowErrorAsync(
-                    "A critical error occurred and has been reported. The application may need to close.");
+                if (_messageBoxService != null)
+                {
+                    await _messageBoxService.ShowErrorAsync(
+                        "A critical error occurred and has been reported. The application may need to close.");
+                }
+            }
+            catch (Exception displayEx)
+            {
+                Log.Error(displayEx, "Failed to show the unhandled-exception message box");
             }
         });
     }
@@ -314,9 +341,11 @@ public class App : Application
                     "A critical error occurred and has been reported. The application may need to close.");
             }
         }
-        catch
+        catch (Exception displayEx)
         {
-            // Ignore
+            // Showing the dialog failed (for example the window is already gone); record it
+            // so the failure is never completely silent.
+            Log.Error(displayEx, "Failed to show the error message for {Source}", source);
         }
     }
 
@@ -338,9 +367,10 @@ public class App : Application
                 reportTask.Wait(TimeSpan.FromSeconds(5));
             }
         }
-        catch
+        catch (Exception reportEx)
         {
-            // Silently ignore any errors in the reporting process
+            // Silently ignore any errors in the reporting process, but keep a trace of them.
+            Log.Warning(reportEx, "Failed to send a bug report for {Source}", source);
         }
     }
 }

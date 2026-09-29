@@ -8,12 +8,17 @@ using SharpCompress.Common;
 
 namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Extracts ISO images from archives using SharpCompress, with a 7-Zip command-line fallback
+/// for unsupported compression methods. Guards against path traversal and checks for
+/// sufficient disk space before writing.
+/// </summary>
 public class FileExtractorService : IFileExtractor
 {
     private readonly ILogger _logger;
     private readonly string _sevenZipExePath;
 
-    private static string? FindSevenZipExe()
+    private string? FindSevenZipExe()
     {
         var appDir = AppDomain.CurrentDomain.BaseDirectory;
 
@@ -63,9 +68,10 @@ public class FileExtractorService : IFileExtractor
                     var fullPath = Path.Combine(dir.Trim('"'), candidate);
                     if (File.Exists(fullPath)) return fullPath;
                 }
-                catch
+                catch (Exception ex)
                 {
                     // Ignore malformed PATH entries
+                    _logger.Debug(ex, "Ignoring malformed PATH entry while searching for 7-Zip: {PathEntry}", dir);
                 }
             }
         }
@@ -88,6 +94,11 @@ public class FileExtractorService : IFileExtractor
     // always carries the full HRESULT (0x8007016A here), so only the low 16 bits are compared.
     private const int ErrorCloudFileProviderNotRunning = 0x16A;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FileExtractorService"/> class and locates
+    /// the optional 7-Zip executable.
+    /// </summary>
+    /// <param name="logger">Logger used to report extraction progress and failures.</param>
     public FileExtractorService(ILogger logger)
     {
         _logger = logger.ForContext<FileExtractorService>();
@@ -279,19 +290,39 @@ public class FileExtractorService : IFileExtractor
         }
     }
 
+    /// <summary>
+    /// Reads the archive's table of contents and returns the total uncompressed size and file
+    /// count of its non-directory entries.
+    /// </summary>
+    /// <param name="archivePath">Path of the archive to inspect.</param>
+    /// <param name="token">Cancellation token for the operation.</param>
+    /// <returns>A tuple containing the total uncompressed size and the number of files.</returns>
     public async Task<(long TotalUncompressedSize, int FileCount)> GetArchiveInfoAsync(string archivePath,
         CancellationToken token)
     {
-        var (totalSize, fileCount) = await Task.Run(() =>
+        try
         {
-            using var archive = ArchiveFactory.OpenArchive(archivePath);
-            var entries = archive.Entries.Where(static e => !e.IsDirectory).ToList();
-            var count = entries.Count;
-            var size = entries.Sum(static e => e.Size);
-            return (size, count);
-        }, token);
+            var (totalSize, fileCount) = await Task.Run(() =>
+            {
+                using var archive = ArchiveFactory.OpenArchive(archivePath);
+                var entries = archive.Entries.Where(static e => !e.IsDirectory).ToList();
+                var count = entries.Count;
+                var size = entries.Sum(static e => e.Size);
+                return (size, count);
+            }, token);
 
-        return (totalSize, fileCount);
+            return (totalSize, fileCount);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Debug("Archive info scan was canceled for {ArchivePath}", archivePath);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to read archive info for {ArchivePath}", archivePath);
+            throw;
+        }
     }
 
     private bool IsFileLocked(string filePath)
@@ -423,6 +454,14 @@ public class FileExtractorService : IFileExtractor
         }
     }
 
+    /// <summary>
+    /// Extracts an archive into the specified folder, skipping unsafe or additional ISO entries
+    /// and falling back to the 7-Zip CLI when SharpCompress cannot handle the compression method.
+    /// </summary>
+    /// <param name="archivePath">Path of the archive to extract.</param>
+    /// <param name="extractionPath">Folder that receives the extracted files.</param>
+    /// <param name="token">Cancellation token for the operation.</param>
+    /// <returns>A result describing success and any entries that were deliberately skipped.</returns>
     public async Task<ArchiveExtractionResult> ExtractArchiveAsync(string archivePath, string extractionPath,
         CancellationToken token)
     {

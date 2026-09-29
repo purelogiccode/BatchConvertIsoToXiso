@@ -67,24 +67,18 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 
 ## What's New
 
-### v3.0.0 — cross-platform Avalonia port & CHD support (unreleased)
+### v3.0.0 — cross-platform Avalonia port, CHD support & structured logging (unreleased)
 
 - **Cross-platform UI** — the application was ported from WPF to **[Avalonia](https://avaloniaui.net/)** and now runs on **Windows, Linux, and macOS** (x64 and ARM64) with the same dark theme and layout. All image libraries (XISOSharp, ZArchiveSharp, CHDSharp, SharpCompress) are pure managed code with no native dependencies.
 - **CHD output format** — convert Xbox and Xbox 360 ISOs to **CHD** (`.chd`, CHD v5 with the chdman `createdvd` preset) alongside XISO/ZAR/CSO.
 - **CHD integrity testing** — test Xbox DVD CHD files, including an optional deep scan that verifies every hunk and checksum plus the Xbox filesystem structure.
 - **CHD explorer** — browse and extract files from CHD images directly, with hunk decompression on demand.
-- **Reliability pass** — 38 verified defects fixed across the pipeline: archives are deleted only when every entry was converted, same-named inputs can no longer overwrite each other, `Skip $SystemUpdate` is honored for already-optimized CSO/CHD inputs, split CISO cloud copies keep their part markers, a single unreadable file no longer aborts a batch, and environmental errors no longer generate bug reports.
-
-### v2.9.0 — structured logging, file selection & output formats
-
-- **Serilog pipeline** — all logging now runs through [Serilog](https://serilog.net/): the on-screen viewer, a rolling daily log file (`%LocalAppData%\XboxIsoStudio\logs`), and automatic forwarding of every Warning-or-higher event to the bug report API.
+- **Serilog logging pipeline** — all logging now runs through [Serilog](https://serilog.net/): the on-screen viewer, a rolling daily log file (`%LocalAppData%\XboxIsoStudio\logs`), and automatic forwarding of every Warning-or-higher event to the bug report API.
 - **Complete bug reports** — every report includes Environment Details (app name/version, OS and Windows version, architecture, bitness, processor count, base directory, temp path), Error Details, and Exception Details (type, message, source, stack trace, including nested exceptions).
-- **Quieter and more reliable** — expected user/environmental errors log at Information level so they never generate spurious reports, and previously silent `catch` blocks now log at an appropriate level.
-- **Selectable file lists** — after choosing an input folder, the Convert and Test views list every supported file with a **Select** checkbox, file name, and size. Tick the files you want and click **Start**; only ticked files are processed.
-- **Select All / Deselect All** toggle the whole list in one click, and **Search Subfolders** rescans the list immediately.
-- **Always in sync** — the list refreshes after each batch (deleted originals, files moved to `_success`/`_failed`) and uses the same extension filters as the conversion engine.
-- **Compressed output formats** — the Convert tab now produces **ZAR** (`.zar`, ZArchive/zstd, loadable in Xenia canary) and **CSO** (`.cso`, CISO v2/LZ4, byte-identical to `xdvdfs compress`) in addition to optimized XISO; pick the format in the Options panel.
+- **Selectable file lists** — after choosing an input folder, the Convert and Test views list every supported file with a **Select** checkbox, file name, and size. Tick the files you want and click **Start**; only ticked files are processed. **Select All** / **Deselect All** toggle the whole list in one click, and **Search Subfolders** rescans the list immediately.
+- **Compressed output formats** — the Convert tab produces **ZAR** (`.zar`, ZArchive/zstd, loadable in Xenia canary) and **CSO** (`.cso`, CISO v2/LZ4, byte-identical to `xdvdfs compress`) in addition to optimized XISO; pick the format in the Options panel.
 - **ISO/XISO only** — the bundled `bchunk.exe` and `.cue`/`.bin` input support were removed; supported inputs are `.iso` (Redump full-disc images or optimized XISO files) and archives (`.zip`, `.7z`, `.rar`).
+- **Reliability pass** — 38 verified defects fixed across the pipeline: archives are deleted only when every entry was converted, same-named inputs can no longer overwrite each other, `Skip $SystemUpdate` is honored for already-optimized CSO/CHD inputs, split CISO cloud copies keep their part markers, a single unreadable file no longer aborts a batch, and environmental errors no longer generate bug reports.
 
 ### v2.8.0 — powered entirely by XISOSharp
 

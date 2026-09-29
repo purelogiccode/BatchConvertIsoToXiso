@@ -180,7 +180,7 @@ public partial class MainWindow
     ///     Returns the file length, or 0 when the file vanished, is locked, or is otherwise
     ///     unreadable: one such file must not abort the whole folder scan.
     /// </summary>
-    private static long GetFileSizeSafe(string path)
+    private long GetFileSizeSafe(string path)
     {
         try
         {
@@ -188,6 +188,7 @@ public partial class MainWindow
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
+            _logger.Debug(ex, "Could not read the size of {FilePath}; treating it as 0", path);
             return 0;
         }
     }

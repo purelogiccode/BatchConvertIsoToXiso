@@ -42,8 +42,15 @@ public class UiLogSink : ILogEventSink
         var handler = MessageLogged;
         if (handler is null) return;
 
-        var message = logEvent.RenderMessage(_formatProvider);
-        var line = $"[{logEvent.Timestamp:HH:mm:ss}] {message}";
-        handler(null, new LogMessageEventArgs(line));
+        try
+        {
+            var message = logEvent.RenderMessage(_formatProvider);
+            var line = $"[{logEvent.Timestamp:HH:mm:ss}] {message}";
+            handler(null, new LogMessageEventArgs(line));
+        }
+        catch
+        {
+            // A failing subscriber must never propagate back into the Serilog pipeline.
+        }
     }
 }

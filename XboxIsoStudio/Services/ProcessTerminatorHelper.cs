@@ -4,6 +4,10 @@ using Serilog;
 
 namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Terminates processes gracefully where possible, falling back to a forced kill of the entire
+/// process tree.
+/// </summary>
 public static class ProcessTerminatorHelper
 {
     /// <summary>

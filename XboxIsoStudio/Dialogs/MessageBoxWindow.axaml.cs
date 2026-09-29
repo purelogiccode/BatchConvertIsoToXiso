@@ -4,6 +4,10 @@ using XboxIsoStudio.Interfaces;
 
 namespace XboxIsoStudio.Dialogs;
 
+/// <summary>
+/// A cross-platform modal message box dialog replacing <c>System.Windows.MessageBox</c>,
+/// with an icon, a title, a message, and a configurable set of buttons.
+/// </summary>
 public partial class MessageBoxWindow : Window
 {
     private readonly TaskCompletionSource<UiMessageBoxResult> _result = new();
@@ -11,6 +15,10 @@ public partial class MessageBoxWindow : Window
     /// <summary>Completion source used when the dialog is shown without an owner window.</summary>
     public Task<UiMessageBoxResult> Result => _result.Task;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MessageBoxWindow"/> class with no content;
+    /// use the content constructor to configure the dialog.
+    /// </summary>
     public MessageBoxWindow()
     {
         InitializeComponent();
@@ -19,6 +27,14 @@ public partial class MessageBoxWindow : Window
         Closed += (_, _) => _result.TrySetResult(UiMessageBoxResult.Ok);
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MessageBoxWindow"/> class with the given
+    /// content and button layout.
+    /// </summary>
+    /// <param name="message">The message text to display.</param>
+    /// <param name="title">The window title.</param>
+    /// <param name="buttons">The buttons offered to the user.</param>
+    /// <param name="icon">The icon shown in the message box.</param>
     public MessageBoxWindow(string message, string title, UiMessageBoxButton buttons, UiMessageBoxImage icon)
         : this()
     {

@@ -7,6 +7,10 @@ using Serilog;
 
 namespace XboxIsoStudio.Services;
 
+/// <summary>
+/// Sends bug reports to the configured Bug Report API, enriching each report with
+/// environment details and, optionally, the exception that triggered it.
+/// </summary>
 public class BugReportService : IBugReportService
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
@@ -17,6 +21,14 @@ public class BugReportService : IBugReportService
     private readonly string _applicationName;
     private readonly ILogger? _logger;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BugReportService"/> class.
+    /// </summary>
+    /// <param name="httpClient">HTTP client used to post reports; it is never mutated by this service.</param>
+    /// <param name="apiUrl">Absolute URL of the Bug Report API endpoint.</param>
+    /// <param name="apiKey">API key sent in the <c>X-API-KEY</c> header.</param>
+    /// <param name="applicationName">Application name included in every report.</param>
+    /// <param name="logger">Optional logger used to record request failures.</param>
     public BugReportService(HttpClient httpClient, string apiUrl, string apiKey, string applicationName,
         ILogger? logger = null)
     {
@@ -30,6 +42,11 @@ public class BugReportService : IBugReportService
         _logger = logger?.ForContext<BugReportService>();
     }
 
+    /// <summary>
+    /// Sends a bug report containing the specified message together with environment details.
+    /// </summary>
+    /// <param name="message">Message describing the problem.</param>
+    /// <returns><c>true</c> when the API accepted the report; otherwise <c>false</c>.</returns>
     public Task<bool> SendBugReportAsync(string message)
     {
         var fullMessage = BuildFullMessage(message);
@@ -37,6 +54,13 @@ public class BugReportService : IBugReportService
         return SendToApiAsync(fullMessage, version, null);
     }
 
+    /// <summary>
+    /// Sends a bug report containing the specified error message, environment details, and
+    /// the formatted details of the supplied exception.
+    /// </summary>
+    /// <param name="errorMessage">Message describing the problem.</param>
+    /// <param name="exception">Exception whose details are appended to the report.</param>
+    /// <returns><c>true</c> when the API accepted the report; otherwise <c>false</c>.</returns>
     public Task<bool> SendBugReportAsync(string errorMessage, Exception exception)
     {
         var sb = new StringBuilder(BuildFullMessage(errorMessage));
