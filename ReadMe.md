@@ -24,7 +24,7 @@
 [![Powered by ZArchiveSharp](https://img.shields.io/badge/Powered%20by-ZArchiveSharp-8A2BE2.svg)](https://github.com/purelogiccode/ZArchiveSharp)
 [![Powered by SharpCompress](https://img.shields.io/badge/Powered%20by-SharpCompress-8A2BE2.svg)](https://github.com/adamhathcock/sharpcompress)
 [![Formats](https://img.shields.io/badge/formats-ISO%20%7C%20XISO%20%7C%20ZAR%20%7C%20CSO%20%7C%20CHD-orange.svg)](#supported-formats)
-[![Tests](https://img.shields.io/badge/tests-357%20passing-brightgreen.svg)](https://github.com/purelogiccode/XboxIsoStudio/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-398%20passing-brightgreen.svg)](https://github.com/purelogiccode/XboxIsoStudio/actions/workflows/ci.yml)
 [![Code analyzers](https://img.shields.io/badge/analyzers-Meziantou%20%7C%20Roslynator-blueviolet)](docs/Architecture.md)
 [![Made with C#](https://img.shields.io/badge/Made%20with-C%23-239120.svg?logo=csharp&logoColor=white)](https://dotnet.microsoft.com/languages/csharp)
 [![Nullable](https://img.shields.io/badge/nullable-enabled-blue.svg)](https://learn.microsoft.com/dotnet/csharp/nullable-references)
@@ -73,6 +73,7 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 - **CHD output format** — convert Xbox and Xbox 360 ISOs to **CHD** (`.chd`, CHD v5 with the chdman `createdvd` preset) alongside XISO/ZAR/CSO.
 - **CHD integrity testing** — test Xbox DVD CHD files, including an optional deep scan that verifies every hunk and checksum plus the Xbox filesystem structure.
 - **CHD explorer** — browse and extract files from CHD images directly, with hunk decompression on demand.
+- **Reliability pass** — 38 verified defects fixed across the pipeline: archives are deleted only when every entry was converted, same-named inputs can no longer overwrite each other, `Skip $SystemUpdate` is honored for already-optimized CSO/CHD inputs, split CISO cloud copies keep their part markers, a single unreadable file no longer aborts a batch, and environmental errors no longer generate bug reports.
 
 ### v2.9.0 — structured logging, file selection & output formats
 
@@ -242,7 +243,7 @@ Utilizes `Microsoft.Extensions.DependencyInjection` for comprehensive service ma
 Logging runs through a single [Serilog](https://serilog.net/) pipeline with three sinks: the on-screen log viewer (`UiLogSink`), a rolling daily file log (`%LocalAppData%\XboxIsoStudio\logs`), and a bug-report sink (`BugReportSink`) that forwards every **Warning-or-higher** event to the Bug Report API. Reports include complete environment, error, and exception sections; expected user/environmental errors are logged at Information level so they never generate noise.
 
 ### Testing
-A comprehensive [xUnit](https://xunit.net/) test suite (`XboxIsoStudio.Tests`) covers models, services, and image services with 350+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
+A comprehensive [xUnit](https://xunit.net/) test suite (`XboxIsoStudio.Tests`) covers models, services, and image services with 390+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
 
 ### Technical Documentation
 For a deep dive into the XDVDFS format, binary file structures, and the conversion algorithm, see the [XDVDFS Technical Documentation](docs/XDVDFS-Technical-Documentation.md). The full documentation (including installation, usage, troubleshooting, architecture, and [release notes](docs/Release-Notes.md)) lives in the [docs folder](docs/index.md) and doubles as the repository wiki. Highlights of the latest release are summarized in [What's New](WhatsNew.md).
@@ -264,7 +265,9 @@ For a deep dive into the XDVDFS format, binary file structures, and the conversi
 ## Safety & Reliability
 
 - **Atomic Operations**: Converted files are verified before originals are deleted
-- **Automatic Cleanup**: [`TempFolderCleanupHelper`](XboxIsoStudio/Services/TempFolderCleanupHelper.cs) removes orphaned temporary files on startup or after crashes
+- **Archive-Safe Replace Originals**: an archive is deleted only when every entry was extracted and every extracted image was converted; skipped or unprocessed entries keep the archive
+- **Automatic Cleanup**: [`TempFolderCleanupHelper`](XboxIsoStudio/Services/TempFolderCleanupHelper.cs) removes orphaned temporary files on startup or after crashes — only app-created GUID work folders older than six hours, so user folders with the same prefix and another instance's active folders are never touched
+- **Concurrency-Safe Explorer and Shutdown**: background copy-outs hold an explorer lease so the image can't be disposed mid-extraction, and the close confirmation can't be bypassed or shown twice
 - **Fallback Temp Drives**: Automatically searches alternative local drives when the system temp drive lacks sufficient space for archive extraction
 - **Robust Error Handling**: Comprehensive exception handling with [Serilog](https://serilog.net/) structured logging; every Warning-or-higher event is automatically forwarded to the bug report API with full environment and exception details
 - **Network Resilience**: Full support for UNC paths and mapped network drives with automatic retry logic for transient network failures

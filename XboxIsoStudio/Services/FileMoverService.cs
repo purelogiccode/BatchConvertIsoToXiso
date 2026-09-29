@@ -52,17 +52,21 @@ public class FileMoverService : IFileMover
                 return;
             }
 
-            // Check available disk space before moving
-            var sourceFileInfo = new FileInfo(sourceFile);
-            var availableSpace = _diskMonitorService.GetAvailableFreeSpace(destinationFolder);
-            if (availableSpace > 0 && sourceFileInfo.Length > availableSpace)
+            // A move within the same volume is a rename and needs no additional free space;
+            // only a cross-volume move copies the data and can fill the destination drive.
+            if (IsCrossVolumeMove(sourceFile, destinationFolder))
             {
-                var requiredSpace = Formatter.FormatBytes(sourceFileInfo.Length);
-                var availableSpaceFormatted = Formatter.FormatBytes(availableSpace);
-                _logger.Information(
-                    "Cannot move {FileName}: Insufficient disk space. Required: {RequiredSpace}, Available: {AvailableSpace}",
-                    fileName, requiredSpace, availableSpaceFormatted);
-                return;
+                var sourceFileInfo = new FileInfo(sourceFile);
+                var availableSpace = _diskMonitorService.GetAvailableFreeSpace(destinationFolder);
+                if (availableSpace > 0 && sourceFileInfo.Length > availableSpace)
+                {
+                    var requiredSpace = Formatter.FormatBytes(sourceFileInfo.Length);
+                    var availableSpaceFormatted = Formatter.FormatBytes(availableSpace);
+                    _logger.Information(
+                        "Cannot move {FileName}: Insufficient disk space. Required: {RequiredSpace}, Available: {AvailableSpace}",
+                        fileName, requiredSpace, availableSpaceFormatted);
+                    return;
+                }
             }
 
             token.ThrowIfCancellationRequested();
@@ -85,8 +89,34 @@ public class FileMoverService : IFileMover
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Error moving {FileName} to {DestinationFolder}: {Message}", fileName, destinationFolder,
-                ex.Message);
+            // A move failure (locked file, permissions, full disk) is environmental; the
+            // user already sees the failure in the summary, so do not auto-report it.
+            _logger.Information(ex, "Error moving {FileName} to {DestinationFolder}: {Message}", fileName,
+                destinationFolder, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Returns true when the source and destination resolve to different volumes (or when
+    /// either root cannot be determined, in which case the space check is kept as a guard).
+    /// </summary>
+    private static bool IsCrossVolumeMove(string sourceFile, string destinationFolder)
+    {
+        try
+        {
+            var sourceRoot = Path.GetPathRoot(Path.GetFullPath(sourceFile));
+            var destinationRoot = Path.GetPathRoot(Path.GetFullPath(destinationFolder));
+            if (string.IsNullOrEmpty(sourceRoot) || string.IsNullOrEmpty(destinationRoot)) return true;
+
+            var comparison = OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+            return !sourceRoot.Equals(destinationRoot, comparison);
+        }
+        catch
+        {
+            // Unresolvable paths fail later with their own error; keep the space check.
+            return true;
         }
     }
 
@@ -113,7 +143,7 @@ public class FileMoverService : IFileMover
                 // Exponential backoff: 1000ms, 2000ms, 4000ms, 8000ms, 16000ms, etc.
                 var delayMs = InitialRetryDelayMs * (int)Math.Pow(2, attempt);
                 var reason = isNetworkOperation ? "Network error" : "File is locked or in use";
-                _logger.Warning(ex,
+                _logger.Information(ex,
                     "{Reason} moving {FileName}, retrying in {DelayMs}ms... (attempt {Attempt}/{MaxRetryAttempts})",
                     reason, fileName, delayMs, attempt + 1, MaxRetryAttempts);
                 await Task.Delay(delayMs, token);

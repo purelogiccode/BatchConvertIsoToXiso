@@ -26,7 +26,8 @@ public class UrlOpenerService : IUrlOpener
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Error opening URL: {Url}", url);
+            // No browser/handler configured is an environment condition, not a defect.
+            _logger.Information(ex, "Error opening URL: {Url}", url);
             throw; // Re-throw the exception for the caller to handle UI
         }
     }

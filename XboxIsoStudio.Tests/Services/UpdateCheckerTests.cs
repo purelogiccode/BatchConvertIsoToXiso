@@ -48,6 +48,42 @@ public class UpdateCheckerTests
     }
 
     [Fact]
+    public void ConstructorDoesNotMutateInjectedHttpClient()
+    {
+        using var httpClient = new HttpClient();
+
+        var checker = new UpdateChecker(httpClient, "1.0.0", _logger.Logger);
+
+        Assert.NotNull(checker);
+        Assert.Empty(httpClient.DefaultRequestHeaders.UserAgent);
+    }
+
+    [Fact]
+    public async Task CheckForUpdateAsyncSendsUserAgentHeaderPerRequest()
+    {
+        string? capturedUserAgent = null;
+        var handlerMock = new Mock<HttpMessageHandler>();
+        handlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>("SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) =>
+                capturedUserAgent = req.Headers.UserAgent.ToString())
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(CreateReleaseJson("v1.0.0", "https://example.com"))
+            });
+        using var httpClient = new HttpClient(handlerMock.Object);
+
+        var checker = new UpdateChecker(httpClient, "1.0.0", _logger.Logger);
+        await checker.CheckForUpdateAsync();
+
+        Assert.NotNull(capturedUserAgent);
+        Assert.Contains("XboxIsoStudio/1.0.0", capturedUserAgent, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CheckForUpdateAsyncSameVersionReturnsFalse()
     {
         var json = CreateReleaseJson("v2.3.1", "https://github.com/test/releases/tag/v2.3.1");

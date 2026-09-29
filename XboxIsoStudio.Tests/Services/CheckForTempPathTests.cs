@@ -41,4 +41,16 @@ public class CheckForTempPathTests
 
         Assert.False(CheckForTempPath.IsSystemTempPath(parent));
     }
+
+    [Fact]
+    public void IsSystemTempPathComparisonMatchesFileSystemCaseSensitivity()
+    {
+        // On case-insensitive file systems (Windows/macOS) a differently-cased temp path
+        // is still the temp path; on case-sensitive file systems (Linux) it is not.
+        var differentCase = Path.GetTempPath().ToUpperInvariant();
+
+        var result = CheckForTempPath.IsSystemTempPath(differentCase);
+
+        Assert.Equal(OperatingSystem.IsWindows() || OperatingSystem.IsMacOS(), result);
+    }
 }

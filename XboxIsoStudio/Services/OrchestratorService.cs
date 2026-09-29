@@ -1,3 +1,4 @@
+using System.Globalization;
 using XboxIsoStudio.Interfaces;
 using XboxIsoStudio.Models;
 using Serilog;
@@ -18,6 +19,30 @@ public class OrchestratorService : IOrchestratorService
     private class ProcessingContext
     {
         public int GlobalFileIndex { get; set; } = 1;
+
+        private readonly HashSet<string> _reservedOutputPaths = new(
+            OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+                ? StringComparer.OrdinalIgnoreCase
+                : StringComparer.Ordinal);
+
+        /// <summary>
+        ///     Returns an output path for the given base name that no other file in this batch
+        ///     has used yet. Two inputs with the same file name (for example
+        ///     <c>Disc1/game.iso</c> and <c>Disc2/game.iso</c>) would otherwise overwrite each
+        ///     other; with "delete originals" enabled that loses one result and both sources.
+        /// </summary>
+        public string ReserveOutputPath(string outputFolder, string baseName, string extension)
+        {
+            var candidate = Path.Combine(outputFolder, baseName + extension);
+            var counter = 2;
+            while (!_reservedOutputPaths.Add(candidate))
+            {
+                candidate = Path.Combine(outputFolder, $"{baseName} ({counter}){extension}");
+                counter++;
+            }
+
+            return candidate;
+        }
     }
 
     public OrchestratorService(
@@ -196,8 +221,8 @@ public class OrchestratorService : IOrchestratorService
                     {
                         case ".iso":
                             var isoStatus = await ConvertFileInternalAsync(entryPath, outputFolder, deleteOriginals,
-                                context.GlobalFileIndex++, skipSystemUpdate, checkIntegrity, outputFormat, progress,
-                                onCloudRetryRequired, token);
+                                context.GlobalFileIndex++, context, skipSystemUpdate, checkIntegrity, outputFormat,
+                                progress, onCloudRetryRequired, token);
                             ReportStatus(isoStatus, entryPath, progress);
                             break;
 
@@ -287,7 +312,9 @@ public class OrchestratorService : IOrchestratorService
         }
         finally
         {
-            await CleanupTempFoldersAsync(tempFoldersToCleanUp, progress, token);
+            // Cleanup must finish even when the batch token is canceled: passing the
+            // canceled token would abort the retry loop and leak the temp folders.
+            await CleanupTempFoldersAsync(tempFoldersToCleanUp, progress);
         }
 
         _logger.Information("Batch conversion completed. Processed {ProcessedCount} of {TotalFiles} file(s)",
@@ -371,31 +398,58 @@ public class OrchestratorService : IOrchestratorService
         bool extracted;
         var internalFail = false;
         var internalSuccess = false;
+        var convertedCount = 0;
+        var skippedCount = 0;
+        var isoFileCount = 0;
+        List<string> unprocessedImages = [];
+        IReadOnlyList<string> skippedEntries = [];
 
         try
         {
             Directory.CreateDirectory(tempDir);
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token);
-            extracted = await _fileExtractor.ExtractArchiveAsync(archivePath, tempDir, linkedCts.Token);
+            var extractionResult = await _fileExtractor.ExtractArchiveAsync(archivePath, tempDir, linkedCts.Token);
+            extracted = extractionResult.Success;
+            skippedEntries = extractionResult.SkippedEntries;
 
             if (extracted)
             {
-                var files = Directory.GetFiles(tempDir, "*.*", SearchOption.AllDirectories)
-                    .Where(SupportedFiles.IsIso).ToList();
+                var extractedFiles = Directory.GetFiles(tempDir, "*.*", SearchOption.AllDirectories);
+                var isoFiles = extractedFiles.Where(SupportedFiles.IsIso).ToList();
+                isoFileCount = isoFiles.Count;
 
-                foreach (var file in files)
+                // Images that are not plain ISOs (CSO/ZAR/CHD) are extracted but never
+                // converted, so they keep the archive alive when deletion is enabled.
+                unprocessedImages =
+                [
+                    .. extractedFiles.Where(file => !SupportedFiles.IsIso(file) && SupportedFiles.IsTestable(file))
+                ];
+
+                foreach (var file in isoFiles)
                 {
                     token.ThrowIfCancellationRequested();
                     var status = await ConvertFileInternalAsync(file, outputFolder, false, context.GlobalFileIndex++,
-                        skipUpdate, checkIntegrity, outputFormat, progress, cloudRetry, token);
+                        context, skipUpdate, checkIntegrity, outputFormat, progress, cloudRetry, token);
 
                     switch (status)
                     {
                         case FileProcessingStatus.Converted:
                             internalSuccess = true;
+                            convertedCount++;
+                            break;
+                        case FileProcessingStatus.InvalidInput:
+                            // An invalid image keeps the archive alive (internalFail) and is
+                            // reported to the UI so the "invalid ISOs" warning stays accurate.
+                            internalFail = true;
+                            progress.Report(new BatchOperationProgress { InvalidIsoCount = 1 });
                             break;
                         case FileProcessingStatus.Failed:
                             internalFail = true;
+                            break;
+                        case FileProcessingStatus.AlreadyOptimized:
+                        case FileProcessingStatus.Skipped:
+                            // The image was not rewritten.
+                            skippedCount++;
                             break;
                     }
                 }
@@ -434,7 +488,8 @@ public class OrchestratorService : IOrchestratorService
         }
         finally
         {
-            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempDir, 3, 1000, _logger, token);
+            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(tempDir, 3, 1000, _logger,
+                CancellationToken.None);
             tempFolders.Remove(tempDir);
         }
 
@@ -443,10 +498,16 @@ public class OrchestratorService : IOrchestratorService
         else if (internalSuccess) progress.Report(new BatchOperationProgress { SuccessCount = 1 });
         else progress.Report(new BatchOperationProgress { SkippedCount = 1 });
 
-        // Only remove the archive when at least one file was actually converted and nothing
-        // failed. If every entry was skipped (for example already-optimized images), deleting
-        // the archive would destroy the only copy of the content.
-        if (deleteOriginal && extracted && internalSuccess && !internalFail)
+        // Only remove the archive when every entry was extracted and every extracted image
+        // was converted. Skipped entries (additional ISOs, unsafe paths), skipped images
+        // (already optimized) and unconverted images (CSO/CHD/ZAR) all mean the archive
+        // still holds the only copy of that content.
+        var everyEntryExtracted = skippedEntries.Count == 0;
+        var everyImageConverted = convertedCount == isoFileCount && skippedCount == 0 &&
+                                  unprocessedImages.Count == 0;
+
+        if (deleteOriginal && extracted && internalSuccess && !internalFail && everyEntryExtracted &&
+            everyImageConverted)
         {
             try
             {
@@ -458,11 +519,53 @@ public class OrchestratorService : IOrchestratorService
                 _logger.Debug(ex, "Could not delete original archive {ArchivePath}", archivePath);
             }
         }
+        else if (deleteOriginal && extracted && !internalFail)
+        {
+            ReportKeptArchive(progress, skippedEntries, unprocessedImages, skippedCount);
+        }
+    }
+
+    /// <summary>
+    ///     Explains why an archive was kept when "delete originals" is enabled but not every
+    ///     entry could be converted (deleting it would lose content).
+    /// </summary>
+    private static void ReportKeptArchive(IProgress<BatchOperationProgress> progress,
+        IReadOnlyList<string> skippedEntries, List<string> unprocessedImages, int skippedImages)
+    {
+        if (skippedEntries.Count > 0)
+        {
+            progress.Report(new BatchOperationProgress
+            {
+                LogMessage =
+                    $"Keeping the original archive: {skippedEntries.Count} entry(ies) were not extracted " +
+                    $"(for example '{Path.GetFileName(skippedEntries[0])}')."
+            });
+        }
+
+        if (unprocessedImages.Count > 0)
+        {
+            progress.Report(new BatchOperationProgress
+            {
+                LogMessage =
+                    $"Keeping the original archive: {unprocessedImages.Count} extracted image(s) are not plain " +
+                    "ISOs and were not converted."
+            });
+        }
+
+        if (skippedImages > 0)
+        {
+            progress.Report(new BatchOperationProgress
+            {
+                LogMessage =
+                    $"Keeping the original archive: {skippedImages} image(s) were already optimized and were " +
+                    "not rewritten."
+            });
+        }
     }
 
     private async Task<FileProcessingStatus> ConvertFileInternalAsync(string inputFile, string outputFolder,
-        bool deleteOriginal, int fileIndex, bool skipSystemUpdate, bool checkIntegrity, OutputFormat outputFormat,
-        IProgress<BatchOperationProgress> progress,
+        bool deleteOriginal, int fileIndex, ProcessingContext context, bool skipSystemUpdate, bool checkIntegrity,
+        OutputFormat outputFormat, IProgress<BatchOperationProgress> progress,
         Func<string, Task<CloudRetryResult>> onCloudRetryRequired, CancellationToken token)
     {
         var originalFileName = Path.GetFileName(inputFile);
@@ -540,8 +643,11 @@ public class OrchestratorService : IOrchestratorService
                 OutputFormat.Chd => ".chd",
                 _ => ".iso"
             };
-            var outputFileName = Path.GetFileNameWithoutExtension(originalFileName) + outputExtension;
-            var destinationPath = Path.Combine(outputFolder, outputFileName);
+            // Two inputs can share a base name (e.g. Disc1/game.iso and Disc2/game.iso); reserve
+            // a unique output path so the second conversion cannot destroy the first result.
+            var destinationPath = context.ReserveOutputPath(outputFolder,
+                Path.GetFileNameWithoutExtension(originalFileName), outputExtension);
+            var outputFileName = Path.GetFileName(destinationPath);
 
             // Never delete the source file: converting a file onto itself would destroy it
             if (XisoPaths.AreSamePath(sourcePath, destinationPath))
@@ -578,8 +684,12 @@ public class OrchestratorService : IOrchestratorService
                 : await _xisoSharpService.ConvertIsoAsync(sourcePath, outputFolder, outputFileName,
                     outputFormat, skipSystemUpdate, checkIntegrity, progress, token);
 
-            if (status == FileProcessingStatus.AlreadyOptimized) return FileProcessingStatus.Skipped;
-            if (status != FileProcessingStatus.Converted) return FileProcessingStatus.Failed;
+            // Map engine results: already-optimized and skipped both count as skipped (the
+            // image was not rewritten); invalid inputs pass through unchanged so the UI can
+            // count genuinely invalid images instead of every failure.
+            if (status is FileProcessingStatus.AlreadyOptimized or FileProcessingStatus.Skipped)
+                return FileProcessingStatus.Skipped;
+            if (status != FileProcessingStatus.Converted) return status;
 
             if (deleteOriginal)
             {
@@ -606,7 +716,7 @@ public class OrchestratorService : IOrchestratorService
             if (localTempWorkingDir != null)
             {
                 await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(localTempWorkingDir, 5, 1000, _logger,
-                    token);
+                    CancellationToken.None);
             }
         }
     }
@@ -709,25 +819,81 @@ public class OrchestratorService : IOrchestratorService
                 StatusText = $"Testing: {fileName}", CurrentDrive = PathHelper.GetDriveLetter(Path.GetTempPath())
             });
 
-            var result = await TestSingleIsoInternalAsync(imagePath, fileIndex++, performDeepScan,
-                onCloudRetryRequired,
-                progress, token);
+            try
+            {
+                var result = await TestSingleIsoInternalAsync(imagePath, fileIndex++, performDeepScan,
+                    onCloudRetryRequired,
+                    progress, token);
 
-            if (result == IsoTestResultStatus.Passed)
-            {
-                progress.Report(new BatchOperationProgress
-                    { SuccessCount = 1, LogMessage = $"  SUCCESS: '{fileName}' passed test." });
-                if (moveSuccessful)
-                    await MoveTestedImageAsync(imagePath, successFolder, "successfully tested", token);
+                if (result == IsoTestResultStatus.Passed)
+                {
+                    progress.Report(new BatchOperationProgress
+                        { SuccessCount = 1, LogMessage = $"  SUCCESS: '{fileName}' passed test." });
+                    if (moveSuccessful)
+                        await MoveTestedImageAsync(imagePath, successFolder, "successfully tested", token);
+                }
+                else
+                {
+                    progress.Report(new BatchOperationProgress
+                    {
+                        FailedCount = 1, FailedPathToAdd = imagePath,
+                        LogMessage = $"  FAILURE: '{fileName}' failed test."
+                    });
+                    _logger.Information("Test failed for {FileName}", fileName);
+                    if (moveFailed) await MoveTestedImageAsync(imagePath, failedFolder, "failed test", token);
+                }
             }
-            else
+            catch (OperationCanceledException)
             {
+                _logger.Debug("Image test canceled while processing {FileName}", fileName);
+                throw;
+            }
+            catch (Exception ex) when (PathHelper.IsDiskSpaceError(ex))
+            {
+                // Stop the batch — no point continuing without disk space
                 progress.Report(new BatchOperationProgress
                 {
-                    FailedCount = 1, FailedPathToAdd = imagePath, LogMessage = $"  FAILURE: '{fileName}' failed test."
+                    LogMessage =
+                        "ERROR: Not enough disk space on the drive. Batch operation stopped. Please free up disk space and try again.",
+                    FailedCount = 1,
+                    FailedPathToAdd = imagePath
                 });
-                _logger.Information("Test failed for {FileName}", fileName);
-                if (moveFailed) await MoveTestedImageAsync(imagePath, failedFolder, "failed test", token);
+                _logger.Information(ex, "Not enough disk space; batch test stopped on {FileName}", fileName);
+                throw;
+            }
+            catch (Exception ex) when (IsFatalEnvironmentalError(ex))
+            {
+                // Stop the batch — no point continuing if the source device is unavailable
+                progress.Report(new BatchOperationProgress
+                {
+                    LogMessage =
+                        $"FATAL ERROR: The source device or path is not available: {ex.Message}. Batch operation stopped.",
+                    FailedCount = 1,
+                    FailedPathToAdd = imagePath
+                });
+                _logger.Information(ex, "Source device or path unavailable; batch test stopped on {FileName}",
+                    fileName);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // One unreadable file must not abort the remaining tests.
+                progress.Report(new BatchOperationProgress
+                {
+                    LogMessage = $"ERROR: {fileName} could not be tested: {ex.Message}",
+                    FailedCount = 1,
+                    FailedPathToAdd = imagePath
+                });
+
+                if (IsFatalEnvironmentalError(ex) || PathHelper.IsNetworkError(ex) ||
+                    ex is UnauthorizedAccessException)
+                {
+                    _logger.Information(ex, "Handled test error on {FileName}", fileName);
+                }
+                else
+                {
+                    _logger.Error(ex, "Orchestrator test error on {FileName}", fileName);
+                }
             }
 
             processed++;
@@ -763,90 +929,123 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
+    /// <summary>
+    ///     Enumerates the existing parts of a split CISO set starting at its first part
+    ///     (<c>game.1.cso</c>, <c>game.2.cso</c>, …), preserving the original extension casing.
+    /// </summary>
+    private static IEnumerable<string> EnumerateSplitCisoParts(string firstPartPath)
+    {
+        var basePath = firstPartPath[..^".1.cso".Length];
+        var extension = firstPartPath[^4..];
+
+        for (var part = 1;; part++)
+        {
+            var partPath = $"{basePath}.{part.ToString(CultureInfo.InvariantCulture)}{extension}";
+            if (!File.Exists(partPath)) yield break;
+
+            yield return partPath;
+        }
+    }
+
     private async Task<IsoTestResultStatus> TestSingleIsoInternalAsync(string isoPath, int index, bool performDeepScan,
         Func<string, Task<CloudRetryResult>> cloudRetry, IProgress<BatchOperationProgress> progress,
         CancellationToken token)
     {
         // 1. Handle Cloud/OneDrive files (download to temp if necessary)
         var pathToCheck = isoPath;
-        string? tempCloudCopy = null;
+        string? tempCloudDir = null;
 
         try
         {
-            // Simple check if file is accessible (triggers cloud download if hydration is automatic, or fails)
-            // Run on background thread to avoid blocking UI for cloud/slow files
-            await Task.Run(() =>
-            {
-                using var stream = File.OpenRead(isoPath);
-            }, token);
-        }
-        catch (IOException)
-        {
-            // Likely cloud file issue, use existing copy logic
-            _logger.Debug("Image {ImagePath} is not directly readable; copying to local temp", isoPath);
-
-            // The temp copy must keep the original extension: the integrity service
-            // routes by extension (plain ISO/CISO vs ZAR).
-            var simpleName = Path.ChangeExtension(GenerateFilename.GenerateSimpleFilename(index),
-                Path.GetExtension(isoPath));
-            long estimatedSize = 0;
             try
             {
-                estimatedSize = new FileInfo(isoPath).Length;
+                // Simple check if file is accessible (triggers cloud download if hydration is automatic, or fails)
+                // Run on background thread to avoid blocking UI for cloud/slow files
+                await Task.Run(() =>
+                {
+                    using var stream = File.OpenRead(isoPath);
+                }, token);
+            }
+            catch (IOException)
+            {
+                // Likely cloud file issue, use existing copy logic
+                _logger.Debug("Image {ImagePath} is not directly readable; copying to local temp", isoPath);
+
+                // A split CISO set is opened through its first part, so every part must be
+                // copied and the names must keep the ".1.cso"/".2.cso" markers XISOSharp
+                // uses to recognize the set.
+                var extension = Path.GetExtension(isoPath);
+                var simpleStem = Path.GetFileNameWithoutExtension(GenerateFilename.GenerateSimpleFilename(index));
+                var isSplitCiso = isoPath.EndsWith(".1.cso", StringComparison.OrdinalIgnoreCase);
+                var parts = isSplitCiso ? EnumerateSplitCisoParts(isoPath).ToList() : [isoPath];
+
+                long estimatedSize = 0;
+                try
+                {
+                    estimatedSize = parts.Sum(part => new FileInfo(part).Length);
+                }
+                catch (Exception ex)
+                {
+                    // ignored
+                    _logger.Debug(ex, "Could not determine size of image {ImagePath}", isoPath);
+                }
+
+                var tempDir = ResolveTempDirectory(estimatedSize, "XboxIsoStudio_Test");
+                Directory.CreateDirectory(tempDir);
+                tempCloudDir = tempDir;
+
+                for (var partIndex = 0; partIndex < parts.Count; partIndex++)
+                {
+                    var partName = isSplitCiso
+                        ? $"{simpleStem}.{(partIndex + 1).ToString(CultureInfo.InvariantCulture)}{extension}"
+                        : simpleStem + extension;
+                    var tempPartPath = Path.Combine(tempDir, partName);
+
+                    if (!await CopyFileWithCloudRetryAsync(parts[partIndex], tempPartPath, cloudRetry, progress, token))
+                    {
+                        return IsoTestResultStatus.Failed;
+                    }
+
+                    if (partIndex == 0) pathToCheck = tempPartPath;
+                }
+            }
+
+            try
+            {
+                progress.Report(
+                    new BatchOperationProgress { LogMessage = "  Verifying image structure and readability..." });
+
+                var passed =
+                    await _integrityService.TestIsoIntegrityAsync(pathToCheck, performDeepScan, progress, token);
+
+                return passed ? IsoTestResultStatus.Passed : IsoTestResultStatus.Failed;
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.Debug("Image test canceled: {ImagePath}", isoPath);
+                throw;
             }
             catch (Exception ex)
             {
-                // ignored
-                _logger.Debug(ex, "Could not determine size of image {ImagePath}", isoPath);
-            }
-
-            var tempDir = ResolveTempDirectory(estimatedSize, "XboxIsoStudio_Test");
-            Directory.CreateDirectory(tempDir);
-            tempCloudCopy = Path.Combine(tempDir, simpleName);
-
-            if (await CopyFileWithCloudRetryAsync(isoPath, tempCloudCopy, cloudRetry, progress, token))
-            {
-                pathToCheck = tempCloudCopy;
-            }
-            else
-            {
+                progress.Report(new BatchOperationProgress { LogMessage = $"  Test Error: {ex.Message}" });
+                _logger.Information(ex, "Test failed for {ImagePath}", isoPath);
                 return IsoTestResultStatus.Failed;
             }
         }
-
-        try
-        {
-            progress.Report(
-                new BatchOperationProgress { LogMessage = "  Verifying image structure and readability..." });
-
-            var passed = await _integrityService.TestIsoIntegrityAsync(pathToCheck, performDeepScan, progress, token);
-
-            return passed ? IsoTestResultStatus.Passed : IsoTestResultStatus.Failed;
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.Debug("Image test canceled: {ImagePath}", isoPath);
-            throw;
-        }
-        catch (Exception ex)
-        {
-            progress.Report(new BatchOperationProgress { LogMessage = $"  Test Error: {ex.Message}" });
-            _logger.Information(ex, "Test failed for {ImagePath}", isoPath);
-            return IsoTestResultStatus.Failed;
-        }
         finally
         {
-            if (tempCloudCopy != null && File.Exists(tempCloudCopy))
+            // The temp copy — including partial files from a failed or canceled copy of a
+            // split set — must never survive this method.
+            if (tempCloudDir != null)
             {
                 try
                 {
-                    // ReSharper disable once NullableWarningSuppressionIsUsed
-                    Directory.Delete(Path.GetDirectoryName(tempCloudCopy)!, true);
+                    if (Directory.Exists(tempCloudDir)) Directory.Delete(tempCloudDir, true);
                 }
                 catch (Exception ex)
                 {
                     /* ignore cleanup errors */
-                    _logger.Debug(ex, "Could not delete test temp copy {TempPath}", tempCloudCopy);
+                    _logger.Debug(ex, "Could not delete test temp copy {TempPath}", tempCloudDir);
                 }
             }
         }
@@ -886,6 +1085,9 @@ public class OrchestratorService : IOrchestratorService
                 progress.Report(new BatchOperationProgress { SuccessCount = 1 }); break;
             case FileProcessingStatus.AlreadyOptimized:
             case FileProcessingStatus.Skipped: progress.Report(new BatchOperationProgress { SkippedCount = 1 }); break;
+            case FileProcessingStatus.InvalidInput:
+                progress.Report(new BatchOperationProgress
+                    { FailedCount = 1, InvalidIsoCount = 1, FailedPathToAdd = path }); break;
             case FileProcessingStatus.Failed:
                 progress.Report(new BatchOperationProgress { FailedCount = 1, FailedPathToAdd = path }); break;
         }
@@ -957,15 +1159,15 @@ public class OrchestratorService : IOrchestratorService
         }
     }
 
-    private async Task CleanupTempFoldersAsync(List<string> folders, IProgress<BatchOperationProgress> progress,
-        CancellationToken token)
+    private async Task CleanupTempFoldersAsync(List<string> folders, IProgress<BatchOperationProgress> progress)
     {
         if (folders.Count == 0) return;
 
         progress.Report(new BatchOperationProgress { LogMessage = "Cleaning up temporary folders..." });
         foreach (var folder in folders.ToList())
         {
-            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(folder, 5, 1000, _logger, token);
+            await TempFolderCleanupHelper.TryDeleteDirectoryWithRetryAsync(folder, 5, 1000, _logger,
+                CancellationToken.None);
         }
     }
 

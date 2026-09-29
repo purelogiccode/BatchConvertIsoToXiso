@@ -75,6 +75,8 @@ The file was read, but no XDVDFS volume descriptor with the `MICROSOFT*XBOX*MEDI
 - Re-dump or re-download the image if it came from an unreliable source; a truncated dump fails validation.
 - Test the image on the **Test Integrity** tab for a more detailed diagnosis.
 
+The **"High Rate of Invalid ISOs Detected"** warning counts only images that failed format validation — disk errors, access-denied errors, and move failures do not count toward it.
+
 ### Font / rendering error at startup
 
 **Message pattern:** a startup error mentioning fonts or rendering.
@@ -122,13 +124,13 @@ list and consider excluding the input/output folders from real-time scanning.
 All conversion is performed by the [XISOSharp](https://github.com/purelogiccode/XISOSharp) library, with CHD output encoded by [CHDSharp](https://github.com/purelogiccode/CHDSharp). See [Conversion Methods](Conversion-Methods.md) for how it works.
 
 **Does the tool modify my source files?**
-Only when **Delete Originals** (Replace Originals) is enabled — and even then, originals are removed only after the converted file has been produced and verified.
+Only when **Delete Originals** (Replace Originals) is enabled — and even then, originals are removed only after the converted file has been produced and verified. Archives are removed only when every entry was extracted and every extracted image was converted; if an entry was skipped or an image was not converted, the archive is kept.
 
 **Are Xbox 360 images supported?**
 Xbox and Xbox 360 images are supported; conversion repacks the game partition of Redump-style dumps into an optimized XISO.
 
 **Where are temporary files stored?**
-In the system temp folder, in dedicated subfolders. They are cleaned automatically after each file and at startup (orphaned leftovers from crashes are removed too). If the temp drive lacks space, other local drives are used as fallback.
+In the system temp folder, in dedicated subfolders. They are cleaned automatically after each file and at startup (orphaned leftovers from crashes are removed too). If the temp drive lacks space, other local drives are used as fallback. Startup cleanup only removes app-created work folders (GUID-named children of `XboxIsoStudio_*` folders) that are older than six hours, so unrelated folders and another instance's active work folders are never deleted.
 
 **Does the application run on Linux and macOS?**
 Yes. The UI is built with Avalonia, and all image libraries are pure managed code, so builds are provided for Windows, Linux, and macOS (x64 and ARM64). The disk read/write speed monitor uses Windows performance counters and shows `N/A` on other platforms; the archive extraction fallback uses the system `7z` there instead of the bundled Windows executable.
@@ -149,4 +151,4 @@ From the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) pag
 No. The application is portable — extract and run (see [Installation](Installation.md)).
 
 **Can I run multiple instances at once?**
-Not recommended: parallel instances compete for disk bandwidth and the replace-originals workflow becomes risky if they share folders.
+Not recommended: parallel instances compete for disk bandwidth and the replace-originals workflow becomes risky if they share folders. Temporary-folder cleanup is age-based (six hours) and only removes app-created GUID work folders, so one instance cannot delete another's active folders.

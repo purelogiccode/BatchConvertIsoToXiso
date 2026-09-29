@@ -228,7 +228,7 @@ public class App : Application
         {
             var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
             return new BugReportService(httpClientFactory.CreateClient("BugReport"), BugReportApiUrl, BugReportApiKey,
-                ApplicationName);
+                ApplicationName, provider.GetRequiredService<ILogger>());
         });
         services.AddSingleton<IStatsService>(static provider =>
         {

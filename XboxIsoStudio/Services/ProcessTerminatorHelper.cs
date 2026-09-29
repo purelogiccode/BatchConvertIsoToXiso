@@ -25,6 +25,13 @@ public static class ProcessTerminatorHelper
                 "Process {ProcessName} is not associated with a running process or has been disposed.", processName);
             return;
         }
+        catch (Win32Exception ex)
+        {
+            // HasExited throws Win32Exception (not InvalidOperationException) when the
+            // process handle cannot be opened, e.g. for an elevated process.
+            logger.Debug(ex, "Process {ProcessName} cannot be accessed.", processName);
+            return;
+        }
 
         try
         {

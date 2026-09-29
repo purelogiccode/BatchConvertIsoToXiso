@@ -151,6 +151,39 @@ public class FileExtractorServiceTests : IDisposable
 
     #endregion
 
+    #region Transient Error Detection Tests
+
+    [Theory]
+    [InlineData(0x20, "The process cannot access the file because it is being used by another process.")]
+    [InlineData(0x21, "The process cannot access the file because another process has locked a portion of the file.")]
+    public void IsTransientIoErrorSharingAndLockViolationsReturnTrue(int hresult, string message)
+    {
+        var ex = new IOException(message, unchecked((int)(0x80070000u | (uint)hresult)));
+        Assert.True(FileExtractorService.IsTransientIoError(ex));
+    }
+
+    [Fact]
+    public void IsTransientIoErrorDiskFullReturnsFalse()
+    {
+        var ex = new IOException("There is not enough space on the disk.", unchecked((int)0x80070070));
+        Assert.False(FileExtractorService.IsTransientIoError(ex));
+    }
+
+    [Fact]
+    public void IsTransientIoErrorEndOfStreamReturnsFalse()
+    {
+        Assert.False(FileExtractorService.IsTransientIoError(new EndOfStreamException()));
+    }
+
+    [Fact]
+    public void IsTransientIoErrorNetworkMessageReturnsTrue()
+    {
+        var ex = new IOException("The network path was not found.");
+        Assert.True(FileExtractorService.IsTransientIoError(ex));
+    }
+
+    #endregion
+
     #region ExtractArchiveAsync - Error Handling Tests
 
     [Fact]
@@ -196,7 +229,7 @@ public class FileExtractorServiceTests : IDisposable
 
         var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
 
-        Assert.True(result);
+        Assert.True(result.Success);
         Assert.True(File.Exists(Path.Combine(outDir, "test.txt")));
         Assert.Equal("hello world", File.ReadAllText(Path.Combine(outDir, "test.txt")));
     }
@@ -219,7 +252,7 @@ public class FileExtractorServiceTests : IDisposable
 
         var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
 
-        Assert.False(result);
+        Assert.False(result.Success);
 
         // Verify the error message was logged (contains "encrypted" or "password")
         Assert.True(
@@ -316,7 +349,8 @@ public class FileExtractorServiceTests : IDisposable
 
         // Should not throw, but skip the malicious entry
         var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
-        Assert.True(result);
+        Assert.True(result.Success);
+        Assert.Contains(result.SkippedEntries, entry => entry.Contains("etc/passwd", StringComparison.Ordinal));
     }
 
     #endregion

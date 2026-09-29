@@ -92,7 +92,9 @@ public class ChdService : IChdService
 
             // CHD holds the optimized game partition, so non-optimized (Redump) inputs are
             // first rewritten through the existing XISO pipeline into a temporary file.
-            if (!XisoReader.IsOptimizedImage(inputFile))
+            // Already-optimized inputs are rewritten too when $SystemUpdate must be stripped
+            // (CHD encoding has no filter of its own).
+            if (!XisoReader.IsOptimizedImage(inputFile) || skipSystemUpdate)
             {
                 tempDir = Path.Combine(Path.GetTempPath(), TempSubfolder, Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(tempDir);
@@ -104,7 +106,10 @@ public class ChdService : IChdService
                 if (rewriteStatus != FileProcessingStatus.Converted)
                 {
                     _logger.Information("Could not prepare '{FileName}' for CHD compression.", fileName);
-                    return FileProcessingStatus.Failed;
+                    // Keep invalid inputs distinguishable for the caller's reporting.
+                    return rewriteStatus == FileProcessingStatus.InvalidInput
+                        ? FileProcessingStatus.InvalidInput
+                        : FileProcessingStatus.Failed;
                 }
 
                 sourceForChd = Path.Combine(tempDir, "source.iso");
@@ -171,7 +176,7 @@ public class ChdService : IChdService
             _logger.Information(ex,
                 "Failed to convert '{FileName}' to CHD. The file may not be a valid Xbox/Xbox 360 ISO image " +
                 "or may be corrupt.", fileName);
-            return FileProcessingStatus.Failed;
+            return FileProcessingStatus.InvalidInput;
         }
         catch (Exception ex)
         {

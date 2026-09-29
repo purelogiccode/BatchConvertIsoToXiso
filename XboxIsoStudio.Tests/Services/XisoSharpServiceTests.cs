@@ -110,7 +110,7 @@ public sealed class XisoSharpServiceTests : IDisposable
             false,
             new Progress<BatchOperationProgress>(), CancellationToken.None);
 
-        Assert.Equal(FileProcessingStatus.Failed, status);
+        Assert.Equal(FileProcessingStatus.InvalidInput, status);
         Assert.DoesNotContain(_logger.Events, e => e.Level >= LogEventLevel.Warning);
     }
 
@@ -325,6 +325,88 @@ public sealed class XisoSharpServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task CsoOutputWithSkipSystemUpdateStripsUpdateFolderFromOptimizedImage()
+    {
+        var isoPath = CreateXisoWithSystemUpdate("game-su-cso.iso");
+        Assert.True(XisoReader.IsOptimizedImage(isoPath));
+        var service = CreateService();
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "game-su.cso", OutputFormat.Cso, true,
+            false, new Progress<BatchOperationProgress>(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+
+        using var explorer = ImageExplorerFactory.Open(Path.Combine(outputFolder, "game-su.cso"));
+        var names = explorer.ListChildren("/").Select(static e => e.Name).ToList();
+        Assert.Contains(names, name => name.Equals("default.xbe", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(names, name => name.Equals("$SystemUpdate", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task XisoOutputWithSkipSystemUpdateRewritesOptimizedImage()
+    {
+        var isoPath = CreateXisoWithSystemUpdate("game-su-xiso.iso");
+        Assert.True(XisoReader.IsOptimizedImage(isoPath));
+        var service = CreateService();
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "game-su.iso", OutputFormat.Xiso, true,
+            false, new Progress<BatchOperationProgress>(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+
+        using var explorer = ImageExplorerFactory.Open(Path.Combine(outputFolder, "game-su.iso"));
+        var names = explorer.ListChildren("/").Select(static e => e.Name).ToList();
+        Assert.Contains(names, name => name.Equals("default.xbe", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(names, name => name.Equals("$SystemUpdate", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CsoOutputSpaceCheckUsesCompressedEstimate()
+    {
+        var isoPath = CreateOptimizedXiso();
+        var inputSize = new FileInfo(isoPath).Length;
+        var halfSize = inputSize / 2;
+        var csoRequired = halfSize + Math.Max(halfSize / 10, 200L * 1024 * 1024);
+        var diskMonitor = new Mock<IDiskMonitorService>();
+        diskMonitor.Setup(static d => d.GetAvailableFreeSpace(It.IsAny<string>())).Returns(csoRequired + 1);
+        var service = new XisoSharpService(_logger.Logger, diskMonitor.Object);
+
+        var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), "space.cso",
+            OutputFormat.Cso, false, false, new Progress<BatchOperationProgress>(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        Assert.False(_logger.HasMessage("Not enough disk space"));
+    }
+
+    [Fact]
+    public async Task XisoOutputSpaceCheckUsesRawSize()
+    {
+        var isoPath = CreateOptimizedXiso();
+
+        // Clear the optimized tag so the raw-size pre-check runs instead of the skip path.
+        await using (var stream = new FileStream(isoPath, FileMode.Open, FileAccess.Write, FileShare.None))
+        {
+            stream.Seek(Constants.OptimizedTagOffset, SeekOrigin.Begin);
+            stream.Write(new byte[Constants.OptimizedTagLength]);
+        }
+
+        var inputSize = new FileInfo(isoPath).Length;
+        var halfSize = inputSize / 2;
+        var csoRequired = halfSize + Math.Max(halfSize / 10, 200L * 1024 * 1024);
+        var diskMonitor = new Mock<IDiskMonitorService>();
+        diskMonitor.Setup(static d => d.GetAvailableFreeSpace(It.IsAny<string>())).Returns(csoRequired + 1);
+        var service = new XisoSharpService(_logger.Logger, diskMonitor.Object);
+
+        var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), "space.iso",
+            OutputFormat.Xiso, false, false, new Progress<BatchOperationProgress>(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Failed, status);
+        Assert.True(_logger.HasMessage("Not enough disk space"));
+    }
+
+    [Fact]
     public async Task InvalidImageZarOutputReturnsFailed()
     {
         var badIso = Path.Combine(_tempRoot, "bad-zar.iso");
@@ -334,6 +416,6 @@ public sealed class XisoSharpServiceTests : IDisposable
         var status = await service.ConvertIsoAsync(badIso, Path.Combine(_tempRoot, "out"), "bad-zar.zar",
             OutputFormat.Zar, false, false, new Progress<BatchOperationProgress>(), CancellationToken.None);
 
-        Assert.Equal(FileProcessingStatus.Failed, status);
+        Assert.Equal(FileProcessingStatus.InvalidInput, status);
     }
 }

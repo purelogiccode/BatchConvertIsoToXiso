@@ -39,8 +39,8 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            // Log and report the error, but don't bother the user.
-            _logger.Warning(ex, "Error during update check");
+            // Update checks fail whenever the machine is offline; environmental, not a defect.
+            _logger.Information(ex, "Error during update check");
         }
     }
 }

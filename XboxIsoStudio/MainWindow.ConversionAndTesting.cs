@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Avalonia.Interactivity;
 using Serilog;
 using XboxIsoStudio.Models;
@@ -5,6 +6,10 @@ using XboxIsoStudio.Services;
 
 namespace XboxIsoStudio;
 
+[SuppressMessage("ReSharper", "UnusedMember.Local",
+    Justification = "XAML event handlers are resolved by the Avalonia markup compiler, which ReSharper does not link across partial class files.")]
+[SuppressMessage("ReSharper", "UnusedParameter.Local",
+    Justification = "Parameters are required by XAML event handler signatures (sender, event args).")]
 public partial class MainWindow
 {
     private async void BrowseConversionInputButton_Click(object? sender, RoutedEventArgs e)
@@ -78,6 +83,9 @@ public partial class MainWindow
 
     private async void StartConversionButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
+        var operationStarted = false;
+        var operationCanceled = false;
+
         try
         {
             if (_isOperationRunning) return;
@@ -174,8 +182,13 @@ public partial class MainWindow
                     {
                         _uiFailedCount += p.FailedCount.Value;
                         _totalProcessedFiles += p.FailedCount.Value;
-                        _invalidIsoErrorCount += p.FailedCount.Value;
                         UpdateSummaryStatsUi();
+                    }
+
+                    // Only genuinely invalid images count toward the "not valid Xbox ISOs" warning.
+                    if (p.InvalidIsoCount.HasValue)
+                    {
+                        _invalidIsoErrorCount += p.InvalidIsoCount.Value;
                     }
 
                     if (p.SkippedCount.HasValue)
@@ -213,6 +226,7 @@ public partial class MainWindow
                         ? OutputFormat.Cso
                         : OutputFormat.Chd;
 
+            operationStarted = true;
             await _orchestratorService.ConvertFilesAsync(
                 selectedFiles, outputFolder,
                 DeleteOriginalsCheckBox.IsChecked ?? false,
@@ -223,6 +237,7 @@ public partial class MainWindow
         }
         catch (OperationCanceledException)
         {
+            operationCanceled = true;
             UpdateStatus("Operation canceled.");
         }
         catch (Exception ex)
@@ -241,14 +256,16 @@ public partial class MainWindow
         }
         finally
         {
-            FinalizeUiState();
-            await LogOperationSummaryAsync("Conversion");
+            await FinishOperationAsync("Conversion", operationStarted, operationCanceled);
             await RefreshConversionFileListAsync();
         }
     }
 
     private async void StartTestButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
+        var operationStarted = false;
+        var operationCanceled = false;
+
         try
         {
             if (_isOperationRunning) return;
@@ -330,8 +347,13 @@ public partial class MainWindow
                     {
                         _uiFailedCount += p.FailedCount.Value;
                         _totalProcessedFiles += p.FailedCount.Value;
-                        _invalidIsoErrorCount += p.FailedCount.Value;
                         UpdateSummaryStatsUi();
+                    }
+
+                    // Only genuinely invalid images count toward the "not valid Xbox ISOs" warning.
+                    if (p.InvalidIsoCount.HasValue)
+                    {
+                        _invalidIsoErrorCount += p.InvalidIsoCount.Value;
                     }
 
                     if (p.CurrentDrive != null) SetCurrentOperationDrive(p.CurrentDrive);
@@ -354,6 +376,7 @@ public partial class MainWindow
             _memoryTimer.Start();
             UpdateStatus("Starting batch image test...");
 
+            operationStarted = true;
             await _orchestratorService.TestFilesAsync(
                 inputFolder, selectedFiles,
                 MoveSuccessFilesCheckBox.IsChecked == true,
@@ -363,6 +386,7 @@ public partial class MainWindow
         }
         catch (OperationCanceledException)
         {
+            operationCanceled = true;
             UpdateStatus("Operation canceled.");
         }
         catch (Exception ex)
@@ -381,8 +405,7 @@ public partial class MainWindow
         }
         finally
         {
-            FinalizeUiState();
-            await LogOperationSummaryAsync("Test");
+            await FinishOperationAsync("Test", operationStarted, operationCanceled);
             await RefreshTestFileListAsync();
         }
     }

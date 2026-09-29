@@ -56,7 +56,7 @@ See the [Conversion Methods](Conversion-Methods.md) page for details.
 |:---|:---|
 | **Output Format** | Produces `.iso` (optimized XISO), `.zar` (ZArchive/zstd), `.cso` (CISO v2/LZ4), or `.chd` (CHD v5, chdman `createdvd` preset). |
 | **Skip $SystemUpdate** | Excludes the `$SystemUpdate` folder from the output for extra space savings (~100–300 MB). |
-| **Delete Originals** | Replaces each input file with its converted version. Deletion happens **only after** the output has been produced and verified. |
+| **Delete Originals** | Replaces each input file with its converted version. Deletion happens **only after** the output has been produced and verified. An archive is kept when any entry was skipped or any extracted image was not converted. |
 | **Check Output Integrity** | Runs a structural validation on each newly created XISO and a full deep verification (every hunk and hash) on each newly created CHD before reporting success (for ZAR/CSO the source image is validated instead). |
 | **Search Subfolders** | Includes files found in subdirectories of the input folder in the list. |
 
@@ -72,8 +72,9 @@ See the [Conversion Methods](Conversion-Methods.md) page for details.
 The orchestrator decides per input file:
 
 1. **`.iso`** — converted with the XISOSharp engine (or CHDSharp for CHD) into the selected output format (`.iso`, `.zar`, `.cso`, or `.chd`).
-2. **`.zip` / `.7z` / `.rar`** — extracted to a temporary folder (with automatic drive fallback if the temp drive is short on space), the ISO inside is converted, then temporaries are cleaned up.
+2. **`.zip` / `.7z` / `.rar`** — extracted to a temporary folder (with automatic drive fallback if the temp drive is short on space), the first ISO inside is converted, then temporaries are cleaned up. Entries that are skipped (additional ISOs, non-ISO images, unsafe paths) are reported in the log.
    - Password-protected/encrypted archives are detected and **skipped with a clear message** instead of a cryptic failure.
+   - With **Delete Originals** enabled, an archive is kept whenever an entry was skipped or an image was not converted.
 3. At the end, a **summary** is logged (files processed, succeeded, failed, skipped) and the operation is finalized.
 
 Files stored in cloud-sync folders (OneDrive, etc.) that are not hydrated locally are detected and retried automatically with exponential backoff while the cloud provider downloads them.

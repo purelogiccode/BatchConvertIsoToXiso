@@ -10,16 +10,17 @@ public class StatsService : IStatsService
 {
     private readonly HttpClient _httpClient;
     private readonly string _apiUrl;
+    private readonly string _apiKey;
     private readonly string _applicationId;
     private readonly ILogger _logger;
 
     public StatsService(HttpClient httpClient, string apiUrl, string apiKey, string applicationId, ILogger logger)
     {
         _apiUrl = apiUrl;
+        _apiKey = apiKey;
         _applicationId = applicationId;
         _httpClient = httpClient;
         _logger = logger.ForContext<StatsService>();
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
     }
 
     public async Task SendStatsAsync()
@@ -29,8 +30,13 @@ public class StatsService : IStatsService
             var version = GetApplicationVersion.GetProgramVersion();
             var payload = new { applicationId = _applicationId, version };
             var json = JsonSerializer.Serialize(payload);
-            using var content = new StringContent(json, Encoding.UTF8, "application/json");
-            using var response = await _httpClient.PostAsync(_apiUrl, content);
+
+            // Authorization is applied per request instead of mutating the injected client.
+            using var request = new HttpRequestMessage(HttpMethod.Post, _apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            using var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
         }
         catch (Exception ex)

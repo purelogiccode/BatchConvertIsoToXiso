@@ -3,23 +3,31 @@ using System.Net.Http.Json;
 using System.Runtime.InteropServices;
 using System.Text;
 using XboxIsoStudio.Interfaces;
+using Serilog;
 
 namespace XboxIsoStudio.Services;
 
 public class BugReportService : IBugReportService
 {
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
+
     private readonly HttpClient _httpClient;
     private readonly string _apiUrl;
+    private readonly string _apiKey;
     private readonly string _applicationName;
+    private readonly ILogger? _logger;
 
-    public BugReportService(HttpClient httpClient, string apiUrl, string apiKey, string applicationName)
+    public BugReportService(HttpClient httpClient, string apiUrl, string apiKey, string applicationName,
+        ILogger? logger = null)
     {
         _apiUrl = apiUrl;
+        _apiKey = apiKey;
         _applicationName = applicationName;
 
+        // The injected client is never mutated: headers and the timeout are applied per
+        // request so a shared or reused client cannot be corrupted by this service.
         _httpClient = httpClient;
-        _httpClient.Timeout = TimeSpan.FromSeconds(15);
-        _httpClient.DefaultRequestHeaders.Add("X-API-KEY", apiKey);
+        _logger = logger?.ForContext<BugReportService>();
     }
 
     public Task<bool> SendBugReportAsync(string message)
@@ -52,13 +60,25 @@ public class BugReportService : IBugReportService
                 { "stackTrace", exception?.StackTrace }
             };
 
-            using var content = JsonContent.Create(payload);
-            using var response = await _httpClient.PostAsync(_apiUrl, content);
+            using var request = new HttpRequestMessage(HttpMethod.Post, _apiUrl);
+            request.Headers.Add("X-API-KEY", _apiKey);
+            request.Content = JsonContent.Create(payload);
 
-            return response.IsSuccessStatusCode;
+            using var timeoutCts = new CancellationTokenSource(RequestTimeout);
+            // ConfigureAwait(false) is required: TryReportFatal blocks the UI thread with
+            // Wait() on this task, and a captured synchronization context would deadlock
+            // until the timeout (the report would never be sent).
+            using var response = await _httpClient.SendAsync(request, timeoutCts.Token).ConfigureAwait(false);
+
+            if (response.IsSuccessStatusCode) return true;
+
+            // Record the failure so "the error was reported" is never silently false.
+            _logger?.Information("Bug report API returned {StatusCode}.", (int)response.StatusCode);
+            return false;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger?.Information(ex, "Failed to send bug report to {ApiUrl}.", _apiUrl);
             return false;
         }
     }

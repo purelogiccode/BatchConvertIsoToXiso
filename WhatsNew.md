@@ -29,6 +29,16 @@ Version 3.0.0 is the **CHD & cross-platform release**: the application was porte
 - The Explorer opens `.chd` files, decompressing hunks on demand, and browses and copies out entries through XISOSharp just like ISO/CSO/ZAR.
 - Both game-partition-only CHDs (produced by this app) and full Redump-image CHDs (produced by `chdman createdvd`) are supported — partition offsets are auto-detected.
 
+#### Reliability and bug fixes
+- **No more silent data loss** — with **Delete Originals** enabled, an archive is removed only when every entry was extracted and every extracted image was converted; skipped entries (extra ISOs, non-ISO images, already-optimized files) keep the archive.
+- **No output collisions** — two inputs with the same file name (for example `Disc1/game.iso` and `Disc2/game.iso`) now produce `game.iso` and `game (2).iso` instead of overwriting each other.
+- **`Skip $SystemUpdate` works everywhere** — already-optimized inputs are rewritten through the filter before CSO/CHD packing, so the option is honored for every output format.
+- **Cloud and split images are handled correctly** — split CISO sets copied to a temporary working folder keep their `.1.cso`/`.2.cso` part markers and travel together; the cloud-failure path cleans up its temporary folder.
+- **One bad file no longer aborts a batch** — files that vanish, lock, or cannot be read mid-scan or mid-test are reported individually and the remaining files continue.
+- **Fewer false bug reports** — locked files, full disks, offline networks, permission problems, and update-check failures log at Information level; retries only retry genuinely transient errors.
+- **Safer cleanup and shutdown** — temporary-folder cleanup only removes app-created GUID work folders older than six hours, the Exit confirmation can't be bypassed or shown twice, and the explorer is never disposed while a copy-out is still reading from it.
+- **Cross-platform correctness** — path comparisons respect case-sensitive file systems, 7-Zip arguments are escaped per platform, and compressed outputs use a size-aware free-space estimate instead of the uncompressed size.
+
 ### Upgrading
 Download the archive that matches your platform and architecture. No action is required for existing Windows users — the portable layout and all existing formats keep working unchanged. CHD support adds the **CHDSharp** 1.4.3 package (pure managed code, no native dependencies), and the only UI change is the framework the window is drawn with (WPF → Avalonia).
 

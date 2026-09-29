@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using XboxIsoStudio.Interfaces;
+using XboxIsoStudio.Models;
 using Serilog;
 using SharpCompress.Archives;
 using SharpCompress.Common;
@@ -82,7 +83,10 @@ public class FileExtractorService : IFileExtractor
     // Cloud file attribute constants
     private const int FileAttributeRecallOnOpen = 0x00040000;
     private const int FileAttributeRecallOnDataAccess = 0x00400000;
-    private const int ErrorCloudFileProviderNotRunning = 362;
+
+    // Win32 error ERROR_CLOUD_FILE_PROVIDER_NOT_RUNNING (362 / 0x16A). IOException.HResult
+    // always carries the full HRESULT (0x8007016A here), so only the low 16 bits are compared.
+    private const int ErrorCloudFileProviderNotRunning = 0x16A;
 
     public FileExtractorService(ILogger logger)
     {
@@ -131,7 +135,7 @@ public class FileExtractorService : IFileExtractor
             return true;
         }
         catch (IOException ex) when
-            (ex.HResult == unchecked((int)0x80070146) || // ERROR_CLOUD_FILE_PROVIDER_NOT_RUNNING
+            ((ex.HResult & 0xFFFF) == ErrorCloudFileProviderNotRunning ||
              ex.Message.Contains("cloud file provider", StringComparison.OrdinalIgnoreCase))
         {
             _logger.Debug(ex, "Cloud file provider is not running for {FilePath}", filePath);
@@ -152,8 +156,7 @@ public class FileExtractorService : IFileExtractor
         if (ex is IOException ioEx)
         {
             // Check for specific cloud file error codes and messages
-            if (ioEx.HResult == unchecked((int)0x80070146) || // ERROR_CLOUD_FILE_PROVIDER_NOT_RUNNING
-                ioEx.HResult == ErrorCloudFileProviderNotRunning)
+            if ((ioEx.HResult & 0xFFFF) == ErrorCloudFileProviderNotRunning)
             {
                 return true;
             }
@@ -192,12 +195,15 @@ public class FileExtractorService : IFileExtractor
         }
         catch (Exception ex)
         {
-            _logger.Warning(ex, "Could not verify drive readiness: {Message}", ex.Message);
+            // Environmental condition (drive probing failed); not an application defect.
+            _logger.Information(ex, "Could not verify drive readiness: {Message}", ex.Message);
         }
     }
 
     /// <summary>
-    /// Executes an asynchronous action with a brief retry on IOException.
+    /// Executes an asynchronous action with a brief retry on transient IOException
+    /// (files locked by another process, network glitches). Permanent errors — corrupt
+    /// archives, a full disk, unsupported content — are not retried.
     /// </summary>
     private async Task ExecuteWithRetryAsync(Func<Task> action, string operationDescription, CancellationToken token)
     {
@@ -211,16 +217,31 @@ public class FileExtractorService : IFileExtractor
                 await action();
                 return;
             }
-            catch (IOException ex) when (attempt < maxRetries)
+            catch (IOException ex) when (attempt < maxRetries && IsTransientIoError(ex))
             {
                 attempt++;
                 var delayMs = 1000 * (1 << (attempt - 1));
-                _logger.Warning(ex,
+                _logger.Information(ex,
                     "{OperationDescription} failed on attempt {Attempt}/{MaxRetries}: {Message}. Retrying in {DelaySeconds}s...",
                     operationDescription, attempt, maxRetries, ex.Message, delayMs / 1000);
                 await Task.Delay(delayMs, token);
             }
         }
+    }
+
+    /// <summary>
+    /// Returns true for IO errors that may resolve on their own: a file locked by another
+    /// process (antivirus, download manager) or a transient network failure.
+    /// </summary>
+    internal static bool IsTransientIoError(IOException ex)
+    {
+        if (PathHelper.IsDiskSpaceError(ex)) return false;
+
+        var hResult = ex.HResult & 0xFFFF;
+        // ERROR_SHARING_VIOLATION (0x20) / ERROR_LOCK_VIOLATION (0x21)
+        if (hResult is 0x20 or 0x21) return true;
+
+        return PathHelper.IsNetworkError(ex);
     }
 
     /// <summary>
@@ -253,7 +274,8 @@ public class FileExtractorService : IFileExtractor
         }
         catch (Exception ex)
         {
-            _logger.Warning(ex, "Could not check disk space: {Message}", ex.Message);
+            // Environmental condition (drive probing failed); not an application defect.
+            _logger.Information(ex, "Could not check disk space: {Message}", ex.Message);
         }
     }
 
@@ -302,7 +324,7 @@ public class FileExtractorService : IFileExtractor
             if (attempt < maxAttempts)
             {
                 var delayMs = 1000 * (1 << (attempt - 1)); // 1s, 2s, 4s, 8s, 16s
-                _logger.Warning(
+                _logger.Information(
                     "{ArchiveFileName} is in use by another process. Waiting {DelaySeconds}s before retrying... (attempt {Attempt}/{MaxAttempts})",
                     archiveFileName, delayMs / 1000, attempt, maxAttempts - 1);
                 await Task.Delay(delayMs, token);
@@ -325,19 +347,24 @@ public class FileExtractorService : IFileExtractor
 
         try
         {
-            var args = $"x \"{archivePath}\" -o\"{extractionPath}\" -y";
             var exeDir = Path.GetDirectoryName(_sevenZipExePath) ?? AppDomain.CurrentDomain.BaseDirectory;
             using var process = new Process();
             process.StartInfo = new ProcessStartInfo
             {
                 FileName = _sevenZipExePath,
-                Arguments = args,
                 WorkingDirectory = exeDir,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+
+            // ArgumentList escapes each argument per platform; quotes in paths are legal on
+            // Linux/macOS and would otherwise split the argument list.
+            process.StartInfo.ArgumentList.Add("x");
+            process.StartInfo.ArgumentList.Add(archivePath);
+            process.StartInfo.ArgumentList.Add($"-o{extractionPath}");
+            process.StartInfo.ArgumentList.Add("-y");
 
             process.Start();
 
@@ -390,16 +417,22 @@ public class FileExtractorService : IFileExtractor
         }
         catch (Exception ex)
         {
-            _logger.Warning(ex, "7-Zip CLI fallback failed: {Message}", ex.Message);
+            // The fallback failing is an input/environment condition, not an app defect.
+            _logger.Information(ex, "7-Zip CLI fallback failed: {Message}", ex.Message);
             return false;
         }
     }
 
-    public async Task<bool> ExtractArchiveAsync(string archivePath, string extractionPath, CancellationToken token)
+    public async Task<ArchiveExtractionResult> ExtractArchiveAsync(string archivePath, string extractionPath,
+        CancellationToken token)
     {
         var archiveFileName = Path.GetFileName(archivePath);
         _logger.Information("Starting extraction: {ArchiveFileName}", archiveFileName);
         _logger.Information("Extraction target: {ExtractionPath}", extractionPath);
+
+        // Entries the extractor deliberately leaves on disk (additional ISOs, unsafe paths).
+        // The caller uses this to decide whether the source archive can be deleted safely.
+        var skippedEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         try
         {
@@ -466,6 +499,7 @@ public class FileExtractorService : IFileExtractor
                                     _logger.Warning(
                                         "Skipping entry {EntryPath} - potential path traversal (Zip Slip) detected.",
                                         entryPath);
+                                    skippedEntries.Add(entryPath);
                                     continue;
                                 }
 
@@ -478,6 +512,7 @@ public class FileExtractorService : IFileExtractor
                                         _logger.Information(
                                             "Skipping additional ISO: {EntryPath} (Only the first ISO is processed per archive).",
                                             entryPath);
+                                        skippedEntries.Add(entryPath);
                                         continue;
                                     }
 
@@ -497,11 +532,12 @@ public class FileExtractorService : IFileExtractor
                                         basePath += Path.DirectorySeparatorChar;
                                     }
 
-                                    if (!fullDestPath.StartsWith(basePath, StringComparison.OrdinalIgnoreCase))
+                                    if (!fullDestPath.StartsWith(basePath, PathHelper.PathComparison))
                                     {
                                         _logger.Warning(
                                             "Skipping entry {EntryPath} - potential path traversal (Zip Slip) detected.",
                                             entryPath);
+                                        skippedEntries.Add(entryPath);
                                         continue;
                                     }
 
@@ -549,7 +585,7 @@ public class FileExtractorService : IFileExtractor
                 }, $"Extraction of {archiveFileName}", token);
 
             _logger.Information("Successfully extracted: {ArchiveFileName}", archiveFileName);
-            return true;
+            return new ArchiveExtractionResult(true, skippedEntries.ToList());
         }
         catch (OperationCanceledException)
         {
@@ -577,11 +613,11 @@ public class FileExtractorService : IFileExtractor
             if (cliResult)
             {
                 _logger.Information("Successfully extracted: {ArchiveFileName}", archiveFileName);
-                return true;
+                return new ArchiveExtractionResult(true, skippedEntries.ToList());
             }
 
             _logger.Information("Extraction failed for {ArchiveFileName}.", archiveFileName);
-            return false;
+            return ArchiveExtractionResult.Failed;
         }
         catch (NotSupportedException notSupportedEx) when (
             notSupportedEx.Message.Contains("Unsupported compression method", StringComparison.OrdinalIgnoreCase) &&
@@ -608,11 +644,11 @@ public class FileExtractorService : IFileExtractor
             if (cliResult)
             {
                 _logger.Information("Successfully extracted: {ArchiveFileName}", archiveFileName);
-                return true;
+                return new ArchiveExtractionResult(true, skippedEntries.ToList());
             }
 
             _logger.Information("Extraction failed for {ArchiveFileName}.", archiveFileName);
-            return false;
+            return ArchiveExtractionResult.Failed;
         }
         catch (InvalidFormatException ex)
         {
@@ -640,7 +676,7 @@ public class FileExtractorService : IFileExtractor
             _logger.Information("{Message:l}", errorMessage);
             throw new IOException(errorMessage, ex);
         }
-        catch (IOException ex) when (ex.Message.Contains("not enough space", StringComparison.OrdinalIgnoreCase))
+        catch (IOException ex) when (PathHelper.IsDiskSpaceError(ex))
         {
             var userMessage = $"Not enough disk space to extract {archiveFileName}.\n\n" +
                               "Please free up some space on your drive and try again.";
@@ -670,7 +706,7 @@ public class FileExtractorService : IFileExtractor
                 "{ArchiveFileName} is encrypted/password-protected. This application cannot extract password-protected archives. Please extract the archive manually using a tool that supports passwords (e.g., WinRAR, 7-Zip) and re-package it without encryption.",
                 archiveFileName);
 
-            return false;
+            return ArchiveExtractionResult.Failed;
         }
         catch (Exception ex)
         {
@@ -696,7 +732,7 @@ public class FileExtractorService : IFileExtractor
                     "{ArchiveFileName} appears to be corrupt (invalid compression data). The file may have been damaged during download or transfer. Please re-download the archive and try again.",
                     archiveFileName);
             }
-            else if (ex.Message.Contains("not enough space", StringComparison.OrdinalIgnoreCase))
+            else if (PathHelper.IsDiskSpaceError(ex))
             {
                 _logger.Information(
                     "Not enough disk space to extract {ArchiveFileName}. Please free up some space on your drive and try again.",
@@ -711,6 +747,13 @@ public class FileExtractorService : IFileExtractor
                     "2. Copy the file to a local drive before processing\n" +
                     "3. Check your network connection stability\n" +
                     "4. If using WiFi, try a wired connection for better reliability",
+                    archiveFileName);
+            }
+            else if (ex is UnauthorizedAccessException)
+            {
+                // Permission problems are environmental, not an application defect.
+                _logger.Information(
+                    "Access denied while extracting {ArchiveFileName}. Check the file/folder permissions and try again.",
                     archiveFileName);
             }
             else

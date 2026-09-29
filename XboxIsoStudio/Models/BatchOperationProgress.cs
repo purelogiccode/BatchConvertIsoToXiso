@@ -9,6 +9,7 @@ public class BatchOperationProgress
     public int? SuccessCount { get; set; }
     public int? FailedCount { get; set; }
     public int? SkippedCount { get; set; }
+    public int? InvalidIsoCount { get; set; }
     public string? CurrentDrive { get; set; }
     public string? FailedPathToAdd { get; set; }
 }

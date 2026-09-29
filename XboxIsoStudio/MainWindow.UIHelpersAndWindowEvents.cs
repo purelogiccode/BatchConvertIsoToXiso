@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
@@ -10,6 +11,10 @@ using XboxIsoStudio.Services;
 
 namespace XboxIsoStudio;
 
+[SuppressMessage("ReSharper", "UnusedMember.Local",
+    Justification = "XAML event handlers are resolved by the Avalonia markup compiler, which ReSharper does not link across partial class files.")]
+[SuppressMessage("ReSharper", "UnusedParameter.Local",
+    Justification = "Parameters are required by XAML event handler signatures (sender, event args).")]
 public partial class MainWindow
 {
     private void FinalizeUiState()
@@ -162,12 +167,36 @@ public partial class MainWindow
         }
     }
 
-    private async Task LogOperationSummaryAsync(string operationType)
+    /// <summary>
+    ///     Restores the normal UI state as soon as the batch is over and shows the summary.
+    ///     The controls are re-enabled before the summary dialog is shown so that a dialog
+    ///     failure can never leave the window permanently disabled.
+    /// </summary>
+    private async Task FinishOperationAsync(string operationType, bool operationStarted, bool operationCanceled)
+    {
+        FinalizeUiState();
+
+        _isOperationRunning = false;
+        SetControlsState(true);
+
+        try
+        {
+            await LogOperationSummaryAsync(operationType, operationStarted, operationCanceled);
+        }
+        finally
+        {
+            // Always release the shutdown wait, even if the summary failed.
+            _operationCompletedTcs.TrySetResult();
+        }
+    }
+
+    private async Task LogOperationSummaryAsync(string operationType, bool operationStarted, bool operationCanceled)
     {
         try
         {
             _logger.Information("");
-            _logger.Information("--- Batch {OperationType} completed. ---", operationType.ToLowerInvariant());
+            _logger.Information("--- Batch {OperationType} {Outcome}. ---", operationType.ToLowerInvariant(),
+                operationCanceled ? "canceled" : "completed");
             _logger.Information("Total files processed: {TotalFiles}", _uiTotalFiles);
             _logger.Information("Successfully {Action}: {SuccessCount} files",
                 ConvertToPastTense.GetPastTense(operationType), _uiSuccessCount);
@@ -186,9 +215,26 @@ public partial class MainWindow
                 _logger.Information("");
             }
 
+            // Validation failed before the batch started: the error dialog was already shown,
+            // so there is no "completed" summary to display.
+            if (!operationStarted) return;
+
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 if (_isForceClosing) return;
+
+                var summaryText = $"Total files processed: {_uiTotalFiles}\n" +
+                                  $"Successfully {ConvertToPastTense.GetPastTense(operationType)}: {_uiSuccessCount} files\n" +
+                                  $"Skipped: {_uiSkippedCount} files\n" +
+                                  $"Failed: {_uiFailedCount} files";
+
+                if (operationCanceled)
+                {
+                    await _messageBoxService.ShowAsync(
+                        $"Batch {operationType.ToLowerInvariant()} was canceled.\n\n{summaryText}",
+                        $"{operationType} Canceled", UiMessageBoxButton.Ok, UiMessageBoxImage.Warning);
+                    return;
+                }
 
                 if (_totalProcessedFiles > 5 && (double)_invalidIsoErrorCount / _totalProcessedFiles > 0.5)
                 {
@@ -199,16 +245,9 @@ public partial class MainWindow
                 }
 
                 await _messageBoxService.ShowAsync($"Batch {operationType.ToLowerInvariant()} completed.\n\n" +
-                                                   $"Total files processed: {_uiTotalFiles}\n" +
-                                                   $"Successfully {ConvertToPastTense.GetPastTense(operationType)}: {_uiSuccessCount} files\n" +
-                                                   $"Skipped: {_uiSkippedCount} files\n" +
-                                                   $"Failed: {_uiFailedCount} files",
+                                                   summaryText,
                     $"{operationType} Complete", UiMessageBoxButton.Ok,
                     _uiFailedCount > 0 ? UiMessageBoxImage.Warning : UiMessageBoxImage.Information);
-
-                _isOperationRunning = false;
-                _operationCompletedTcs.TrySetResult();
-                SetControlsState(true);
             });
         }
         catch (Exception ex)

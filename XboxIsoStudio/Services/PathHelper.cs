@@ -6,6 +6,15 @@ namespace XboxIsoStudio.Services;
 public static class PathHelper
 {
     /// <summary>
+    ///     Comparison to use for filesystem paths: case-insensitive on Windows and macOS,
+    ///     ordinal on case-sensitive file systems (Linux).
+    /// </summary>
+    public static StringComparison PathComparison =>
+        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+    /// <summary>
     /// Extracts the drive letter (e.g., "C:") from a given path.
     /// </summary>
     public static string? GetDriveLetter(string? path)
@@ -262,6 +271,17 @@ public static class PathHelper
     }
 
     /// <summary>
+    /// Adds the standard safety buffer (10% or 200 MB, whichever is larger) to a required
+    /// size, saturating at <see cref="long.MaxValue" /> so extreme sizes cannot wrap around
+    /// and make an undersized drive look sufficient.
+    /// </summary>
+    internal static long AddSafetyBuffer(long requiredBytes)
+    {
+        var buffer = Math.Max(requiredBytes / 10, 200L * 1024 * 1024);
+        return requiredBytes > long.MaxValue - buffer ? long.MaxValue : requiredBytes + buffer;
+    }
+
+    /// <summary>
     /// Resolves a temporary directory path with sufficient disk space.
     /// First checks the system temp drive, then falls back to other local drives.
     /// </summary>
@@ -270,7 +290,7 @@ public static class PathHelper
     {
         var defaultTempPath = Path.GetTempPath();
         var defaultTempDriveRoot = Path.GetPathRoot(defaultTempPath);
-        var requiredWithBuffer = requiredSize + Math.Max(requiredSize / 10, 200L * 1024 * 1024);
+        var requiredWithBuffer = AddSafetyBuffer(requiredSize);
 
         if (defaultTempDriveRoot != null)
         {

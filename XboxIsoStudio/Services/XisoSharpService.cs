@@ -54,16 +54,17 @@ public class XisoSharpService : IXisoSharpService
             return FileProcessingStatus.Failed;
         }
 
-        // XISO output skips images that are already optimized. Compressed formats still
-        // have to pack those images (the container is what changes).
-        if (outputFormat == OutputFormat.Xiso && XisoReader.IsOptimizedImage(inputFile))
+        // XISO output skips images that are already optimized — unless $SystemUpdate must be
+        // stripped, which requires a rewrite. Compressed formats still have to pack those
+        // images (the container is what changes).
+        if (outputFormat == OutputFormat.Xiso && !skipSystemUpdate && XisoReader.IsOptimizedImage(inputFile))
         {
             _logger.Information("'{FileName}' is already an optimized XISO. Skipping conversion.", fileName);
             return FileProcessingStatus.AlreadyOptimized;
         }
 
         var inputFileSize = new FileInfo(inputFile).Length;
-        var outputCheck = CheckOutputDrive(inputFile, inputFileSize, outputFolder);
+        var outputCheck = CheckOutputDrive(inputFile, inputFileSize, outputFolder, outputFormat);
         if (outputCheck != null)
         {
             _logger.Information("{Message:l}", outputCheck);
@@ -129,6 +130,13 @@ public class XisoSharpService : IXisoSharpService
             Logger.ForwardError = message => _logger.Information("  [xiso] ERROR: {Message:l}", message.TrimEnd());
 
             var progressAdapter = CreateRewriteProgressAdapter(progress);
+
+            if (skipSystemUpdate)
+            {
+                // Rewrite applies the filter to the folder's contents but leaves the folder
+                // entry behind in XISOSharp 1.4.1, so use extract+repack for the filter.
+                return RepackWithoutSystemUpdate(inputFile, outputPath, checkIntegrity, progress, token);
+            }
 
             // Pass the computed output name explicitly so the result always matches
             // the path checked above and shown in progress output.
@@ -217,7 +225,7 @@ public class XisoSharpService : IXisoSharpService
             _logger.Information(ex,
                 "Failed to convert '{FileName}'. The file may not be a valid Xbox/Xbox 360 ISO image, " +
                 "may be corrupt, or contains a file too large for XISO.", fileName);
-            return FileProcessingStatus.Failed;
+            return FileProcessingStatus.InvalidInput;
         }
         catch (Exception ex)
         {
@@ -231,6 +239,98 @@ public class XisoSharpService : IXisoSharpService
             Logger.ForwardInfo = previousForwardInfo;
             Logger.ForwardError = previousForwardError;
         }
+    }
+
+    /// <summary>
+    ///     Repacks an image with the <c>$SystemUpdate</c> folder removed. XISOSharp 1.4.1's
+    ///     <c>XisoReader.Rewrite</c> filters the folder's contents but leaves the folder entry
+    ///     itself in the output, so the image is extracted to a temporary directory and packed
+    ///     from there (both steps honor <c>Logger.RemoveSystemUpdate</c>).
+    /// </summary>
+    private FileProcessingStatus RepackWithoutSystemUpdate(string inputFile, string outputPath,
+        bool checkIntegrity, IProgress<BatchOperationProgress> progress, CancellationToken token)
+    {
+        var fileName = Path.GetFileName(inputFile);
+        string? tempDir = null;
+
+        var previousRemoveSystemUpdate = Logger.RemoveSystemUpdate;
+        try
+        {
+            try
+            {
+                tempDir = PathHelper.ResolveTempDirectory(new FileInfo(inputFile).Length, "XboxIsoStudio_Filter",
+                    _diskMonitorService);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex,
+                    "Could not resolve a temp directory for the $SystemUpdate filter on '{FileName}'; using the default temp path",
+                    fileName);
+                tempDir = Path.Combine(Path.GetTempPath(), "XboxIsoStudio_Filter", Guid.NewGuid().ToString("N"));
+            }
+
+            Directory.CreateDirectory(tempDir);
+
+            progress.Report(new BatchOperationProgress { StatusText = "Removing $SystemUpdate folder..." });
+
+            Logger.RemoveSystemUpdate = true;
+
+            var extractResult = XisoReader.UnpackImage(inputFile, tempDir, token,
+                progress: CreateRewriteProgressAdapter(progress));
+            if (extractResult != 0)
+            {
+                _logger.Information(
+                    "XISOSharp could not unpack '{FileName}' for the $SystemUpdate filter (result code {ResultCode}).",
+                    fileName, extractResult);
+                return FileProcessingStatus.Failed;
+            }
+
+            var packResult = XisoWriter.PackFromDirectory(tempDir, outputPath, excludePatterns: null,
+                progressCallback: null, token, CreateRewriteProgressAdapter(progress));
+            if (packResult != 0 || !File.Exists(outputPath))
+            {
+                _logger.Information(
+                    "XISOSharp could not repack '{FileName}' without $SystemUpdate (result code {ResultCode}).",
+                    fileName, packResult);
+                DeletePartialOutput(outputPath);
+                return FileProcessingStatus.Failed;
+            }
+        }
+        finally
+        {
+            Logger.RemoveSystemUpdate = previousRemoveSystemUpdate;
+
+            if (tempDir != null)
+            {
+                try
+                {
+                    if (Directory.Exists(tempDir)) Directory.Delete(tempDir, recursive: true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug(ex, "Could not delete temporary filter folder '{TempDir}'", tempDir);
+                }
+            }
+        }
+
+        if (checkIntegrity)
+        {
+            _logger.Information("Verifying output XISO integrity...");
+            var audit = XisoReader.AuditXiso(outputPath);
+            if (!audit.IsValid)
+            {
+                _logger.Information("Output XISO failed structural validation: {Issues}",
+                    string.Join("; ", audit.Issues));
+                DeletePartialOutput(outputPath);
+                return FileProcessingStatus.Failed;
+            }
+
+            _logger.Information("Output XISO passed validation ({FilesChecked} files, {DirsChecked} directories).",
+                audit.FilesChecked, audit.DirsChecked);
+        }
+
+        _logger.Information("Successfully converted '{FileName}' to XISO format.", fileName);
+        return FileProcessingStatus.Converted;
     }
 
     /// <summary>
@@ -260,9 +360,10 @@ public class XisoSharpService : IXisoSharpService
             {
                 // CISO compresses a plain image stream; rewrite Redump/non-optimized inputs to a
                 // temporary optimized XISO first so the archive contains the game partition only
-                // and the $SystemUpdate filter applies.
+                // and the $SystemUpdate filter applies. Already-optimized inputs are rewritten
+                // too when $SystemUpdate must be stripped (CISO has no filter of its own).
                 var sourceForCompression = inputFile;
-                if (!XisoReader.IsOptimizedImage(inputFile))
+                if (!XisoReader.IsOptimizedImage(inputFile) || skipSystemUpdate)
                 {
                     try
                     {
@@ -283,14 +384,29 @@ public class XisoSharpService : IXisoSharpService
                     progress.Report(new BatchOperationProgress
                         { StatusText = "Preparing XISO for compression..." });
 
-                    var rewriteResult = XisoReader.Rewrite(inputFile, tempDir, out var tempXiso, token,
-                        outputName: "source.iso", progress: CreateRewriteProgressAdapter(progress));
-                    if (rewriteResult != 0 || string.IsNullOrEmpty(tempXiso) || !File.Exists(tempXiso))
+                    var tempXiso = Path.Combine(tempDir, "source.iso");
+                    if (skipSystemUpdate)
                     {
-                        _logger.Information(
-                            "XISOSharp could not prepare '{FileName}' for CSO compression (result code {ResultCode}).",
-                            fileName, rewriteResult);
-                        return FileProcessingStatus.Failed;
+                        // Rewrite leaves the $SystemUpdate folder entry behind; extract+repack
+                        // removes it completely.
+                        var filterStatus = RepackWithoutSystemUpdate(inputFile, tempXiso, checkIntegrity: false,
+                            progress, token);
+                        if (filterStatus != FileProcessingStatus.Converted)
+                            return FileProcessingStatus.Failed;
+                    }
+                    else
+                    {
+                        var rewriteResult = XisoReader.Rewrite(inputFile, tempDir, out var rewrittenXiso, token,
+                            outputName: "source.iso", progress: CreateRewriteProgressAdapter(progress));
+                        if (rewriteResult != 0 || string.IsNullOrEmpty(rewrittenXiso) || !File.Exists(rewrittenXiso))
+                        {
+                            _logger.Information(
+                                "XISOSharp could not prepare '{FileName}' for CSO compression (result code {ResultCode}).",
+                                fileName, rewriteResult);
+                            return FileProcessingStatus.Failed;
+                        }
+
+                        tempXiso = rewrittenXiso;
                     }
 
                     sourceForCompression = tempXiso;
@@ -392,7 +508,7 @@ public class XisoSharpService : IXisoSharpService
             _logger.Information(ex,
                 "Failed to convert '{FileName}' to {Format}. The file may not be a valid Xbox/Xbox 360 ISO image, " +
                 "may be corrupt, or contains a file too large for XISO.", fileName, formatName);
-            return FileProcessingStatus.Failed;
+            return FileProcessingStatus.InvalidInput;
         }
         catch (Exception ex)
         {
@@ -441,9 +557,12 @@ public class XisoSharpService : IXisoSharpService
             _logger.Debug(ex, "Could not read the video type for '{InputFile}'", inputFile);
         }
 
-        var xisoType = XgdTables.GetXisoTypeFromVideo(videoType >= 0 ? videoType : 0);
-        if (xisoType < 0 || xisoType >= XgdTables.XisoOffset.Length)
-            xisoType = XgdTables.GetXgdType(redumpType);
+        // XgdTables.GetXisoTypeFromVideo never returns a negative value (its default arm
+        // returns 0), so an unknown or unreadable video PVD (videoType < 0) must fall back
+        // to the Redump type mapping directly; passing 0 would select the XGD1 offset.
+        var xisoType = videoType >= 0
+            ? XgdTables.GetXisoTypeFromVideo(videoType)
+            : XgdTables.GetXgdType(redumpType);
         if (xisoType < 0 || xisoType >= XgdTables.XisoOffset.Length) return 0;
 
         return XgdTables.XisoOffset[xisoType];
@@ -585,17 +704,22 @@ public class XisoSharpService : IXisoSharpService
     /// starts. Returns an error message when the output drive is full or uses a file system
     /// that cannot store files of this size (FAT32 4 GB limit); otherwise returns null.
     /// </summary>
-    private string? CheckOutputDrive(string inputFile, long inputFileSize, string outputFolder)
+    private string? CheckOutputDrive(string inputFile, long inputFileSize, string outputFolder,
+        OutputFormat outputFormat)
     {
         try
         {
+            // Compressed outputs (CSO/ZAR/CHD) are smaller than the source; requiring the
+            // full raw size would reject conversions that fit. A conservative 50% estimate
+            // is used for them, and for both the free-space and the FAT32 check.
+            var estimatedOutputSize = outputFormat == OutputFormat.Xiso ? inputFileSize : inputFileSize / 2;
             var availableSpace = _diskMonitorService.GetAvailableFreeSpace(outputFolder);
-            var requiredWithBuffer = inputFileSize + Math.Max(inputFileSize / 10, 200L * 1024 * 1024);
+            var requiredWithBuffer = estimatedOutputSize + Math.Max(estimatedOutputSize / 10, 200L * 1024 * 1024);
 
             if (availableSpace > 0 && availableSpace < requiredWithBuffer)
             {
                 return $"Not enough disk space on the output drive for '{Path.GetFileName(inputFile)}'. " +
-                       $"Required: {Formatter.FormatBytes(inputFileSize)}, Available: {Formatter.FormatBytes(availableSpace)}. " +
+                       $"Estimated required: {Formatter.FormatBytes(estimatedOutputSize)}, Available: {Formatter.FormatBytes(availableSpace)}. " +
                        "Please free up disk space or select a different output folder.";
             }
 
@@ -608,10 +732,10 @@ public class XisoSharpService : IXisoSharpService
             var drive = new DriveInfo(root);
             if (drive.IsReady &&
                 drive.DriveFormat.Equals("FAT32", StringComparison.OrdinalIgnoreCase) &&
-                inputFileSize > (4L * 1024 * 1024 * 1024) - 1)
+                estimatedOutputSize > (4L * 1024 * 1024 * 1024) - 1)
             {
                 return $"The output drive '{drive.Name}' uses FAT32, which cannot store files larger than 4 GB. " +
-                       $"'{Path.GetFileName(inputFile)}' is {Formatter.FormatBytes(inputFileSize)}. " +
+                       $"'{Path.GetFileName(inputFile)}' is {Formatter.FormatBytes(inputFileSize)} (estimated output: {Formatter.FormatBytes(estimatedOutputSize)}). " +
                        "Please use an NTFS or exFAT formatted output drive.";
             }
         }

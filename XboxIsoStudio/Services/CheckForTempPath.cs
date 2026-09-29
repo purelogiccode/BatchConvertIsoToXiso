@@ -19,9 +19,11 @@ public static class CheckForTempPath
         var normalizedSelectedPath = Path.GetFullPath(selectedPath)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-        // Check if the selected path is exactly the system temp path or starts with it (indicating a subfolder)
-        return normalizedSelectedPath.Equals(normalizedSystemTempPath, StringComparison.OrdinalIgnoreCase) ||
+        // Check if the selected path is exactly the system temp path or starts with it (indicating a subfolder).
+        // The comparison is case-sensitive on file systems that are case-sensitive (Linux).
+        var comparison = PathHelper.PathComparison;
+        return normalizedSelectedPath.Equals(normalizedSystemTempPath, comparison) ||
                normalizedSelectedPath.StartsWith(normalizedSystemTempPath + Path.DirectorySeparatorChar,
-                   StringComparison.OrdinalIgnoreCase);
+                   comparison);
     }
 }

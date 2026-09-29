@@ -100,6 +100,10 @@ inputs and then calls `ChdEncoder.EncodeRaw` (CHDSharp) with the chdman `created
 (4096-byte hunks, 2048-byte units, `lzma,zlib,huff,flac`, `DVD ` metadata), followed by a
 header check and — when output integrity is enabled — a full `Chd.CheckFile` deep verification.
 
+Already-optimized inputs are skipped by default; when **Skip $SystemUpdate** is enabled they are
+rewritten through the `$SystemUpdate` filter before CSO/CHD packing, so the option is honored for
+every output format.
+
 The folder-scanning `ConvertAsync`/`TestAsync` overloads remain available for callers that want the
 orchestrator to discover files itself; the UI always passes the explicit list of ticked files.
 
@@ -114,11 +118,15 @@ hidden from the list and move together with part 1.
 
 Safety characteristics of the pipeline:
 
-- **Pre-flight checks** — output-drive free space and FAT32 file-size limits are verified before conversion starts; failures skip the file with a clear message instead of failing late.
+- **Pre-flight checks** — output-drive free space (size-aware for compressed formats) and FAT32 file-size limits are verified before conversion starts; failures skip the file with a clear message instead of failing late.
 - **Environmental errors are surfaced, not reported** — disk-space and network failures stop or skip with actionable messages and are excluded from automatic bug reports.
-- **Transient failures retry** — locked files and network hiccups use exponential backoff (see `FileExtractorService`, `FileMoverService`).
-- **Atomic replace-originals** — deletion of inputs happens only after the converted file exists and (optionally) passes validation.
-- **Cancellation is cooperative** — child processes and I/O loops observe a `CancellationToken`.
+- **Transient failures retry** — locked files and network hiccups use exponential backoff (see `FileExtractorService`, `FileMoverService`); permanent errors are not retried.
+- **Atomic replace-originals** — deletion of inputs happens only after the converted file exists and (optionally) passes validation. An archive is removed only when every entry was extracted and every extracted image was converted; skipped entries or unconverted images keep the archive.
+- **Unique output names** — output paths are reserved per batch, so two inputs with the same base name cannot overwrite each other.
+- **Per-file isolation** — an unreadable, missing, or invalid file is reported individually and never aborts the remaining batch.
+- **Age- and ownership-checked temp cleanup** — only app-created GUID work folders older than six hours are deleted, so user folders and another instance's active work folders are safe.
+- **Lease-guarded explorer** — background copy-outs hold an explorer lease; the explorer is never disposed mid-extraction, and the close flow is reentrancy-guarded.
+- **Cancellation is cooperative** — child processes and I/O loops observe a `CancellationToken`; cleanup runs with `CancellationToken.None` so it cannot mask the original error.
 
 ## Logging
 
@@ -128,7 +136,7 @@ Logging uses a single [Serilog](https://serilog.net/) pipeline configured in `Ap
 2. **File** — rolling daily log under the per-user application-data folder (`%LocalAppData%\XboxIsoStudio\logs` on Windows, `~/.local/share/XboxIsoStudio/logs` or `~/Library/Application Support/XboxIsoStudio/logs` elsewhere) as `log-*.txt` (10 MB per file, 14 files retained) with level and exception details.
 3. **Bug report** (`BugReportSink`) — every event at **Warning or higher** is forwarded to the bug report API (fire-and-forget, never throws).
 
-Services inject `Serilog.ILogger` and log with structured message templates. Expected user/environmental errors are logged at Information level so they do not generate bug reports; genuine defects log at Warning/Error/Fatal.
+Services inject `Serilog.ILogger` and log with structured message templates. Expected user/environmental errors are logged at Information level so they do not generate bug reports; genuine defects log at Warning/Error/Fatal. Failed bug-report deliveries are recorded at Information level instead of being silently dropped.
 
 ## Error Handling and Reporting
 
@@ -142,8 +150,9 @@ Three layers of defense:
 
 | Model | Purpose |
 |:---|:---|
-| `FileProcessingStatus` | Per-file outcome (success/failed/skipped/…) |
-| `BatchOperationProgress` | Progress snapshot used for UI updates |
+| `FileProcessingStatus` | Per-file outcome (converted/skipped/failed/already-optimized/invalid-input) |
+| `BatchOperationProgress` | Progress snapshot used for UI updates, including the invalid-image count |
+| `ArchiveExtractionResult` | Archive extraction outcome (success + skipped entries) used by the archive-deletion safety check |
 | `IsoTestResultStatus` | Test-view outcome states |
 | `ImageEntry` | One file/directory inside an image or archive (name, path, size, type) |
 | `XisoExplorerItem` | Row model for the explorer list (wraps an `ImageEntry`) |
@@ -152,10 +161,14 @@ Three layers of defense:
 
 ## Testing
 
-The `XboxIsoStudio.Tests` project (xUnit, Moq) covers models, services, and helper utilities:
+The `XboxIsoStudio.Tests` project (xUnit, Moq) covers models, services, and helper utilities with
+**398 tests**:
 
 ```bash
 dotnet test CSharp_XboxIsoStudio.sln
 ```
 
-The suite includes service tests (e.g., `OrchestratorServiceTests`, `FileExtractorServiceTests`, `XisoSharpServiceTests`, `XisoIntegrityServiceTests`) plus model and helper coverage. Analyzers (Meziantou, Roslynator) enforce code quality on both projects.
+The suite includes service tests (e.g., `OrchestratorServiceTests`, `FileExtractorServiceTests`, `XisoSharpServiceTests`, `XisoIntegrityServiceTests`) plus model and helper coverage. Tests run
+sequentially (`CollectionBehavior(DisableTestParallelization = true)`) because XISOSharp uses
+process-wide static state and the process working directory during extract/pack. Analyzers
+(Meziantou, Roslynator) enforce code quality on both projects.

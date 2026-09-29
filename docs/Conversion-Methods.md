@@ -42,7 +42,7 @@ XISOSharp Output:
 - **No external tools** — the conversion engines (XISOSharp and CHDSharp) ship inside the application.
 - **Redump-aware** — automatically detects XGD1/XGD2/XGD3 and hybrid partition offsets.
 - **Already-optimized files are skipped** — images carrying the optimized tag are not converted again.
-- **Optional `$SystemUpdate` skipping** for extra space savings.
+- **Optional `$SystemUpdate` skipping** for extra space savings — also honored for already-optimized inputs written as CSO/CHD (they are rewritten through the filter before packing).
 - **Optional output integrity check** — the new XISO is structurally audited before being reported as successful.
 - Integrated with the application's progress reporting, cancellation, and disk monitoring.
 
@@ -69,7 +69,9 @@ cannot be read by the XISO auditor, the source image that is about to be packed 
 `.zip`, `.7z`, and `.rar` archives are processed transparently:
 
 1. The archive is extracted to a temporary folder (SharpCompress is used first; the bundled 7-Zip CLI handles complex `.7z` archives).
-2. Any ISO inside is converted to XISO with XISOSharp.
+2. The first ISO inside is converted to the selected output format with XISOSharp/CHDSharp; additional ISOs, non-ISO images, and unsafe entries are reported as skipped.
 3. Temporary files are cleaned up.
 
 Encrypted or password-protected archives are detected up front and skipped with a clear message.
+With **Delete Originals** enabled, an archive is deleted only when every entry was extracted and
+every extracted image was converted — skipped entries keep the archive.

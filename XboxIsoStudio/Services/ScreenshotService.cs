@@ -62,8 +62,15 @@ public class ScreenshotService : IScreenshotService
         var screenshotsDir = Path.Combine(AppContext.BaseDirectory, "Screenshots");
         Directory.CreateDirectory(screenshotsDir);
 
-        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+        // Milliseconds plus a uniqueness probe: two captures in the same second (or even the
+        // same millisecond) must not overwrite each other.
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture);
         var filePath = Path.Combine(screenshotsDir, $"Screenshot_{timestamp}.png");
+        for (var counter = 2; File.Exists(filePath); counter++)
+        {
+            filePath = Path.Combine(screenshotsDir,
+                $"Screenshot_{timestamp}_{counter.ToString(CultureInfo.InvariantCulture)}.png");
+        }
 
         bitmap.Save(filePath, PngBitmapEncoderOptions.Default);
 

@@ -38,12 +38,16 @@ public class XisoIntegrityService : IXisoIntegrityService
             {
                 if (Path.GetExtension(isoPath).Equals(".zar", StringComparison.OrdinalIgnoreCase))
                 {
-                    return TestZarIntegrity(isoPath, performDeepScan, progress, token);
+                    var zarPassed = TestZarIntegrity(isoPath, performDeepScan, progress, token);
+                    if (!zarPassed) ReportInvalidIso(progress);
+                    return zarPassed;
                 }
 
                 if (Path.GetExtension(isoPath).Equals(".chd", StringComparison.OrdinalIgnoreCase))
                 {
-                    return TestChdIntegrity(isoPath, performDeepScan, progress, token);
+                    var chdPassed = TestChdIntegrity(isoPath, performDeepScan, progress, token);
+                    if (!chdPassed) ReportInvalidIso(progress);
+                    return chdPassed;
                 }
 
                 _logger.Information("Starting structural integrity test for: {FileName}", fileName);
@@ -53,6 +57,7 @@ public class XisoIntegrityService : IXisoIntegrityService
                 // 1. Optional deep surface scan: read the entire image sequentially to test physical media
                 if (performDeepScan && !PerformSurfaceScan(isoPath, progress, token))
                 {
+                    ReportInvalidIso(progress);
                     return false;
                 }
 
@@ -70,6 +75,7 @@ public class XisoIntegrityService : IXisoIntegrityService
                         _logger.Information("  - {Issue:l}", issue);
                     }
 
+                    ReportInvalidIso(progress);
                     return false;
                 }
 
@@ -91,6 +97,14 @@ public class XisoIntegrityService : IXisoIntegrityService
             catch (Exception ex) when (IsInputError(ex))
             {
                 _logger.Information(ex, "Integrity check failed for {FileName}", fileName);
+                // A file that vanished is missing, not an invalid image.
+                if (ex is not FileNotFoundException) ReportInvalidIso(progress);
+                return false;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Permission and I/O problems are environmental, not an application defect.
+                _logger.Information(ex, "Integrity check could not access {FileName}", fileName);
                 return false;
             }
             catch (Exception ex)
@@ -112,6 +126,15 @@ public class XisoIntegrityService : IXisoIntegrityService
                    or FileNotFoundException or EndOfStreamException ||
                (ex is IOException ioException &&
                 ioException.Message.StartsWith("Read error", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Signals that the failed test was caused by an invalid image, so the UI can count
+    /// genuinely invalid files instead of treating every failure as one.
+    /// </summary>
+    private static void ReportInvalidIso(IProgress<BatchOperationProgress> progress)
+    {
+        progress.Report(new BatchOperationProgress { InvalidIsoCount = 1 });
     }
 
     /// <summary>

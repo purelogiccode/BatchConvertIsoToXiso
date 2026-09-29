@@ -144,6 +144,42 @@ public sealed class ChdServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SkipSystemUpdateRewritesOptimizedImageBeforeEncoding()
+    {
+        var isoPath = CreateOptimizedXiso();
+        var xisoSharp = new Mock<IXisoSharpService>();
+        xisoSharp.Setup(static s => s.ConvertIsoAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<OutputFormat>(), It.IsAny<bool>(), It.IsAny<bool>(),
+                It.IsAny<IProgress<BatchOperationProgress>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(FileProcessingStatus.Failed);
+        var service = new ChdService(_logger.Logger, xisoSharp.Object);
+
+        var status = await service.ConvertIsoToChdAsync(isoPath, Path.Combine(_tempRoot, "out"), "game.chd", true,
+            false, new Progress<BatchOperationProgress>(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Failed, status);
+        xisoSharp.Verify(s => s.ConvertIsoAsync(isoPath, It.IsAny<string>(), "source.iso", OutputFormat.Xiso, true,
+            false, It.IsAny<IProgress<BatchOperationProgress>>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task OptimizedImageWithoutSkipSystemUpdateIsPackedDirectly()
+    {
+        var isoPath = CreateOptimizedXiso();
+        var xisoSharp = new Mock<IXisoSharpService>();
+        var service = new ChdService(_logger.Logger, xisoSharp.Object);
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        var status = await service.ConvertIsoToChdAsync(isoPath, outputFolder, "game.chd", false, false,
+            new Progress<BatchOperationProgress>(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        xisoSharp.Verify(static s => s.ConvertIsoAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<OutputFormat>(), It.IsAny<bool>(), It.IsAny<bool>(),
+            It.IsAny<IProgress<BatchOperationProgress>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task InvalidImageReturnsFailedWithoutBugReport()
     {
         var badIso = Path.Combine(_tempRoot, "bad.iso");
@@ -153,7 +189,7 @@ public sealed class ChdServiceTests : IDisposable
         var status = await service.ConvertIsoToChdAsync(badIso, Path.Combine(_tempRoot, "out"), "bad.chd", false,
             false, new Progress<BatchOperationProgress>(), CancellationToken.None);
 
-        Assert.Equal(FileProcessingStatus.Failed, status);
+        Assert.Equal(FileProcessingStatus.InvalidInput, status);
         Assert.DoesNotContain(_logger.Events, e => e.Level >= LogEventLevel.Warning);
     }
 }

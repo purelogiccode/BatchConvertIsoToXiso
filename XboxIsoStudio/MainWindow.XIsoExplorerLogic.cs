@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -11,6 +12,10 @@ using XboxIsoStudio.Services;
 
 namespace XboxIsoStudio;
 
+[SuppressMessage("ReSharper", "UnusedMember.Local",
+    Justification = "XAML event handlers are resolved by the Avalonia markup compiler, which ReSharper does not link across partial class files.")]
+[SuppressMessage("ReSharper", "UnusedParameter.Local",
+    Justification = "Parameters are required by XAML event handler signatures (sender, event args).")]
 public partial class MainWindow
 {
     // Drag-drop state tracking
@@ -56,21 +61,97 @@ public partial class MainWindow
 
     private void InitializeExplorer(string imagePath)
     {
+        IImageExplorer? previous;
+        lock (_explorerLock)
+        {
+            previous = _explorer;
+            // Clear the reference before opening: if the factory throws, the field must
+            // not keep pointing at the explorer that was just disposed.
+            _explorer = null;
+        }
+
+        // Dispose the previous explorer only after any background copy-out using it finishes.
+        RetireExplorer(previous);
+
         try
         {
+            var explorer = ImageExplorerFactory.Open(imagePath);
             lock (_explorerLock)
             {
-                _explorer?.Dispose();
-                _explorer = ImageExplorerFactory.Open(imagePath);
+                _explorer = explorer;
             }
 
             LoadDirectory("/");
         }
         catch (Exception ex)
         {
+            lock (_explorerLock)
+            {
+                _explorer = null;
+            }
+
             _logger.Error(ex, "Failed to read image: {ImagePath}", imagePath);
             _ = _messageBoxService.ShowErrorAsync($"Failed to read image: {ex.Message}");
+
+            // The grid would otherwise keep showing the previous (now disposed) image.
+            ExplorerDataGrid.ItemsSource = null;
+            _currentInternalPath = "/";
+            UpdateExplorerUiState();
         }
+    }
+
+    /// <summary>
+    ///     Runs <paramref name="action" /> on the current explorer while holding it in use,
+    ///     so opening another image or closing the window cannot dispose it mid-operation.
+    ///     Returns false when no explorer is open.
+    /// </summary>
+    private async Task<bool> UseExplorerAsync(Action<IImageExplorer> action, CancellationToken token)
+    {
+        await _explorerUseLock.WaitAsync(token);
+        try
+        {
+            IImageExplorer? explorer;
+            lock (_explorerLock)
+            {
+                explorer = _explorer;
+            }
+
+            if (explorer == null) return false;
+
+            action(explorer);
+            return true;
+        }
+        finally
+        {
+            _explorerUseLock.Release();
+        }
+    }
+
+    /// <summary>
+    ///     Disposes <paramref name="explorer" /> after any in-flight copy-out that is still
+    ///     using it has finished, without blocking the caller.
+    /// </summary>
+    private void RetireExplorer(IImageExplorer? explorer)
+    {
+        if (explorer == null) return;
+
+        _ = Task.Run(async () =>
+        {
+            // Retirement must always complete, so it deliberately ignores cancellation.
+            await _explorerUseLock.WaitAsync(CancellationToken.None);
+            try
+            {
+                explorer.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug(ex, "Error disposing the image explorer");
+            }
+            finally
+            {
+                _explorerUseLock.Release();
+            }
+        }, CancellationToken.None);
     }
 
     private void LoadDirectory(string internalPath)
@@ -144,15 +225,11 @@ public partial class MainWindow
                 Directory.CreateDirectory(tempFolder);
                 var tempPath = Path.Combine(tempFolder, fileName);
 
-                // Extract file to temp location
-                IImageExplorer explorer;
-                lock (_explorerLock)
+                // Extract file to temp location while the explorer is held in use.
+                if (!await UseExplorerAsync(explorer => explorer.CopyOut(entry.FullPath, tempPath), _cts.Token))
                 {
-                    if (_explorer == null) return;
-                    explorer = _explorer;
+                    return;
                 }
-
-                explorer.CopyOut(entry.FullPath, tempPath);
 
                 // Open with default application on UI thread
                 await Dispatcher.UIThread.InvokeAsync(() =>
@@ -194,6 +271,10 @@ public partial class MainWindow
                     }
                 });
             }
+            catch (OperationCanceledException)
+            {
+                _logger.Debug("Extracting and opening file from image was canceled: {FileName}", fileName);
+            }
             catch (Exception ex)
             {
                 _logger.Error(ex, "Failed to extract and open file from image: {FileName}", fileName);
@@ -230,33 +311,30 @@ public partial class MainWindow
 
             if (selectedItems is not { Count: > 0 }) return;
 
+            string? tempFolder = null;
             try
             {
                 _isDragging = true;
                 // Extract files to temp folder for drag operation
                 var totalSize = selectedItems.Sum(static i => i.Entry.Size);
-                var tempFolder = ResolveExplorerTempDirectory(totalSize, "ImageExplorer_DragDrop");
-                Directory.CreateDirectory(tempFolder);
+                var folder = ResolveExplorerTempDirectory(totalSize, "ImageExplorer_DragDrop");
+                tempFolder = folder;
+                Directory.CreateDirectory(folder);
 
                 var tempFiles = new List<string>();
 
-                // Perform extraction asynchronously to avoid UI freeze
-                await Task.Run(() =>
+                // Perform extraction while the explorer is held in use.
+                var copied = await UseExplorerAsync(explorer =>
                 {
-                    IImageExplorer explorer;
-                    lock (_explorerLock)
-                    {
-                        if (_explorer == null) return;
-                        explorer = _explorer;
-                    }
-
                     foreach (var item in selectedItems)
                     {
-                        var tempPath = Path.Combine(tempFolder, item.Name);
+                        var tempPath = Path.Combine(folder, item.Name);
                         explorer.CopyOut(item.Entry.FullPath, tempPath);
                         tempFiles.Add(tempPath);
                     }
-                });
+                }, _cts.Token);
+
+                if (!copied) return;
 
                 // Start drag operation with the file drop list
                 var topLevel = GetTopLevel(this);
@@ -279,17 +357,10 @@ public partial class MainWindow
                         await DragDrop.DoDragDropAsync(_dragPointerArgs, data, DragDropEffects.Copy);
                     }
                 }
-
-                // Cleanup temp files after drag operation completes
-                try
-                {
-                    Directory.Delete(tempFolder, true);
-                }
-                catch (Exception cleanupEx)
-                {
-                    // Ignore cleanup errors
-                    _logger.Debug(cleanupEx, "Could not delete drag-and-drop temp folder: {TempFolder}", tempFolder);
-                }
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.Debug("Drag operation canceled");
             }
             catch (Exception ex)
             {
@@ -298,6 +369,20 @@ public partial class MainWindow
             }
             finally
             {
+                // The temp folder must be removed on every path, including a failed extraction.
+                if (tempFolder != null)
+                {
+                    try
+                    {
+                        Directory.Delete(tempFolder, true);
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        _logger.Debug(cleanupEx, "Could not delete drag-and-drop temp folder: {TempFolder}",
+                            tempFolder);
+                    }
+                }
+
                 _isDragging = false;
             }
         }

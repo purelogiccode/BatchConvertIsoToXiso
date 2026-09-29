@@ -139,6 +139,16 @@ public sealed class ImageExplorerTests : IDisposable
     }
 
     [Fact]
+    public void ChdImageExplorerNonDvdChdThrows()
+    {
+        var isoPath = CreateXiso();
+        var rawChd = Path.Combine(_tempRoot, "raw.chd");
+        ChdTestHelper.CreateRawChd(isoPath, rawChd);
+
+        Assert.Throws<InvalidDataException>(() => ImageExplorerFactory.Open(rawChd));
+    }
+
+    [Fact]
     public void ZarImageExplorerCopiesDirectoriesRecursively()
     {
         var zarPath = CreateZar();

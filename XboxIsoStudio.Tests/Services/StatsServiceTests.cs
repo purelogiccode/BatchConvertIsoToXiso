@@ -49,6 +49,18 @@ public class StatsServiceTests
     }
 
     [Fact]
+    public void ConstructorDoesNotMutateInjectedHttpClient()
+    {
+        using var httpClient = new HttpClient();
+
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp",
+            _logger.Logger);
+
+        Assert.NotNull(service);
+        Assert.Null(httpClient.DefaultRequestHeaders.Authorization);
+    }
+
+    [Fact]
     public async Task SendStatsAsyncServerErrorDoesNotThrow()
     {
         var httpClient = CreateHttpClient(HttpStatusCode.InternalServerError);

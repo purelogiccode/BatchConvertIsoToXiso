@@ -154,7 +154,8 @@ public class OrchestratorServiceTests : IDisposable
         FileProcessingStatus conversionStatus,
         bool integrityResult = false,
         Mock<IXisoSharpService>? xisoSharp = null,
-        Mock<IChdService>? chdService = null)
+        Mock<IChdService>? chdService = null,
+        Mock<IXisoIntegrityService>? integrity = null)
     {
         var logger = new TestLogger();
         var diskMonitor = new Mock<IDiskMonitorService>();
@@ -168,10 +169,13 @@ public class OrchestratorServiceTests : IDisposable
                 File.Move(source, Path.Combine(destinationFolder, Path.GetFileName(source)), true);
                 return Task.CompletedTask;
             });
-        var integrity = new Mock<IXisoIntegrityService>();
-        integrity.Setup(static i => i.TestIsoIntegrityAsync(It.IsAny<string>(), It.IsAny<bool>(),
-                It.IsAny<IProgress<BatchOperationProgress>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(integrityResult);
+        if (integrity == null)
+        {
+            integrity = new Mock<IXisoIntegrityService>();
+            integrity.Setup(static i => i.TestIsoIntegrityAsync(It.IsAny<string>(), It.IsAny<bool>(),
+                    It.IsAny<IProgress<BatchOperationProgress>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(integrityResult);
+        }
 
         if (xisoSharp == null)
         {
@@ -243,7 +247,7 @@ public class OrchestratorServiceTests : IDisposable
             {
                 Directory.CreateDirectory(extractionPath);
                 File.WriteAllText(Path.Combine(extractionPath, "game.iso"), "iso data");
-                return true;
+                return new ArchiveExtractionResult(true, []);
             });
         var orchestrator = CreateOrchestrator(extractor,
             FileProcessingStatus.AlreadyOptimized);
@@ -251,6 +255,203 @@ public class OrchestratorServiceTests : IDisposable
         await RunConvertAsync(orchestrator, true);
 
         Assert.True(File.Exists(archivePath));
+    }
+
+    [Fact]
+    public async Task ConvertAsyncDeleteOriginalsKeepsArchiveWhenExtractorSkippedAnEntry()
+    {
+        var archivePath = CreateTempFile("games.zip", "archive data");
+        var extractor = new Mock<IFileExtractor>();
+        extractor.Setup(static e => e.GetArchiveInfoAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((100L, 2));
+        extractor.Setup(static e => e.ExtractArchiveAsync(It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, string extractionPath, CancellationToken _) =>
+            {
+                Directory.CreateDirectory(extractionPath);
+                File.WriteAllText(Path.Combine(extractionPath, "disc1.iso"), "iso data");
+                // The built-in extractor leaves additional ISOs in the archive on purpose.
+                return new ArchiveExtractionResult(true, ["disc2.iso"]);
+            });
+        var orchestrator = CreateOrchestrator(extractor, FileProcessingStatus.Converted);
+
+        await RunConvertAsync(orchestrator, true);
+
+        Assert.True(File.Exists(archivePath));
+    }
+
+    [Fact]
+    public async Task ConvertAsyncDeleteOriginalsKeepsArchiveWhenAnExtractedImageWasNotConverted()
+    {
+        var archivePath = CreateTempFile("games.zip", "archive data");
+        var extractor = new Mock<IFileExtractor>();
+        extractor.Setup(static e => e.GetArchiveInfoAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((100L, 2));
+        extractor.Setup(static e => e.ExtractArchiveAsync(It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, string extractionPath, CancellationToken _) =>
+            {
+                Directory.CreateDirectory(extractionPath);
+                File.WriteAllText(Path.Combine(extractionPath, "game.iso"), "iso data");
+                File.WriteAllText(Path.Combine(extractionPath, "extra.cso"), "cso data");
+                return new ArchiveExtractionResult(true, []);
+            });
+        var orchestrator = CreateOrchestrator(extractor, FileProcessingStatus.Converted);
+
+        await RunConvertAsync(orchestrator, true);
+
+        Assert.True(File.Exists(archivePath));
+    }
+
+    [Fact]
+    public async Task ConvertFilesAsyncDeleteOriginalsKeepsArchiveWhenAnExtractedImageIsInvalid()
+    {
+        var archivePath = CreateTempFile("games.zip", "archive data");
+        var extractor = new Mock<IFileExtractor>();
+        extractor.Setup(static e => e.GetArchiveInfoAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((100L, 1));
+        extractor.Setup(static e => e.ExtractArchiveAsync(It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, string extractionPath, CancellationToken _) =>
+            {
+                Directory.CreateDirectory(extractionPath);
+                File.WriteAllText(Path.Combine(extractionPath, "game.iso"), "iso data");
+                return new ArchiveExtractionResult(true, []);
+            });
+        var orchestrator = CreateOrchestrator(extractor, FileProcessingStatus.InvalidInput);
+        var progress = new CollectingProgress();
+
+        await orchestrator.ConvertFilesAsync([archivePath], Path.Combine(_tempDir, "out"), true, false, false,
+            OutputFormat.Xiso, progress, CloudRetrySkip, CancellationToken.None);
+
+        Assert.True(File.Exists(archivePath));
+        Assert.Contains(progress.Reports, p => p.InvalidIsoCount == 1);
+    }
+
+    [Fact]
+    public async Task ConvertAsyncDeleteOriginalsRemovesArchiveWhenEveryExtractedImageIsConverted()
+    {
+        var archivePath = CreateTempFile("games.zip", "archive data");
+        var extractor = new Mock<IFileExtractor>();
+        extractor.Setup(static e => e.GetArchiveInfoAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((100L, 1));
+        extractor.Setup(static e => e.ExtractArchiveAsync(It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, string extractionPath, CancellationToken _) =>
+            {
+                Directory.CreateDirectory(extractionPath);
+                File.WriteAllText(Path.Combine(extractionPath, "game.iso"), "iso data");
+                return new ArchiveExtractionResult(true, []);
+            });
+        var orchestrator = CreateOrchestrator(extractor, FileProcessingStatus.Converted);
+
+        await RunConvertAsync(orchestrator, true);
+
+        Assert.False(File.Exists(archivePath));
+    }
+
+    #endregion
+
+    #region Output Name Collision Tests
+
+    [Fact]
+    public async Task ConvertFilesAsyncSameNamedInputsGetDistinctOutputNames()
+    {
+        var disc1 = Path.Combine(_tempDir, "Disc1");
+        var disc2 = Path.Combine(_tempDir, "Disc2");
+        Directory.CreateDirectory(disc1);
+        Directory.CreateDirectory(disc2);
+        var file1 = Path.Combine(disc1, "game.iso");
+        var file2 = Path.Combine(disc2, "game.iso");
+        File.WriteAllText(file1, "iso data");
+        File.WriteAllText(file2, "iso data");
+
+        var outputNames = new List<string>();
+        var xisoSharp = new Mock<IXisoSharpService>();
+        xisoSharp.Setup(static s => s.ConvertIsoAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<OutputFormat>(), It.IsAny<bool>(), It.IsAny<bool>(),
+                It.IsAny<IProgress<BatchOperationProgress>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, string _, string outputName, OutputFormat _, bool _, bool _,
+                IProgress<BatchOperationProgress> _, CancellationToken _) =>
+            {
+                outputNames.Add(outputName);
+                return FileProcessingStatus.Converted;
+            });
+
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), FileProcessingStatus.Converted,
+            xisoSharp: xisoSharp);
+
+        await orchestrator.ConvertFilesAsync([file1, file2], Path.Combine(_tempDir, "out"), true, false, false,
+            OutputFormat.Xiso, new Progress<BatchOperationProgress>(), CloudRetrySkip, CancellationToken.None);
+
+        Assert.Equal(2, outputNames.Count);
+        Assert.Equal(2, outputNames.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Contains(outputNames, name => name.Equals("game.iso", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(outputNames, name => name.Equals("game (2).iso", StringComparison.OrdinalIgnoreCase));
+        Assert.False(File.Exists(file1));
+        Assert.False(File.Exists(file2));
+    }
+
+    #endregion
+
+    #region Test Error Handling Tests
+
+    [Fact]
+    public async Task TestFilesAsyncContinuesAfterUnreadableFile()
+    {
+        // A directory with an image extension cannot be opened as a file; before the fix
+        // the resulting exception aborted the whole batch.
+        var unreadablePath = Path.Combine(_tempDir, "unreadable.iso");
+        Directory.CreateDirectory(unreadablePath);
+        var goodPath = CreateTempFile("good.iso", "iso data");
+
+        var testedPaths = new List<string>();
+        var integrity = new Mock<IXisoIntegrityService>();
+        integrity.Setup(static i => i.TestIsoIntegrityAsync(It.IsAny<string>(), It.IsAny<bool>(),
+                It.IsAny<IProgress<BatchOperationProgress>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string path, bool _, IProgress<BatchOperationProgress> _, CancellationToken _) =>
+            {
+                testedPaths.Add(path);
+                return true;
+            });
+
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), FileProcessingStatus.Converted,
+            integrity: integrity);
+
+        await orchestrator.TestFilesAsync(_tempDir, [unreadablePath, goodPath], false, false, false,
+            new Progress<BatchOperationProgress>(), CloudRetrySkip, CancellationToken.None);
+
+        Assert.Contains(testedPaths, path => path.Equals(goodPath, StringComparison.OrdinalIgnoreCase));
+    }
+
+    #endregion
+
+    #region Test Temp Cleanup Tests
+
+    [Fact]
+    public async Task TestFilesAsyncCleansUpTempCopyWhenCloudCopyFails()
+    {
+        var isoPath = CreateTempFile("locked.iso", "iso data");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "XboxIsoStudio_Test");
+        var before = Directory.Exists(tempRoot)
+            ? Directory.GetDirectories(tempRoot).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), FileProcessingStatus.Converted,
+            integrityResult: true);
+
+        // Holding the file without sharing makes the readability probe fail, so the
+        // orchestrator takes the cloud-copy path — which then also fails.
+        await using (new FileStream(isoPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            await orchestrator.TestFilesAsync(_tempDir, [isoPath], false, false, false,
+                new Progress<BatchOperationProgress>(), CloudRetrySkip, CancellationToken.None);
+        }
+
+        var after = Directory.Exists(tempRoot)
+            ? Directory.GetDirectories(tempRoot).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        Assert.Empty(after.Except(before, StringComparer.OrdinalIgnoreCase));
     }
 
     #endregion
@@ -298,6 +499,49 @@ public class OrchestratorServiceTests : IDisposable
             new Progress<BatchOperationProgress>(), CloudRetrySkip, CancellationToken.None);
 
         Assert.True(File.Exists(binPath));
+    }
+
+    [Fact]
+    public async Task ConvertFilesAsyncEngineSkippedStatusCountsAsSkipped()
+    {
+        var isoPath = CreateTempFile("game.iso", "iso data");
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), FileProcessingStatus.Skipped);
+        var progress = new CollectingProgress();
+
+        await orchestrator.ConvertFilesAsync([isoPath], Path.Combine(_tempDir, "out"), false, false, false,
+            OutputFormat.Xiso, progress, CloudRetrySkip, CancellationToken.None);
+
+        Assert.Contains(progress.Reports, p => p.SkippedCount == 1);
+        Assert.DoesNotContain(progress.Reports, p => p.FailedCount > 0);
+    }
+
+    [Fact]
+    public async Task ConvertFilesAsyncEngineInvalidInputCountsAsFailedAndInvalidIso()
+    {
+        var isoPath = CreateTempFile("game.iso", "iso data");
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), FileProcessingStatus.InvalidInput);
+        var progress = new CollectingProgress();
+
+        await orchestrator.ConvertFilesAsync([isoPath], Path.Combine(_tempDir, "out"), true, false, false,
+            OutputFormat.Xiso, progress, CloudRetrySkip, CancellationToken.None);
+
+        Assert.Contains(progress.Reports, p => p.FailedCount == 1 && p.InvalidIsoCount == 1);
+        // An invalid input must never lead to deletion of the original file.
+        Assert.True(File.Exists(isoPath));
+    }
+
+    [Fact]
+    public async Task ConvertFilesAsyncEngineFailureDoesNotCountAsInvalidIso()
+    {
+        var isoPath = CreateTempFile("game.iso", "iso data");
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), FileProcessingStatus.Failed);
+        var progress = new CollectingProgress();
+
+        await orchestrator.ConvertFilesAsync([isoPath], Path.Combine(_tempDir, "out"), false, false, false,
+            OutputFormat.Xiso, progress, CloudRetrySkip, CancellationToken.None);
+
+        Assert.Contains(progress.Reports, p => p.FailedCount == 1);
+        Assert.DoesNotContain(progress.Reports, p => p.InvalidIsoCount > 0);
     }
 
     [Fact]

@@ -31,7 +31,11 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
     public void StartMonitoring(string? path)
     {
         var driveLetter = PathHelper.GetDriveLetter(path);
-        if (string.Equals(CurrentDriveLetter, driveLetter, StringComparison.OrdinalIgnoreCase)) return;
+        var isNetworkPath = PathHelper.IsNetworkPath(path);
+
+        // Never treat a UNC path (which has no drive letter, so both values are null) as
+        // "same drive" before the network check below; otherwise its status is never shown.
+        if (!isNetworkPath && string.Equals(CurrentDriveLetter, driveLetter, StringComparison.OrdinalIgnoreCase)) return;
 
         StopMonitoring();
 
@@ -42,7 +46,7 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         }
 
         // Check for network drives - explicitly excluded from speed monitoring
-        if (PathHelper.IsNetworkPath(path))
+        if (isNetworkPath)
         {
             StatusMessage = "Disk speed monitoring unavailable for network drives";
             _logger.Information("Disk speed monitoring unavailable for network drives.");
@@ -76,17 +80,18 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
                 return;
             }
 
-            // Initialize read speed counter
+            // Initialize read speed counter. Assign the field before priming so the catch
+            // path (StopMonitoring) disposes the handle when NextValue throws.
             var readCounter =
                 new PerformanceCounter("LogicalDisk", "Disk Read Bytes/sec", perfCounterInstanceName, true);
-            readCounter.NextValue(); // Prime the counter
             _diskReadSpeedCounter = readCounter;
+            readCounter.NextValue(); // Prime the counter
 
             // Initialize write speed counter
             var writeCounter =
                 new PerformanceCounter("LogicalDisk", "Disk Write Bytes/sec", perfCounterInstanceName, true);
-            writeCounter.NextValue(); // Prime the counter
             _diskWriteSpeedCounter = writeCounter;
+            writeCounter.NextValue(); // Prime the counter
 
             CurrentDriveLetter = driveLetter;
             StatusMessage = null; // Clear any previous status
@@ -94,9 +99,12 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         }
         catch (Exception ex)
         {
-            StatusMessage = "Disk speed monitoring unavailable - performance counter error";
-            _logger.Warning(ex, "Failed to initialize disk monitor for {Drive}", perfCounterInstanceName);
+            // StopMonitoring clears the status message, so set it afterwards — otherwise the
+            // UI can never show the reason why monitoring is unavailable.
             StopMonitoring();
+            StatusMessage = "Disk speed monitoring unavailable - performance counter error";
+            // Performance counters being unavailable/broken is environmental, not a defect.
+            _logger.Information(ex, "Failed to initialize disk monitor for {Drive}", perfCounterInstanceName);
         }
     }
 
@@ -122,7 +130,7 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.Warning(ex, "Failed to read current disk read speed. Stopping monitoring.");
+            _logger.Information(ex, "Failed to read current disk read speed. Stopping monitoring.");
             StopMonitoring();
             return "N/A";
         }
@@ -140,7 +148,7 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.Warning(ex, "Failed to read current disk write speed. Stopping monitoring.");
+            _logger.Information(ex, "Failed to read current disk write speed. Stopping monitoring.");
             StopMonitoring();
             return "N/A";
         }
@@ -211,6 +219,7 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
         try
         {
             var excludedRoot = excludeDrive?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var requiredWithBuffer = PathHelper.AddSafetyBuffer(requiredBytes);
 
             var drives = DriveInfo.GetDrives();
             foreach (var drive in drives)
@@ -234,7 +243,6 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
                 if (excludedRoot != null && root.Equals(excludedRoot, StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                var requiredWithBuffer = requiredBytes + Math.Max(requiredBytes / 10, 200L * 1024 * 1024);
                 if (drive.AvailableFreeSpace >= requiredWithBuffer)
                     return drive.Name;
             }

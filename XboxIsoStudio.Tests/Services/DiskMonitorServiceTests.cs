@@ -36,6 +36,30 @@ public class DiskMonitorServiceTests
 
     #endregion
 
+    #region StartMonitoring Tests
+
+    [Fact]
+    public void StartMonitoringUncPathShowsNetworkStatusOnWindows()
+    {
+        var service = CreateService();
+
+        service.StartMonitoring(@"\\server\share");
+
+        if (OperatingSystem.IsWindows())
+        {
+            // A UNC path has no drive letter; it must still reach the network-drive branch
+            // instead of being treated as an unchanged drive.
+            Assert.Equal("Disk speed monitoring unavailable for network drives", service.StatusMessage);
+        }
+        else
+        {
+            // Performance counters are not available at all on Linux/macOS.
+            Assert.Null(service.StatusMessage);
+        }
+    }
+
+    #endregion
+
     #region GetAvailableFreeSpace Tests
 
     [Fact]

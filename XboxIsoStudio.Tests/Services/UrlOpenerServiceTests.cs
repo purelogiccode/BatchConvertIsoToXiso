@@ -23,6 +23,8 @@ public class UrlOpenerServiceTests
         var ex = Record.Exception(() => service.OpenUrl("not_a_valid_url"));
 
         Assert.NotNull(ex);
-        Assert.True(_logger.HasMessage(LogEventLevel.Error, "Error opening URL"));
+        // A failed browser launch is environmental and must not be uploaded as a bug report.
+        Assert.True(_logger.HasMessage(LogEventLevel.Information, "Error opening URL"));
+        Assert.DoesNotContain(_logger.Events, e => e.Level >= LogEventLevel.Warning);
     }
 }

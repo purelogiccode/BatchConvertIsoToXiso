@@ -320,4 +320,31 @@ public sealed class XisoIntegrityServiceTests : IDisposable
         Assert.False(passed);
         Assert.DoesNotContain(_logger.Events, e => e.Level >= LogEventLevel.Warning);
     }
+
+    [Fact]
+    public async Task InvalidImageReportsInvalidIsoCount()
+    {
+        var badIso = Path.Combine(_tempRoot, "bad.iso");
+        File.WriteAllText(badIso, "this is not an xiso image");
+        var service = CreateService();
+        var progress = new CollectingProgress();
+
+        var passed = await service.TestIsoIntegrityAsync(badIso, false, progress, CancellationToken.None);
+
+        Assert.False(passed);
+        Assert.Equal(1, progress.Reports.Where(p => p.InvalidIsoCount.HasValue).Sum(p => p.InvalidIsoCount!.Value));
+    }
+
+    [Fact]
+    public async Task MissingFileDoesNotReportInvalidIsoCount()
+    {
+        var service = CreateService();
+        var progress = new CollectingProgress();
+
+        var passed = await service.TestIsoIntegrityAsync(Path.Combine(_tempRoot, "missing.iso"), false, progress,
+            CancellationToken.None);
+
+        Assert.False(passed);
+        Assert.DoesNotContain(progress.Reports, p => p.InvalidIsoCount > 0);
+    }
 }

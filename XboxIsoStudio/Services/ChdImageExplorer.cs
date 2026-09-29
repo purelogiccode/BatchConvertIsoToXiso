@@ -21,6 +21,17 @@ internal sealed class ChdImageExplorer : IImageExplorer
     {
         _imageName = Path.GetFileName(chdPath);
 
+        // Parsing is limited to Xbox DVD images: reject CD/GD-ROM/hard-disk/unknown CHDs at
+        // open time instead of failing later in ListChildren/CopyOut.
+        var classifyError = Chd.Classify(chdPath, out var classification);
+        if (classifyError != ChdError.Chderrnone || !string.Equals(classification, "dvd", StringComparison.Ordinal))
+        {
+            var reason = classifyError != ChdError.Chderrnone
+                ? classifyError.GetMessage()
+                : classification ?? "unknown media type";
+            throw new InvalidDataException($"CHD image is not an Xbox DVD image ({reason}): {chdPath}");
+        }
+
         var error = ChdFile.OpenAsStream(chdPath, out var stream);
         if (error != ChdError.Chderrnone || stream is null)
         {

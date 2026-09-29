@@ -1,7 +1,5 @@
 using System.Diagnostics;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -35,6 +33,7 @@ public partial class MainWindow : Window
     private int _uiSkippedCount;
     private bool _isOperationRunning;
     private bool _isForceClosing;
+    private bool _isClosingInProgress;
 
     private int _invalidIsoErrorCount;
     private int _totalProcessedFiles;
@@ -43,6 +42,10 @@ public partial class MainWindow : Window
     // Image Explorer State
     private IImageExplorer? _explorer;
     private readonly Lock _explorerLock = new();
+
+    // Serializes CopyOut with explorer disposal: an explorer is only disposed once any
+    // background copy-out still using it has finished.
+    private readonly SemaphoreSlim _explorerUseLock = new(1, 1);
     private string _currentInternalPath = "/";
 
     /// <summary>Set once the constructor finished so XAML-driven events can be ignored during load.</summary>
@@ -150,36 +153,56 @@ public partial class MainWindow : Window
         {
             if (_isForceClosing) return;
 
+            // A close is already being negotiated (for example the Exit button was clicked
+            // while the confirmation dialog is open): keep vetoing without starting a second flow.
+            if (_isClosingInProgress)
+            {
+                e.Cancel = true;
+                return;
+            }
+
             // Never close synchronously: when an operation is running this handler needs
             // an asynchronous confirmation, and Avalonia does not pump a nested loop.
             e.Cancel = true;
+            _isClosingInProgress = true;
             _ = HandleClosingAsync();
         }
         catch (Exception ex)
         {
+            _isClosingInProgress = false;
             _logger.Error(ex, "Error while closing the main window");
         }
     }
 
     private async Task HandleClosingAsync()
     {
-        if (_isOperationRunning)
+        try
         {
-            var result = await _messageBoxService.ShowAsync("An operation is still running. Exit anyway?", "Warning",
-                UiMessageBoxButton.YesNo, UiMessageBoxImage.Warning);
-            if (result != UiMessageBoxResult.Yes)
+            if (_isOperationRunning)
             {
+                var result = await _messageBoxService.ShowAsync("An operation is still running. Exit anyway?", "Warning",
+                    UiMessageBoxButton.YesNo, UiMessageBoxImage.Warning);
+                if (result != UiMessageBoxResult.Yes)
+                {
+                    // The user chose to keep working: allow a future close attempt.
+                    _isClosingInProgress = false;
+                    return;
+                }
+
+                await WaitForOperationAndCloseAsync();
                 return;
             }
 
-            await WaitForOperationAndCloseAsync();
-            return;
+            // No operation running, safe to close immediately
+            CleanupResources();
+            _isForceClosing = true;
+            Close();
         }
-
-        // No operation running, safe to close immediately
-        CleanupResources();
-        _isForceClosing = true;
-        Close();
+        catch (Exception ex)
+        {
+            _isClosingInProgress = false;
+            _logger.Error(ex, "Error while handling window close");
+        }
     }
 
     private async Task WaitForOperationAndCloseAsync()
@@ -228,6 +251,8 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            // The window did not close: allow a future close attempt.
+            _isClosingInProgress = false;
             _logger.Error(ex, "Error while waiting for the current operation to cancel");
         }
     }
@@ -236,10 +261,15 @@ public partial class MainWindow : Window
     {
         try
         {
+            IImageExplorer? explorer;
             lock (_explorerLock)
             {
-                _explorer?.Dispose();
+                explorer = _explorer;
+                _explorer = null;
             }
+
+            // Deferred: a background copy-out may still be reading from the explorer.
+            RetireExplorer(explorer);
 
             _processingTimer.Stop();
             _memoryTimer.Stop();
@@ -270,14 +300,10 @@ public partial class MainWindow : Window
 
     private void ExitMenuItem_Click(object? sender, RoutedEventArgs e)
     {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            desktop.Shutdown();
-        }
-        else
-        {
-            Environment.Exit(0);
-        }
+        // Close the window instead of calling desktop.Shutdown(): Shutdown() forces the
+        // window closed even when Window_Closing cancels, which bypasses the
+        // "operation still running" confirmation. Close() lets the handler veto.
+        Close();
     }
 
     private async void Window_KeyDownAsync(object? sender, KeyEventArgs e)

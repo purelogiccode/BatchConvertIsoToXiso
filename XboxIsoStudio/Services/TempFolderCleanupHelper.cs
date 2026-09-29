@@ -22,7 +22,10 @@ public static class TempFolderCleanupHelper
             }
             catch (OperationCanceledException)
             {
-                throw;
+                // Cleanup runs from finally blocks; cancellation must not mask the
+                // original operation error.
+                logger?.Debug("Deletion of '{TempFolder}' was canceled", Path.GetFileName(directoryPath));
+                return;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -34,7 +37,16 @@ public static class TempFolderCleanupHelper
                     logger?.Warning(ex,
                         "Deletion attempt {Attempt}/{MaxRetries} failed for '{TempFolder}' ({Reason}). Retrying...",
                         attempt, maxRetries, Path.GetFileName(directoryPath), reason);
-                    await Task.Delay(delayMs, cancellationToken);
+                    try
+                    {
+                        await Task.Delay(delayMs, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        logger?.Debug("Deletion retry for '{TempFolder}' was canceled",
+                            Path.GetFileName(directoryPath));
+                        return;
+                    }
                 }
             }
             catch (Exception ex)
@@ -49,13 +61,65 @@ public static class TempFolderCleanupHelper
     }
 
     /// <summary>
-    /// Cleans up all XboxIsoStudio temp folders on all fixed drives
+    ///     Work folders are always created as <c>&lt;XboxIsoStudio_*&gt;/&lt;guid&gt;</c>.
+    ///     Cleanup only removes those GUID-named children, and only when they are old
+    ///     enough that no running instance can still be using them. Unrelated user
+    ///     folders with the same prefix and another instance's fresh work folders are
+    ///     therefore left alone.
+    /// </summary>
+    private static readonly TimeSpan MinimumOrphanAge = TimeSpan.FromHours(6);
+
+    /// <summary>
+    ///     Finds stale <c>&lt;XboxIsoStudio_*&gt;/&lt;guid&gt;</c> work folders under the given
+    ///     roots. Only GUID-named children older than <see cref="MinimumOrphanAge" /> are
+    ///     returned; everything else is considered user data or still in use.
+    /// </summary>
+    internal static List<string> FindOrphanedWorkDirectories(IEnumerable<string> rootsToScan, DateTime utcNow,
+        ILogger? logger)
+    {
+        const string searchPattern = "XboxIsoStudio_*";
+        var found = new List<string>();
+
+        foreach (var root in rootsToScan)
+        {
+            try
+            {
+                foreach (var parent in Directory.EnumerateDirectories(root, searchPattern,
+                             SearchOption.TopDirectoryOnly))
+                {
+                    try
+                    {
+                        foreach (var child in Directory.EnumerateDirectories(parent))
+                        {
+                            if (!Guid.TryParse(Path.GetFileName(child), out _)) continue;
+
+                            var lastWriteUtc = Directory.GetLastWriteTimeUtc(child);
+                            if (utcNow - lastWriteUtc < MinimumOrphanAge) continue;
+
+                            found.Add(child);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger?.Debug(ex, "Could not inspect temp folder '{ParentFolder}'", parent);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger?.Warning(ex, "Error enumerating temp folders on {Root}", root);
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// Cleans up orphaned XboxIsoStudio work folders on all fixed drives
     /// </summary>
     public static async Task CleanupBatchConvertTempFoldersAsync(ILogger logger,
         CancellationToken cancellationToken = default)
     {
-        const string searchPattern = "XboxIsoStudio_*";
-
         try
         {
             // Enumerating drives and directories can block for many seconds on idle or spinning
@@ -93,34 +157,14 @@ public static class TempFolderCleanupHelper
                     logger.Debug(ex, "Could not enumerate drives for temp folder cleanup");
                 }
 
-                var found = new List<string>();
-                foreach (var root in rootsToScan)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    try
-                    {
-                        found.AddRange(Directory.EnumerateDirectories(root, searchPattern,
-                            SearchOption.TopDirectoryOnly));
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Warning(ex, "Error enumerating temp folders on {Root}", root);
-                    }
-                }
-
-                return found;
+                return FindOrphanedWorkDirectories(rootsToScan, DateTime.UtcNow, logger);
             }, cancellationToken);
 
             foreach (var dir in directoriesToClean)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 logger.Information("Cleaning up orphaned temp folder: {TempFolder}", Path.GetFileName(dir));
-                await TryDeleteDirectoryWithRetryAsync(dir, 3, 1000, logger, cancellationToken);
+                await TryDeleteDirectoryWithRetryAsync(dir, 3, 1000, logger, CancellationToken.None);
             }
         }
         catch (OperationCanceledException)

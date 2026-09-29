@@ -23,20 +23,25 @@ public partial class UpdateChecker : IUpdateChecker
 
     internal UpdateChecker(HttpClient httpClient, string currentVersion, ILogger logger)
     {
+        // The injected client is never mutated: the User-Agent header and timeout are
+        // applied per request so a shared or reused client cannot be corrupted.
         _httpClient = httpClient;
         _currentVersion = currentVersion;
         _logger = logger.ForContext<UpdateChecker>();
-        _httpClient.Timeout = TimeSpan.FromSeconds(15);
-        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("XboxIsoStudio",
-            currentVersion));
     }
 
     public async Task<(bool IsNewVersionAvailable, string? LatestVersion, string? DownloadUrl)> CheckForUpdateAsync()
     {
         try
         {
-            var response = await _httpClient.GetStringAsync(GitHubApiUrl);
-            var releaseInfo = JsonSerializer.Deserialize<GitHubReleaseInfo>(response);
+            using var request = new HttpRequestMessage(HttpMethod.Get, GitHubApiUrl);
+            request.Headers.UserAgent.Add(new ProductInfoHeaderValue("XboxIsoStudio", _currentVersion));
+
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            using var response = await _httpClient.SendAsync(request, timeoutCts.Token).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            var responseBody = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
+            var releaseInfo = JsonSerializer.Deserialize<GitHubReleaseInfo>(responseBody);
 
             if (releaseInfo?.TagName is null || releaseInfo.HtmlUrl is null)
             {

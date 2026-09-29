@@ -12,7 +12,7 @@
 
 | Version | Date | Summary |
 |:---|:---|:---|
-| [3.0.0 (unreleased)](#300-unreleased) | — | Cross-platform Avalonia port (Windows/Linux/macOS); CHDSharp integration: CHD output, Xbox CHD integrity testing, and CHD exploration |
+| [3.0.0 (unreleased)](#300-unreleased) | — | Cross-platform Avalonia port (Windows/Linux/macOS); CHDSharp integration: CHD output, Xbox CHD integrity testing, and CHD exploration; extensive reliability and bug-fix pass (38 fixes) |
 | [2.9.0](#290) | September 2026 | Serilog logging with automatic bug reporting; per-file selection lists; XISO/ZAR/CSO output formats; CUE/BIN support removed |
 | [2.8.0](#280) | September 2026 | XISOSharp migration: in-process conversion, integrity testing, and exploration; external engines removed |
 | [2.7.1](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.7.1) | July 2026 | Resource cleanup, cancellation, better error filtering |
@@ -57,8 +57,106 @@
   Both game-partition-only CHDs (produced by this app) and full Redump-image CHDs (produced by
   `chdman createdvd`) are supported — partition offsets are auto-detected.
 
+### Bug Fixes
+
+A full review of the `XboxIsoStudio` and `XboxIsoStudio.Tests` projects found and fixed
+**38 verified defects**. The most significant ones:
+
+**Data safety**
+
+- **Archive deletion predicate was too loose** — an archive could be deleted when only one of its
+  images was converted, losing the unprocessed contents. The extractor now reports skipped entries
+  (`ArchiveExtractionResult`), and the archive is removed only when every entry was extracted *and*
+  every extracted image was converted or explicitly skipped by the user.
+- **Same-named inputs overwrote each other** — two inputs sharing a base name (for example
+  `Disc1/game.iso` and `Disc2/game.iso`) mapped to one output path; the engines delete a pre-existing
+  output, so the second conversion destroyed the first and both originals were then deleted. Output
+  paths are now reserved per batch (`game.iso`, `game (2).iso`, …).
+- **Invalid inputs were treated as failures and could count toward deletion** — engines now return a
+  distinct `FileProcessingStatus.InvalidInput`, which never deletes the source and keeps archives alive.
+- **Test temp copies leaked** when the cloud copy failed or the user canceled the cloud retry; the
+  cleanup `finally` now covers every exit path.
+
+**Conversion correctness**
+
+- **`Skip $SystemUpdate` was ignored for already-optimized inputs written as CSO/CHD** — those inputs
+  are now rewritten through the `$SystemUpdate` filter before compression.
+- **Wrong XGD partition offset** for Redump-type-5 images with an unknown/unreadable video PVD — the
+  dead `GetXgdType` fallback is now reachable, so XGD2 offsets are selected correctly.
+- **Split CISO cloud copies dropped the `.1` part marker** and only copied part 1; every part is now
+  copied with its original numbering, and a split set is recognized as such.
+- **Free-space pre-checks used the uncompressed size for compressed outputs**, rejecting conversions
+  that would easily fit; compressed formats now use a size-aware estimate.
+- **Temp-path and zip-slip path comparisons were case-insensitive on case-sensitive file systems**;
+  they now follow the platform (`PathHelper.PathComparison`).
+- **7-Zip arguments were built by string interpolation**, so quotes in paths could split or inject
+  arguments; the fallback now uses `ProcessStartInfo.ArgumentList`.
+- **Required-space arithmetic could overflow** for extreme sizes; the buffer addition now saturates at
+  `long.MaxValue`.
+
+**Robustness**
+
+- **One unreadable file aborted the whole integrity-test batch** — each test iteration now has the
+  same per-file error handling as conversion.
+- **File-list scans failed entirely if one file vanished or locked mid-scan** — sizes are read through
+  a safe helper.
+- **Concurrent file-list refreshes could clear or overwrite the current list** — stale scans are
+  discarded with a generation counter.
+- **Temp cleanup deleted any `XboxIsoStudio_*` folder** (no ownership or age check); it now removes
+  only app-created GUID work folders older than six hours, so user folders and another instance's
+  active folders are left alone.
+- **Canceled cleanup could mask the original error** — `finally` cleanup passes
+  `CancellationToken.None` and the retry helper swallows cancellation.
+- **Explorer could be disposed while a background copy-out was using it** — copy-outs now hold an
+  explorer lease (`SemaphoreSlim`) and disposal is deferred until they finish.
+- **Exit button bypassed the close confirmation** (`desktop.Shutdown()` forces the window closed even
+  when `Closing` cancels); it now calls `Close()`, and the closing flow is reentrancy-guarded so two
+  prompts cannot appear and discarded-task exceptions are observed.
+- **Completion dialogs appeared for canceled or never-started batches** and the UI could stay disabled
+  if a dialog failed; operation state is reset before summaries and the summary is tailored to the
+  outcome.
+- **Failed explorer opens kept a disposed explorer and stale UI**; the reference is cleared before
+  opening and the grid is emptied on failure.
+- **Same-second screenshots overwrote each other** — names now include milliseconds plus a collision
+  probe.
+- **Non-DVD CHDs were accepted by the explorer** and only failed later; they are now rejected at open
+  time via `Chd.Classify`, matching the integrity service.
+- **Disk-monitor error status was erased immediately** by `StopMonitoring()`, and a
+  `PerformanceCounter` could leak when priming failed; both are fixed.
+- **UNC paths never reached the network-status branch** because `GetDriveLetter` returns `null` for
+  them and `CurrentDriveLetter` starts as `null`.
+
+**Logging and reporting**
+
+- **Environmental/transient events (locked files, full disks, offline networks, permission problems,
+  update checks, URL opening, performance counters) were logged at Warning/Error and auto-uploaded**
+  as bug reports. They now log at Information, and retries only retry genuinely transient I/O errors.
+- **Cloud-file error codes were wrong/dead** (`0x80070146` instead of `0x8007016A`, and a raw Win32
+  code compared against a full HRESULT); detection now compares the masked HRESULT.
+- **Bug-report send failures were completely silent** — they are now recorded in the log at
+  Information level.
+- **Fatal-error reporting blocked the UI for a full 5 seconds and could fail to send** — the HTTP call
+  uses `ConfigureAwait(false)` so the report completes while the UI thread is waiting.
+
+**Platform and infrastructure**
+
+- **Constructors mutated the injected `HttpClient`** (timeout, default headers); headers and timeouts
+  are now applied per request, so a shared or reused client cannot be corrupted.
+- **`ProcessTerminatorHelper` could throw from its initial `HasExited` probe** — it now also catches
+  `Win32Exception`.
+- **The "Invalid ISO" counter counted every failure** (disk errors, access denied, move failures);
+  engines and the integrity service now report a dedicated `InvalidIsoCount`, so the "Many files were
+  not valid Xbox ISOs" warning only counts genuinely invalid images.
+
 ### Internal
 
+- Added `Models/ArchiveExtractionResult` (extraction success + skipped entries), the
+  `FileProcessingStatus.InvalidInput` value, `BatchOperationProgress.InvalidIsoCount`, and
+  `PathHelper.PathComparison`/`PathHelper.AddSafetyBuffer`.
+- `IFileExtractor.ExtractArchiveAsync` now returns `ArchiveExtractionResult` instead of a bool.
+- The xUnit suite grew to **398 tests**, including regression tests for every fixed defect. Test
+  parallelization is disabled (`CollectionBehavior(DisableTestParallelization = true)`) because
+  XISOSharp uses process-wide static state and the process working directory during extract/pack.
 - Ported `MainWindow`, `AboutWindow`, `App`, and theming from XAML/WPF to Avalonia
   (`Program.cs`, `App.axaml`, `MainWindow.axaml`, `AboutWindow.axaml`); added
   `Dialogs/MessageBoxWindow` (cross-platform modal dialogs replacing `System.Windows.MessageBox`)
