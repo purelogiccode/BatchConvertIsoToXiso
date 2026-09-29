@@ -32,9 +32,9 @@
 
 The application is **fully portable** — there is no installer and no registry footprint.
 
-1. Download the release archive for your platform from the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page.
-2. Extract the archive to any folder on a local drive (for example `C:\Tools\XboxIsoStudio` or `~/Tools/XboxIsoStudio`).
-3. Run the application — `XboxIsoStudio.exe` on Windows, or `./XboxIsoStudio` on Linux/macOS (run `chmod +x XboxIsoStudio` once if needed).
+1. Download the release archive for your platform from the [Releases](https://github.com/purelogiccode/XISOStudio/releases) page.
+2. Extract the archive to any folder on a local drive (for example `C:\Tools\XISOStudio` or `~/Tools/XISOStudio`).
+3. Run the application — `XISOStudio.exe` on Windows, or `./XISOStudio` on Linux/macOS (run `chmod +x XISOStudio` once if needed).
 
 > **Tip:** Avoid placing the application inside `C:\Program Files`, `/usr`, or `/Applications`. Writing to protected locations requires elevation and can prevent the application from replacing originals, moving files, or writing its logs. See [Troubleshooting — Access Denied](Troubleshooting-and-FAQ.md#access-to-the-path-is-denied).
 
@@ -46,7 +46,7 @@ After extraction, the application folder contains:
 
 | File | Purpose |
 |:---|:---|
-| `XboxIsoStudio` / `XboxIsoStudio.exe` | The main application — a single framework-dependent executable with all conversion engines and the Avalonia/Skia rendering libraries bundled (the native libraries are extracted to a temporary folder on first run) |
+| `XISOStudio` / `XISOStudio.exe` | The main application — a single framework-dependent executable with all conversion engines and the Avalonia/Skia rendering libraries bundled (the native libraries are extracted to a temporary folder on first run) |
 | `7za.exe` / `7za_arm64.exe` | Windows builds only: 7-Zip CLI fallback used for complex or password-protected `.7z` archives (on Linux/macOS the system `7z` from `PATH` is used instead) |
 | `ReadMe.md`, `WhatsNew.md`, `LICENSE.txt` | Documentation and license, included in every release archive |
 
@@ -61,7 +61,7 @@ The application targets **.NET 10.0**. If it fails to start with a message about
 1. Download and install the **.NET 10.0 Runtime** for your platform and architecture from <https://dotnet.microsoft.com/download/dotnet/10.0>.
 2. Re-launch the application.
 
-Alternatively, some releases may be published as self-contained builds that bundle the runtime — check the release notes on the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page.
+Alternatively, some releases may be published as self-contained builds that bundle the runtime — check the release notes on the [Releases](https://github.com/purelogiccode/XISOStudio/releases) page.
 
 ---
 

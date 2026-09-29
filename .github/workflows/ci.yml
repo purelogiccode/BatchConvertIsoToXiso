@@ -29,13 +29,13 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore CSharp_XboxIsoStudio.sln
+        run: dotnet restore CSharp_XISOStudio.sln
 
       - name: Build (Release)
-        run: dotnet build CSharp_XboxIsoStudio.sln -c Release --no-restore
+        run: dotnet build CSharp_XISOStudio.sln -c Release --no-restore
 
       - name: Test
-        run: dotnet test CSharp_XboxIsoStudio.sln -c Release --no-build --logger "console;verbosity=minimal"
+        run: dotnet test CSharp_XISOStudio.sln -c Release --no-build --logger "console;verbosity=minimal"
 
   publish:
     name: Publish ${{ matrix.rid }}
@@ -57,7 +57,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Publish ${{ matrix.rid }}
-        run: dotnet publish XboxIsoStudio -c Release -r ${{ matrix.rid }} --self-contained false -p:PublishSingleFile=true -o artifacts/${{ matrix.rid }}
+        run: dotnet publish XISOStudio -c Release -r ${{ matrix.rid }} --self-contained false -p:PublishSingleFile=true -o artifacts/${{ matrix.rid }}
 
       - name: Upload ${{ matrix.rid }} artifact
         uses: actions/upload-artifact@v4

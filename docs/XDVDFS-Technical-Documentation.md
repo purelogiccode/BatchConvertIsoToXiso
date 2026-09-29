@@ -80,7 +80,7 @@ An XISO file has a specific layout that differs from standard ISO 9660:
 
 ### Where the Algorithm Lives
 
-Version 2.8.0 removed the in-repo parser (`XboxIsoStudio/Services/XisoServices/`). The equivalent
+Version 2.8.0 removed the in-repo parser (`XISOStudio/Services/XisoServices/`). The equivalent
 traversal, sector collection, and range consolidation logic now lives in the
 [XISOSharp](https://github.com/purelogiccode/XISOSharp) library:
 

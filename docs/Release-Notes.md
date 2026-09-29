@@ -14,10 +14,10 @@
 |:---|:---|:---|
 | [3.0.0](#300) | September 2026 | Cross-platform Avalonia port (Windows/Linux/macOS); CHD output, Xbox CHD integrity testing, and CHD exploration; Serilog logging with automatic bug reporting; per-file selection lists; XISO/ZAR/CSO output formats; extensive reliability and bug-fix pass (38 fixes) plus a pre-release review |
 | [2.8.0](#280) | September 2026 | XISOSharp migration: in-process conversion, integrity testing, and exploration; external engines removed |
-| [2.7.1](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.7.1) | July 2026 | Resource cleanup, cancellation, better error filtering |
-| [2.7.0](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.7.0) | June 2026 | Improved ISO compatibility, disk-space detection, cancellation and performance |
-| [2.6.1](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.6.1) | June 2026 | XGD1/XGD2/XGD3 partition offsets, dark-theme tooltip fix |
-| [2.6.0](https://github.com/purelogiccode/XboxIsoStudio/releases/tag/release_2.6.0) | June 2026 | 7-Zip CLI fallback, multilingual network errors, disk-space handling |
+| [2.7.1](https://github.com/purelogiccode/XISOStudio/releases/tag/release_2.7.1) | July 2026 | Resource cleanup, cancellation, better error filtering |
+| [2.7.0](https://github.com/purelogiccode/XISOStudio/releases/tag/release_2.7.0) | June 2026 | Improved ISO compatibility, disk-space detection, cancellation and performance |
+| [2.6.1](https://github.com/purelogiccode/XISOStudio/releases/tag/release_2.6.1) | June 2026 | XGD1/XGD2/XGD3 partition offsets, dark-theme tooltip fix |
+| [2.6.0](https://github.com/purelogiccode/XISOStudio/releases/tag/release_2.6.0) | June 2026 | 7-Zip CLI fallback, multilingual network errors, disk-space handling |
 
 ---
 
@@ -60,7 +60,7 @@
   Both game-partition-only CHDs (produced by this app) and full Redump-image CHDs (produced by
   `chdman createdvd`) are supported — partition offsets are auto-detected.
 - **Serilog logging pipeline** — three sinks: the on-screen log viewer (`UiLogSink`), a rolling daily
-  file log (`%LocalAppData%\XboxIsoStudio\logs\log-*.txt`, 10 MB per file, 14 files retained),
+  file log (`%LocalAppData%\XISOStudio\logs\log-*.txt`, 10 MB per file, 14 files retained),
   and a bug-report sink (`BugReportSink`) that forwards every Warning-or-higher event to the Bug
   Report API. Avalonia's internal diagnostics are routed through the same pipeline
   (`AvaloniaSerilogSink`) instead of the Trace-based default. The custom `ILogger`/`LoggerService`
@@ -120,7 +120,7 @@
 
 ### Bug Fixes
 
-A full review of the `XboxIsoStudio` and `XboxIsoStudio.Tests` projects found and fixed
+A full review of the `XISOStudio` and `XISOStudio.Tests` projects found and fixed
 **38 verified defects**. The most significant ones:
 
 **Data safety**
@@ -163,7 +163,7 @@ A full review of the `XboxIsoStudio` and `XboxIsoStudio.Tests` projects found an
   a safe helper.
 - **Concurrent file-list refreshes could clear or overwrite the current list** — stale scans are
   discarded with a generation counter.
-- **Temp cleanup deleted any `XboxIsoStudio_*` folder** (no ownership or age check); it now removes
+- **Temp cleanup deleted any `XISOStudio_*` folder** (no ownership or age check); it now removes
   only app-created GUID work folders older than six hours, so user folders and another instance's
   active folders are left alone.
 - **Canceled cleanup could mask the original error** — `finally` cleanup passes
@@ -290,7 +290,7 @@ A full review of the `XboxIsoStudio` and `XboxIsoStudio.Tests` projects found an
 - Enabled XML documentation generation for the application project; every public type and member
   is documented and the build reports zero warnings.
 
-**Full Changelog**: <https://github.com/purelogiccode/XboxIsoStudio/compare/release_2.8.0...release_3.0.0>
+**Full Changelog**: <https://github.com/purelogiccode/XISOStudio/compare/release_2.8.0...release_3.0.0>
 
 ---
 
@@ -365,7 +365,7 @@ A full review of the `XboxIsoStudio` and `XboxIsoStudio.Tests` projects found an
 ### Documentation
 
 - Documentation reorganized into the [docs folder](index.md) and published as the repository wiki.
-- New [What's New](https://github.com/purelogiccode/XboxIsoStudio/blob/master/WhatsNew.md) and Release Notes pages.
+- New [What's New](https://github.com/purelogiccode/XISOStudio/blob/master/WhatsNew.md) and Release Notes pages.
 - Release ZIPs now include `LICENSE.txt`, `ReadMe.md`, and `WhatsNew.md` alongside the application and bundled tools.
 - [Repository](Repository.md), [Architecture](Architecture.md), [Conversion Methods](Conversion-Methods.md),
   [Usage Guide](Usage-Guide.md), [Installation](Installation.md), and
@@ -381,7 +381,7 @@ A full review of the `XboxIsoStudio` and `XboxIsoStudio.Tests` projects found an
   `IXdvdfsService`, `INativeIsoIntegrityService`.
 - Test suite reorganized around the new services (`XisoSharpServiceTests`, `XisoIntegrityServiceTests`).
 
-**Full Changelog**: <https://github.com/purelogiccode/XboxIsoStudio/compare/release_2.7.1...release_2.8.0>
+**Full Changelog**: <https://github.com/purelogiccode/XISOStudio/compare/release_2.7.1...release_2.8.0>
 
 ---
 
@@ -409,7 +409,7 @@ A full review of the `XboxIsoStudio` and `XboxIsoStudio.Tests` projects found an
 
 - `static` annotations on eligible lambdas; `Microsoft.NET.Test.Sdk` 18.6.0 → 18.7.0.
 
-**Full Changelog**: <https://github.com/purelogiccode/XboxIsoStudio/compare/release_2.7.0...release_2.7.1>
+**Full Changelog**: <https://github.com/purelogiccode/XISOStudio/compare/release_2.7.0...release_2.7.1>
 
 ---
 
@@ -455,7 +455,7 @@ A full review of the `XboxIsoStudio` and `XboxIsoStudio.Tests` projects found an
   `AggregateException` formatting, and sharing-violation detection.
 - 222 tests passing with zero warnings.
 
-**Full Changelog**: <https://github.com/purelogiccode/XboxIsoStudio/compare/release_2.6.1...release_2.7.0>
+**Full Changelog**: <https://github.com/purelogiccode/XISOStudio/compare/release_2.6.1...release_2.7.0>
 
 ---
 
@@ -474,7 +474,7 @@ A full review of the `XboxIsoStudio` and `XboxIsoStudio.Tests` projects found an
   for Redump type 5 ISOs.
 - Added a ToolTip style to prevent white-on-white text in the dark theme.
 
-**Full Changelog**: <https://github.com/purelogiccode/XboxIsoStudio/compare/release_2.6.0...release_2.6.1>
+**Full Changelog**: <https://github.com/purelogiccode/XISOStudio/compare/release_2.6.0...release_2.6.1>
 
 ---
 
@@ -501,8 +501,8 @@ A full review of the `XboxIsoStudio` and `XboxIsoStudio.Tests` projects found an
 
 - `Microsoft.Extensions.DependencyInjection` 10.0.9; `SharpCompress` 0.49.1.
 
-**Full Changelog**: <https://github.com/purelogiccode/XboxIsoStudio/compare/release_2.5.0...release_2.6.0>
+**Full Changelog**: <https://github.com/purelogiccode/XISOStudio/compare/release_2.5.0...release_2.6.0>
 
 ---
 
-Older releases are available on the [Releases page](https://github.com/purelogiccode/XboxIsoStudio/releases).
+Older releases are available on the [Releases page](https://github.com/purelogiccode/XISOStudio/releases).

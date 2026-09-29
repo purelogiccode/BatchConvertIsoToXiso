@@ -25,8 +25,8 @@ dotnet --version
 ## Cloning
 
 ```bash
-git clone https://github.com/purelogiccode/XboxIsoStudio.git
-cd XboxIsoStudio
+git clone https://github.com/purelogiccode/XISOStudio.git
+cd XISOStudio
 ```
 
 ## Building
@@ -34,13 +34,13 @@ cd XboxIsoStudio
 Build the full solution (application + test project):
 
 ```bash
-dotnet build CSharp_XboxIsoStudio.sln
+dotnet build CSharp_XISOStudio.sln
 ```
 
 Or build and run the application directly:
 
 ```bash
-dotnet run --project XboxIsoStudio
+dotnet run --project XISOStudio
 ```
 
 ### Bundled Helper Tools
@@ -56,7 +56,7 @@ These are committed to the repository, so no extra download steps are needed. On
 The test suite uses xUnit with Moq:
 
 ```bash
-dotnet test CSharp_XboxIsoStudio.sln
+dotnet test CSharp_XISOStudio.sln
 ```
 
 The suite covers models, services (orchestrator, XISO conversion, integrity, extractor, movers, path helpers, update checker, and more).
@@ -71,13 +71,13 @@ Example for a framework-dependent x64 publish (single file, with the native Aval
 libraries embedded and extracted to a temporary folder on first run):
 
 ```bash
-dotnet publish XboxIsoStudio -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+dotnet publish XISOStudio -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
 For a self-contained build (no .NET runtime requirement for end users):
 
 ```bash
-dotnet publish XboxIsoStudio -c Release -r win-x64 --self-contained true
+dotnet publish XISOStudio -c Release -r win-x64 --self-contained true
 ```
 
 Supported runtime identifiers:
@@ -88,12 +88,12 @@ Supported runtime identifiers:
 | Linux | `linux-x64`, `linux-arm64` |
 | macOS | `osx-x64`, `osx-arm64` |
 
-All RIDs can be cross-published from any OS (the native Avalonia/Skia assets come from NuGet). After extracting a Linux/macOS build, mark the executable runnable with `chmod +x XboxIsoStudio`.
+All RIDs can be cross-published from any OS (the native Avalonia/Skia assets come from NuGet). After extracting a Linux/macOS build, mark the executable runnable with `chmod +x XISOStudio`.
 
 ## Project Notes
 
 - **Target framework:** `net10.0` with **Avalonia** (`Avalonia`, `Avalonia.Desktop`, `Avalonia.Themes.Fluent`, `Avalonia.Controls.DataGrid`).
 - **Nullable + implicit usings** are enabled.
 - The `References/` folder (vendored sources such as the xdvdfs Rust workspace, if present) is excluded from compilation.
-- Version numbers are maintained in `XboxIsoStudio.csproj` (`AssemblyVersion` / `FileVersion`); the update checker compares against GitHub release tags.
+- Version numbers are maintained in `XISOStudio.csproj` (`AssemblyVersion` / `FileVersion`); the update checker compares against GitHub release tags.
 - Windows-only features degrade gracefully on Linux/macOS: the disk read/write speed monitor shows `N/A`, and the 7-Zip fallback uses the system `7z`.

@@ -1,0 +1,222 @@
+using System.Net;
+using System.Text.Json;
+using XISOStudio.Services;
+using Moq;
+using Moq.Protected;
+using Xunit;
+
+namespace XISOStudio.Tests.Services;
+
+public class StatsServiceTests
+{
+    private readonly TestLogger _logger = new();
+
+    private static HttpClient CreateHttpClient(HttpStatusCode statusCode, string content = "")
+    {
+        var handlerMock = new Mock<HttpMessageHandler>();
+        handlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>("SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = statusCode,
+                Content = new StringContent(content)
+            });
+        return new HttpClient(handlerMock.Object);
+    }
+
+    private static HttpClient CreateHttpClientThatThrows(Exception exception)
+    {
+        var handlerMock = new Mock<HttpMessageHandler>();
+        handlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>("SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(exception);
+        return new HttpClient(handlerMock.Object);
+    }
+
+    [Fact]
+    public async Task SendStatsAsyncSuccessDoesNotThrow()
+    {
+        var httpClient = CreateHttpClient(HttpStatusCode.OK);
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp",
+            _logger.Logger);
+
+        var exception = await Record.ExceptionAsync(service.SendStatsAsync);
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void ConstructorDoesNotMutateInjectedHttpClient()
+    {
+        using var httpClient = new HttpClient();
+
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp",
+            _logger.Logger);
+
+        Assert.NotNull(service);
+        Assert.Null(httpClient.DefaultRequestHeaders.Authorization);
+    }
+
+    [Fact]
+    public async Task SendStatsAsyncServerErrorDoesNotThrow()
+    {
+        var httpClient = CreateHttpClient(HttpStatusCode.InternalServerError);
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp",
+            _logger.Logger);
+
+        var exception = await Record.ExceptionAsync(service.SendStatsAsync);
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task SendStatsAsyncNetworkErrorDoesNotThrow()
+    {
+        var httpClient = CreateHttpClientThatThrows(new HttpRequestException("Network unreachable"));
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp",
+            _logger.Logger);
+
+        var exception = await Record.ExceptionAsync(service.SendStatsAsync);
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task SendStatsAsyncTimeoutDoesNotThrow()
+    {
+        var httpClient = CreateHttpClientThatThrows(new TaskCanceledException("Timeout"));
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "test-key", "TestApp",
+            _logger.Logger);
+
+        var exception = await Record.ExceptionAsync(service.SendStatsAsync);
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task SendStatsAsyncSendsPostRequest()
+    {
+        HttpRequestMessage? capturedRequest = null;
+        var handlerMock = new Mock<HttpMessageHandler>();
+        handlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>("SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) => capturedRequest = req)
+            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
+        var httpClient = new HttpClient(handlerMock.Object);
+
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "my-api-key", "TestApp",
+            _logger.Logger);
+        await service.SendStatsAsync();
+
+        Assert.NotNull(capturedRequest);
+        Assert.Equal(HttpMethod.Post, capturedRequest.Method);
+        Assert.Equal(new Uri("https://api.example.com/stats"), capturedRequest.RequestUri);
+    }
+
+    [Fact]
+    public async Task SendStatsAsyncSetsAuthorizationHeader()
+    {
+        HttpRequestMessage? capturedRequest = null;
+        var handlerMock = new Mock<HttpMessageHandler>();
+        handlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>("SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) => capturedRequest = req)
+            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
+        var httpClient = new HttpClient(handlerMock.Object);
+
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "my-secret-key", "TestApp",
+            _logger.Logger);
+        await service.SendStatsAsync();
+
+        Assert.NotNull(capturedRequest);
+        Assert.True(capturedRequest.Headers.Authorization is not null);
+        Assert.Equal("Bearer", capturedRequest.Headers.Authorization.Scheme);
+        Assert.Equal("my-secret-key", capturedRequest.Headers.Authorization.Parameter);
+    }
+
+    [Fact]
+    public async Task SendStatsAsyncSendsJsonContentType()
+    {
+        HttpRequestMessage? capturedRequest = null;
+        var handlerMock = new Mock<HttpMessageHandler>();
+        handlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>("SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) => capturedRequest = req)
+            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
+        var httpClient = new HttpClient(handlerMock.Object);
+
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "key", "MyApp", _logger.Logger);
+        await service.SendStatsAsync();
+
+        Assert.NotNull(capturedRequest);
+        Assert.NotNull(capturedRequest.Content);
+        Assert.Equal("application/json", capturedRequest.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task SendStatsAsyncSendsPayloadWithApplicationIdAndVersion()
+    {
+        string? capturedBody = null;
+        var handlerMock = new Mock<HttpMessageHandler>();
+        handlerMock.Protected()
+            .Setup<Task<HttpResponseMessage>>("SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+#pragma warning disable MA0147
+            .Callback<HttpRequestMessage, CancellationToken>(async void (req, t) =>
+            {
+                try
+                {
+                    if (req.Content != null)
+                    {
+                        capturedBody = await req.Content.ReadAsStringAsync(t);
+                    }
+                }
+#pragma warning disable RCS1075
+                catch (Exception)
+#pragma warning restore RCS1075
+                {
+                    // Ignore
+                }
+            })
+#pragma warning restore MA0147
+            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
+        var httpClient = new HttpClient(handlerMock.Object);
+
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "key", "XISOStudio",
+            _logger.Logger);
+        await service.SendStatsAsync();
+
+        Assert.NotNull(capturedBody);
+        var json = JsonDocument.Parse(capturedBody);
+        Assert.True(json.RootElement.TryGetProperty("applicationId", out var appId));
+        Assert.Equal("XISOStudio", appId.GetString());
+        Assert.True(json.RootElement.TryGetProperty("version", out _));
+    }
+
+    [Fact]
+    public async Task SendStatsAsyncBadRequestDoesNotThrow()
+    {
+        var httpClient = CreateHttpClient(HttpStatusCode.BadRequest, "Bad request");
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "key", "TestApp", _logger.Logger);
+
+        var exception = await Record.ExceptionAsync(service.SendStatsAsync);
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task SendStatsAsyncForbiddenDoesNotThrow()
+    {
+        var httpClient = CreateHttpClient(HttpStatusCode.Forbidden, "Forbidden");
+        var service = new StatsService(httpClient, "https://api.example.com/stats", "key", "TestApp", _logger.Logger);
+
+        var exception = await Record.ExceptionAsync(service.SendStatsAsync);
+        Assert.Null(exception);
+    }
+}

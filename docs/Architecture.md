@@ -13,8 +13,8 @@ The application is a cross-platform **Avalonia** (.NET 10, `net10.0`) desktop ap
 ## Solution Layout
 
 ```text
-CSharp_XboxIsoStudio.sln
-├── XboxIsoStudio/               Main Avalonia application
+CSharp_XISOStudio.sln
+├── XISOStudio/               Main Avalonia application
 │   ├── Program.cs                       Entry point (Avalonia AppBuilder)
 │   ├── App.axaml(.cs)                   Theme/styles + DI composition, global error handlers
 │   ├── MainWindow.axaml(.cs)            Shell window + navigation
@@ -47,7 +47,7 @@ CSharp_XboxIsoStudio.sln
 │       ├── StatsService.cs              Anonymous usage statistics client
 │       ├── UpdateChecker.cs             GitHub release update checks
 │       └── ...                          Formatting, path helpers, etc.
-└── XboxIsoStudio.Tests/         xUnit + Moq test suite
+└── XISOStudio.Tests/         xUnit + Moq test suite
 ```
 
 Bundled helper executables (`7za.exe`, `7za_arm64.exe`) are copied to Windows output directories and invoked as isolated child processes; on Linux/macOS the fallback uses the system `7z` from `PATH`. All XISO and CHD encoding/decoding is performed in-process by the `XISOSharp` and `CHDSharp` NuGet packages, and all image libraries are pure managed code with no native dependencies.
@@ -133,7 +133,7 @@ Safety characteristics of the pipeline:
 Logging uses a single [Serilog](https://serilog.net/) pipeline configured by `App.ConfigureLogging()` — called from `Program.Main` before Avalonia initializes its platform subsystems, and idempotently from the `App` constructor — with three sinks:
 
 1. **UI** (`UiLogSink`) — timestamped lines in the on-screen log pane (with a re-entrancy guard so a failing viewer cannot feed back into the pipeline).
-2. **File** — rolling daily log under the per-user application-data folder (`%LocalAppData%\XboxIsoStudio\logs` on Windows, `~/.local/share/XboxIsoStudio/logs` or `~/Library/Application Support/XboxIsoStudio/logs` elsewhere) as `log-*.txt` (10 MB per file, 14 files retained) with level and exception details.
+2. **File** — rolling daily log under the per-user application-data folder (`%LocalAppData%\XISOStudio\logs` on Windows, `~/.local/share/XISOStudio/logs` or `~/Library/Application Support/XISOStudio/logs` elsewhere) as `log-*.txt` (10 MB per file, 14 files retained) with level and exception details.
 3. **Bug report** (`BugReportSink`) — every event at **Warning or higher** is forwarded to the bug report API (fire-and-forget, never throws). Avalonia framework events (`SourceContext = "Avalonia"`) are written to the viewer and log file but excluded from automatic reports.
 
 Avalonia's own diagnostics are routed into the same pipeline by `AvaloniaSerilogSink`, which is installed before the platform subsystems start so startup warnings are captured too.
@@ -163,11 +163,11 @@ Three layers of defense:
 
 ## Testing
 
-The `XboxIsoStudio.Tests` project (xUnit, Moq) covers models, services, and helper utilities with
+The `XISOStudio.Tests` project (xUnit, Moq) covers models, services, and helper utilities with
 **398 tests**:
 
 ```bash
-dotnet test CSharp_XboxIsoStudio.sln
+dotnet test CSharp_XISOStudio.sln
 ```
 
 The suite includes service tests (e.g., `OrchestratorServiceTests`, `FileExtractorServiceTests`, `XisoSharpServiceTests`, `XisoIntegrityServiceTests`) plus model and helper coverage. Tests run

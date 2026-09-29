@@ -1,0 +1,662 @@
+<Application x:Class="XISOStudio.App"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:services="clr-namespace:XISOStudio.Services"
+             RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+
+        <!-- ==================== FONT CONFIGURATION ==================== -->
+        <!-- Fallback lists keep the same look on Windows and pick sane substitutes on Linux/macOS -->
+        <FontFamily x:Key="DefaultFontFamily">Segoe UI, Arial, Noto Sans, DejaVu Sans</FontFamily>
+        <FontFamily x:Key="TerminalFontFamily">Consolas, Courier New, DejaVu Sans Mono, Menlo</FontFamily>
+
+        <!-- Converter for the XIso Explorer folder/file icons -->
+        <services:FolderIconConverter x:Key="FolderIconConverter" />
+
+        <!-- ==================== COLOR PALETTE ==================== -->
+        <!--
+            Harmonious Dark Theme with Green Terminal Accent
+            Primary: Deep Slate (#1a1d21)
+            Secondary: Teal/Cyan (#00bcd4) - complements the green terminal
+            Accent: Soft Green (#4caf50) - harmonizes with terminal green
+            Terminal: Black (#0a0a0a) + Neon Green (#39FF14) - PRESERVED
+        -->
+
+        <!-- ==================== TERMINAL COLORS (PRESERVED) ==================== -->
+        <SolidColorBrush x:Key="TerminalBackgroundBrush" Color="#0a0a0a"/>
+        <SolidColorBrush x:Key="TerminalBorderBrush" Color="#1a1a1a"/>
+        <SolidColorBrush x:Key="TerminalForegroundBrush" Color="#ffffff"/>
+        <SolidColorBrush x:Key="TerminalSelectedBrush" Color="#2a2a2a"/>
+
+        <!-- ==================== WINDOW & BACKGROUND COLORS ==================== -->
+        <!-- Deep Slate Theme Base -->
+        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#121518"/>
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#1e2227"/>
+        <SolidColorBrush x:Key="CardBackgroundHoverBrush" Color="#252a30"/>
+        <SolidColorBrush x:Key="HeaderBackgroundBrush" Color="#0d0f12"/>
+
+        <!-- ==================== BORDER COLORS ==================== -->
+        <SolidColorBrush x:Key="BorderBrush" Color="#2d333b"/>
+        <SolidColorBrush x:Key="BorderBrushLight" Color="#3d454f"/>
+
+        <!-- ==================== TEXT COLORS ==================== -->
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#e6edf3"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#8b949e"/>
+        <SolidColorBrush x:Key="TextMutedBrush" Color="#6e7681"/>
+        <SolidColorBrush x:Key="HeaderTextBrush" Color="#ffffff"/>
+
+        <!-- Status Text Colors - Harmonious with theme -->
+        <SolidColorBrush x:Key="SuccessTextBrush" Color="#4caf50"/>
+        <SolidColorBrush x:Key="FailedTextBrush" Color="#f85149"/>
+        <SolidColorBrush x:Key="SkippedTextBrush" Color="#ffa726"/>
+        <SolidColorBrush x:Key="LinkTextBrush" Color="#58a6ff"/>
+        <SolidColorBrush x:Key="InfoTextBrush" Color="#00bcd4"/>
+
+        <!-- ==================== PRIMARY ACCENT COLORS ==================== -->
+        <!-- Teal/Cyan as primary - complements the green terminal -->
+        <SolidColorBrush x:Key="PrimaryAccentBrush" Color="#00bcd4"/>
+        <SolidColorBrush x:Key="PrimaryAccentHoverBrush" Color="#00e5ff"/>
+        <SolidColorBrush x:Key="PrimaryAccentDarkBrush" Color="#008ba3"/>
+
+        <!-- Secondary accent - Soft Green (harmonizes with terminal) -->
+        <SolidColorBrush x:Key="SecondaryAccentBrush" Color="#4caf50"/>
+        <SolidColorBrush x:Key="SecondaryAccentHoverBrush" Color="#66bb6a"/>
+        <SolidColorBrush x:Key="SecondaryAccentDarkBrush" Color="#388e3c"/>
+
+        <!-- ==================== BUTTON COLORS ==================== -->
+        <!-- Action Button (Teal) -->
+        <SolidColorBrush x:Key="ActionButtonBrush" Color="#00bcd4"/>
+        <SolidColorBrush x:Key="ActionButtonHoverBrush" Color="#00e5ff"/>
+        <SolidColorBrush x:Key="ActionButtonPressedBrush" Color="#008ba3"/>
+
+        <!-- Start/Success Button (Green - harmonizes with terminal) -->
+        <SolidColorBrush x:Key="StartButtonBrush" Color="#00bcd4"/>
+        <SolidColorBrush x:Key="StartButtonHoverBrush" Color="#00e5ff"/>
+        <SolidColorBrush x:Key="StartButtonPressedBrush" Color="#008ba3"/>
+
+        <!-- Cancel/Error Button (Soft Red) -->
+        <SolidColorBrush x:Key="CancelButtonBrush" Color="#f85149"/>
+        <SolidColorBrush x:Key="CancelButtonHoverBrush" Color="#ff6b6b"/>
+        <SolidColorBrush x:Key="CancelButtonPressedBrush" Color="#da3633"/>
+
+        <!-- About/Info Button (Purple - complementary to teal) -->
+        <SolidColorBrush x:Key="AboutButtonBrush" Color="#7c4dff"/>
+        <SolidColorBrush x:Key="AboutButtonHoverBrush" Color="#9e7bff"/>
+        <SolidColorBrush x:Key="AboutButtonPressedBrush" Color="#5e35b1"/>
+
+        <!-- Exit Button (Slate Gray) -->
+        <SolidColorBrush x:Key="ExitButtonBrush" Color="#7c4dff"/>
+        <SolidColorBrush x:Key="ExitButtonHoverBrush" Color="#9e7bff"/>
+        <SolidColorBrush x:Key="ExitButtonPressedBrush" Color="#5e35b1"/>
+
+        <!-- Disabled State -->
+        <SolidColorBrush x:Key="DisabledButtonBrush" Color="#3d454f"/>
+        <SolidColorBrush x:Key="DisabledTextBrush" Color="#6e7681"/>
+
+        <!-- ==================== NAVIGATION COLORS ==================== -->
+        <SolidColorBrush x:Key="NavigationUnderlineBrush" Color="#00bcd4"/>
+        <SolidColorBrush x:Key="NavigationHoverBrush" Color="#1e2227"/>
+
+        <!-- ==================== STATUS BAR ==================== -->
+        <SolidColorBrush x:Key="StatusBarBackgroundBrush" Color="#0d0f12"/>
+
+        <!-- ==================== PROGRESS BAR ==================== -->
+        <SolidColorBrush x:Key="ProgressBackgroundBrush" Color="#2d333b"/>
+        <SolidColorBrush x:Key="ProgressForegroundBrush" Color="#00bcd4"/>
+
+    <!-- ==================== NAMED CONTROL THEMES ==================== -->
+
+        <!-- Primary Action Button Style -->
+        <ControlTheme x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#121518"/>
+            <Setter Property="Background" Value="{StaticResource ActionButtonBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Border"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="6"
+                            BorderThickness="0">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Margin="{TemplateBinding Padding}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:disabled">
+                <Setter Property="Foreground" Value="{StaticResource DisabledTextBrush}"/>
+                <Setter Property="Opacity" Value="0.7"/>
+            </Style>
+            <Style Selector="^:disabled /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource DisabledButtonBrush}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource ActionButtonHoverBrush}"/>
+            </Style>
+            <Style Selector="^:pressed /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource ActionButtonPressedBrush}"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Navigation Menu Button Style -->
+        <ControlTheme x:Key="MenuButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="15,10"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Border"
+                            BorderThickness="0,0,0,3"
+                            BorderBrush="Transparent"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="4">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Margin="{TemplateBinding Padding}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:disabled">
+                <Setter Property="Opacity" Value="0.5"/>
+            </Style>
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{StaticResource PrimaryAccentBrush}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource NavigationHoverBrush}"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Selected Navigation Menu Button Style -->
+        <ControlTheme x:Key="SelectedMenuButtonStyle" TargetType="Button" BasedOn="{StaticResource MenuButtonStyle}">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryAccentBrush}"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Border"
+                            BorderThickness="0,0,0,3"
+                            BorderBrush="{StaticResource NavigationUnderlineBrush}"
+                            Background="{StaticResource NavigationHoverBrush}"
+                            CornerRadius="4">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Margin="{TemplateBinding Padding}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:disabled">
+                <Setter Property="Opacity" Value="0.5"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource CardBackgroundHoverBrush}"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Start Button Style -->
+        <ControlTheme x:Key="StartButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource StartButtonBrush}"/>
+            <Style Selector="^:disabled /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource DisabledButtonBrush}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource StartButtonHoverBrush}"/>
+            </Style>
+            <Style Selector="^:pressed /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource StartButtonPressedBrush}"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Cancel Button Style -->
+        <ControlTheme x:Key="CancelButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource CancelButtonBrush}"/>
+            <Style Selector="^:disabled /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource DisabledButtonBrush}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource CancelButtonHoverBrush}"/>
+            </Style>
+            <Style Selector="^:pressed /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource CancelButtonPressedBrush}"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- About/Donate menu button (purple) -->
+        <ControlTheme x:Key="AboutMenuButtonStyle" TargetType="Button" BasedOn="{StaticResource MenuButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource AboutButtonBrush}"/>
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{StaticResource HeaderTextBrush}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource AboutButtonHoverBrush}"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Exit menu button (purple) -->
+        <ControlTheme x:Key="ExitMenuButtonStyle" TargetType="Button" BasedOn="{StaticResource MenuButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource ExitButtonBrush}"/>
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{StaticResource HeaderTextBrush}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource ExitButtonHoverBrush}"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Donate menu button (green) -->
+        <ControlTheme x:Key="DonateMenuButtonStyle" TargetType="Button" BasedOn="{StaticResource MenuButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource SecondaryAccentBrush}"/>
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{StaticResource HeaderTextBrush}"/>
+            </Style>
+            <Style Selector="^:pointerover /template/ Border#Border">
+                <Setter Property="Background" Value="{StaticResource SecondaryAccentHoverBrush}"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Stats Card Border Style -->
+        <ControlTheme x:Key="StatsCardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Padding" Value="8"/>
+        </ControlTheme>
+
+        <!-- Stats Label Style -->
+        <ControlTheme x:Key="StatsLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        </ControlTheme>
+
+        <!-- Stats Value Style -->
+        <ControlTheme x:Key="StatsValueStyle" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        </ControlTheme>
+
+        <!-- Link-style button for the About window and hyperlinks -->
+        <ControlTheme x:Key="LinkButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{StaticResource LinkTextBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="Transparent">
+                        <TextBlock Text="{TemplateBinding Content}"
+                                   Foreground="{TemplateBinding Foreground}"
+                                   TextDecorations="Underline"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="{StaticResource PrimaryAccentHoverBrush}"/>
+            </Style>
+        </ControlTheme>
+
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+        <!-- DataGrid ships its own theme that must be included explicitly. -->
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+
+        <!-- ==================== DEFAULT CONTROL STYLES ==================== -->
+
+        <!-- Default Label Style -->
+        <Style Selector="Label">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="5"/>
+        </Style>
+
+        <!-- Default TextBlock Style -->
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Default RadioButton Style -->
+        <Style Selector="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,3"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid Background="Transparent" ColumnDefinitions="Auto,*">
+                        <Grid Width="16" Height="16" VerticalAlignment="Center">
+                            <Ellipse Name="OuterEllipse"
+                                     Fill="{StaticResource CardBackgroundBrush}"
+                                     Stroke="{StaticResource BorderBrushLight}"
+                                     StrokeThickness="2"/>
+                            <Ellipse Name="InnerEllipse"
+                                     Width="8" Height="8"
+                                     Fill="{StaticResource PrimaryAccentBrush}"
+                                     IsVisible="False"/>
+                        </Grid>
+                        <ContentPresenter Grid.Column="1"
+                                          Margin="8,0,0,0"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          VerticalAlignment="Center"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton:checked /template/ Ellipse#InnerEllipse">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="RadioButton:checked /template/ Ellipse#OuterEllipse">
+            <Setter Property="Stroke" Value="{StaticResource PrimaryAccentBrush}"/>
+        </Style>
+        <Style Selector="RadioButton:pointerover /template/ Ellipse#OuterEllipse">
+            <Setter Property="Stroke" Value="{StaticResource PrimaryAccentBrush}"/>
+        </Style>
+        <Style Selector="RadioButton:disabled">
+            <Setter Property="Foreground" Value="{StaticResource DisabledTextBrush}"/>
+        </Style>
+        <Style Selector="RadioButton:disabled /template/ Ellipse#OuterEllipse">
+            <Setter Property="Stroke" Value="{StaticResource BorderBrush}"/>
+        </Style>
+        <Style Selector="RadioButton:disabled /template/ Ellipse#InnerEllipse">
+            <Setter Property="Fill" Value="{StaticResource BorderBrush}"/>
+        </Style>
+
+        <!-- Default CheckBox Style -->
+        <Style Selector="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid Background="Transparent" ColumnDefinitions="Auto,*">
+                        <Border Name="Border"
+                                Width="16"
+                                Height="16"
+                                Background="{StaticResource CardBackgroundBrush}"
+                                BorderBrush="{StaticResource BorderBrushLight}"
+                                BorderThickness="2"
+                                CornerRadius="3"
+                                VerticalAlignment="Center">
+                            <Path Name="CheckMark"
+                                  Width="10"
+                                  Height="10"
+                                  Margin="1"
+                                  Data="M 0 5 L 3 8 L 8 1"
+                                  Stroke="{StaticResource PrimaryAccentBrush}"
+                                  StrokeThickness="2"
+                                  Stretch="Uniform"
+                                  IsVisible="False"/>
+                        </Border>
+                        <ContentPresenter Grid.Column="1"
+                                          Margin="8,0,0,0"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          VerticalAlignment="Center"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="CheckBox:checked /template/ Path#CheckMark">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="CheckBox:checked /template/ Border#Border">
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryAccentBrush}"/>
+        </Style>
+        <Style Selector="CheckBox:pointerover /template/ Border#Border">
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryAccentBrush}"/>
+        </Style>
+
+        <!-- Default Expander Style (collapsible panels such as the Options boxes) -->
+        <Style Selector="Expander">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="IsExpanded" Value="True"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            HorizontalAlignment="Stretch">
+                        <Grid RowDefinitions="Auto,*">
+                            <ToggleButton Name="HeaderSite"
+                                          Grid.Row="0"
+                                          Background="{StaticResource HeaderBackgroundBrush}"
+                                          BorderThickness="0"
+                                          Content="{TemplateBinding Header}"
+                                          Cursor="Hand"
+                                          Focusable="True"
+                                          Foreground="{StaticResource TextPrimaryBrush}"
+                                          HorizontalAlignment="Stretch"
+                                          HorizontalContentAlignment="Left"
+                                          IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}"
+                                          Padding="10,6">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Name="HeaderBorder"
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{StaticResource BorderBrush}"
+                                                BorderThickness="0,0,0,1"
+                                                CornerRadius="6,6,0,0"
+                                                Padding="{TemplateBinding Padding}">
+                                            <Grid ColumnDefinitions="Auto,*">
+                                                <Path Name="Arrow"
+                                                      Grid.Column="0"
+                                                      Width="6"
+                                                      Height="10"
+                                                      Margin="0,0,8,0"
+                                                      VerticalAlignment="Center"
+                                                      Data="M 0 0 L 5 5 L 0 10"
+                                                      Stroke="{StaticResource TextPrimaryBrush}"
+                                                      StrokeThickness="2"
+                                                      RenderTransformOrigin="0.5,0.5">
+                                                    <Path.RenderTransform>
+                                                        <RotateTransform Angle="0"/>
+                                                    </Path.RenderTransform>
+                                                </Path>
+                                                <ContentPresenter Grid.Column="1"
+                                                                  HorizontalAlignment="Left"
+                                                                  VerticalAlignment="Center"
+                                                                  Content="{TemplateBinding Content}"
+                                                                  ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter Name="ExpandSite"
+                                              Grid.Row="1"
+                                              Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              IsVisible="{TemplateBinding IsExpanded}"/>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Expander /template/ ToggleButton#HeaderSite:checked /template/ Path#Arrow">
+            <Setter Property="RenderTransform">
+                <RotateTransform Angle="90"/>
+            </Setter>
+        </Style>
+        <Style Selector="Expander /template/ ToggleButton#HeaderSite:pointerover /template/ Border#HeaderBorder">
+            <Setter Property="Background" Value="{StaticResource CardBackgroundHoverBrush}"/>
+        </Style>
+        <Style Selector="Expander /template/ ToggleButton#HeaderSite:disabled /template/ Path#Arrow">
+            <Setter Property="Stroke" Value="{StaticResource DisabledTextBrush}"/>
+        </Style>
+
+        <!-- Default TextBox Style -->
+        <Style Selector="TextBox">
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="CaretBrush" Value="{StaticResource PrimaryAccentBrush}"/>
+            <Setter Property="SelectionBrush" Value="{StaticResource PrimaryAccentBrush}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryAccentBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+
+        <!-- Default ProgressBar Style -->
+        <Style Selector="ProgressBar">
+            <Setter Property="Foreground" Value="{StaticResource ProgressForegroundBrush}"/>
+            <Setter Property="Background" Value="{StaticResource ProgressBackgroundBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Height" Value="24"/>
+        </Style>
+
+        <!-- ScrollBars (dark theme) -->
+        <Style Selector="ScrollBar /template/ Thumb">
+            <Setter Property="Background" Value="{StaticResource BorderBrushLight}"/>
+        </Style>
+        <Style Selector="ScrollBar /template/ Thumb:pointerover">
+            <Setter Property="Background" Value="{StaticResource PrimaryAccentBrush}"/>
+        </Style>
+
+        <!-- ToolTip Style (fixes white-on-white in dark theme) -->
+        <Style Selector="ToolTip">
+            <Setter Property="Background" Value="#2d333b"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrushLight}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+
+        <!-- ==================== DATA GRID STYLES ==================== -->
+
+        <!-- Column header style for the conversion/test file lists -->
+        <Style Selector="DataGrid.FileList /template/ DataGridColumnHeader">
+            <Setter Property="Background" Value="{StaticResource HeaderBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+
+        <!-- DataGrid style for the selectable conversion/test file lists -->
+        <Style Selector="DataGrid.FileList">
+            <Setter Property="Background" Value="{StaticResource TerminalBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TerminalForegroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="RowBackground" Value="{StaticResource TerminalBackgroundBrush}"/>
+            <Setter Property="GridLinesVisibility" Value="None"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="RowHeight" Value="26"/>
+            <Setter Property="SelectionMode" Value="Extended"/>
+        </Style>
+        <Style Selector="DataGrid.FileList DataGridRow:nth-child(even)">
+            <Setter Property="Background" Value="{StaticResource TerminalBorderBrush}"/>
+        </Style>
+        <Style Selector="DataGrid.FileList DataGridRow:pointerover">
+            <Setter Property="Background" Value="{StaticResource CardBackgroundHoverBrush}"/>
+        </Style>
+        <Style Selector="DataGrid.FileList DataGridRow:selected">
+            <Setter Property="Background" Value="{StaticResource TerminalSelectedBrush}"/>
+        </Style>
+        <Style Selector="DataGrid.FileList DataGridCell">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource TerminalForegroundBrush}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="DataGrid.FileList DataGridCell:selected">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TerminalForegroundBrush}"/>
+        </Style>
+
+        <!-- Terminal-styled explorer grid -->
+        <Style Selector="DataGrid.Explorer /template/ DataGridColumnHeader">
+            <Setter Property="Background" Value="{StaticResource TerminalBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TerminalForegroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource TerminalBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="DataGrid.Explorer">
+            <Setter Property="Background" Value="{StaticResource TerminalBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TerminalForegroundBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="RowBackground" Value="{StaticResource TerminalBackgroundBrush}"/>
+            <Setter Property="GridLinesVisibility" Value="None"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="RowHeight" Value="28"/>
+            <Setter Property="SelectionMode" Value="Extended"/>
+        </Style>
+        <Style Selector="DataGrid.Explorer DataGridRow:pointerover">
+            <Setter Property="Background" Value="{StaticResource TerminalBorderBrush}"/>
+        </Style>
+        <Style Selector="DataGrid.Explorer DataGridRow:selected">
+            <Setter Property="Background" Value="{StaticResource TerminalSelectedBrush}"/>
+        </Style>
+        <Style Selector="DataGrid.Explorer DataGridCell">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource TerminalForegroundBrush}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="DataGrid.Explorer DataGridCell:selected">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TerminalForegroundBrush}"/>
+        </Style>
+
+        </Application.Styles>
+
+</Application>

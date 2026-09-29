@@ -1,4 +1,4 @@
-# Xbox ISO Studio — Documentation
+# XISO Studio — Documentation
 
 | Getting Started | Using the App | Technical Reference | Project |
 |---|---|---|---|
@@ -8,9 +8,9 @@
 
 ---
 
-Welcome to the official documentation for **Xbox ISO Studio** — a high-performance, cross-platform (Avalonia) utility built for the Xbox preservation and emulation community. Convert, verify, and explore Xbox and Xbox 360 images (ISO, CSO, ZAR, and CHD), powered by the XISOSharp and CHDSharp libraries.
+Welcome to the official documentation for **XISO Studio** — a high-performance, cross-platform (Avalonia) utility built for the Xbox preservation and emulation community. Convert, verify, and explore Xbox and Xbox 360 images (ISO, CSO, ZAR, and CHD), powered by the XISOSharp and CHDSharp libraries.
 
-- **Repository:** <https://github.com/purelogiccode/XboxIsoStudio>
+- **Repository:** <https://github.com/purelogiccode/XISOStudio>
 - **Website:** <https://www.purelogiccode.com>
 - **License:** GNU General Public License v3.0
 - **Current version:** 3.0.0 (September 2026)
@@ -20,7 +20,7 @@ Welcome to the official documentation for **Xbox ISO Studio** — a high-perform
 
 ## What This Tool Does
 
-**Xbox ISO Studio** streamlines the process of converting standard Xbox and Xbox 360 disc images (Redump ISOs) into the optimized, trimmed **XISO** format used by original Xbox consoles, emulators, and FTP transfer tools.
+**XISO Studio** streamlines the process of converting standard Xbox and Xbox 360 disc images (Redump ISOs) into the optimized, trimmed **XISO** format used by original Xbox consoles, emulators, and FTP transfer tools.
 
 The application combines:
 
@@ -49,9 +49,9 @@ Whether you are managing a large collection of game backups, preparing files for
 
 | | |
 |---|---|
-| ![Convert Tab](https://raw.githubusercontent.com/purelogiccode/XboxIsoStudio/master/screenshot.png) | ![Test Tab](https://raw.githubusercontent.com/purelogiccode/XboxIsoStudio/master/screenshot2.png) |
+| ![Convert Tab](https://raw.githubusercontent.com/purelogiccode/XISOStudio/master/screenshot.png) | ![Test Tab](https://raw.githubusercontent.com/purelogiccode/XISOStudio/master/screenshot2.png) |
 | *Batch conversion with real-time monitoring* | *Integrity testing with batch organization* |
-| ![Explorer Tab](https://raw.githubusercontent.com/purelogiccode/XboxIsoStudio/master/screenshot3.png) | |
+| ![Explorer Tab](https://raw.githubusercontent.com/purelogiccode/XISOStudio/master/screenshot3.png) | |
 | *XISO file browser* | |
 
 ---
@@ -70,14 +70,14 @@ Whether you are managing a large collection of game backups, preparing files for
 | [Building from Source](Building-from-Source.md) | Prerequisites, build, and test instructions |
 | [Repository](Repository.md) | Repository layout, releases, contributing, and license |
 | [Release Notes](Release-Notes.md) | Version history and detailed release notes |
-| [What's New](https://github.com/purelogiccode/XboxIsoStudio/blob/master/WhatsNew.md) | Highlights of the latest release |
+| [What's New](https://github.com/purelogiccode/XISOStudio/blob/master/WhatsNew.md) | Highlights of the latest release |
 
 ---
 
 ## Quick Start
 
-1. **Download** the release archive for your platform from the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page and extract it — the application is fully portable, no installer required.
-2. **Launch** `XboxIsoStudio.exe` on Windows or `./XboxIsoStudio` on Linux/macOS (requires the [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)).
+1. **Download** the release archive for your platform from the [Releases](https://github.com/purelogiccode/XISOStudio/releases) page and extract it — the application is fully portable, no installer required.
+2. **Launch** `XISOStudio.exe` on Windows or `./XISOStudio` on Linux/macOS (requires the [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)).
 3. On the **Convert** tab, select an **input folder** containing your ISO files and an **output folder** for the converted XISOs.
 4. Optionally enable **Skip $SystemUpdate** and **Check output integrity**, then click **Start Conversion** and monitor progress in real time.
 
@@ -97,4 +97,4 @@ Whether you are managing a large collection of game backups, preparing files for
 
 ---
 
-*This documentation is published automatically to the [GitHub wiki](https://github.com/purelogiccode/XboxIsoStudio/wiki) and [GitHub Pages](https://purelogiccode.github.io/XboxIsoStudio/) on every change.*
+*This documentation is published automatically to the [GitHub wiki](https://github.com/purelogiccode/XISOStudio/wiki) and [GitHub Pages](https://purelogiccode.github.io/XISOStudio/) on every change.*

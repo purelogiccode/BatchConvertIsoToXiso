@@ -130,22 +130,22 @@ Only when **Delete Originals** (Replace Originals) is enabled — and even then,
 Xbox and Xbox 360 images are supported; conversion repacks the game partition of Redump-style dumps into an optimized XISO.
 
 **Where are temporary files stored?**
-In the system temp folder, in dedicated subfolders. They are cleaned automatically after each file and at startup (orphaned leftovers from crashes are removed too). If the temp drive lacks space, other local drives are used as fallback. Startup cleanup only removes app-created work folders (GUID-named children of `XboxIsoStudio_*` folders) that are older than six hours, so unrelated folders and another instance's active work folders are never deleted.
+In the system temp folder, in dedicated subfolders. They are cleaned automatically after each file and at startup (orphaned leftovers from crashes are removed too). If the temp drive lacks space, other local drives are used as fallback. Startup cleanup only removes app-created work folders (GUID-named children of `XISOStudio_*` folders) that are older than six hours, so unrelated folders and another instance's active work folders are never deleted.
 
 **Does the application run on Linux and macOS?**
 Yes. The UI is built with Avalonia, and all image libraries are pure managed code, so builds are provided for Windows, Linux, and macOS (x64 and ARM64). The disk read/write speed monitor uses Windows performance counters and shows `N/A` on other platforms; the archive extraction fallback uses the system `7z` there instead of the bundled Windows executable.
 
 **Where is the log file?**
-The app writes a rolling log under the per-user application-data folder — `%LocalAppData%\XboxIsoStudio\logs\log-*.txt` on Windows, `~/.local/share/XboxIsoStudio/logs` or `~/Library/Application Support/XboxIsoStudio/logs` elsewhere (10 MB per file, 14 files retained). It contains the same messages shown in the log pane, with levels and full exception details.
+The app writes a rolling log under the per-user application-data folder — `%LocalAppData%\XISOStudio\logs\log-*.txt` on Windows, `~/.local/share/XISOStudio/logs` or `~/Library/Application Support/XISOStudio/logs` elsewhere (10 MB per file, 14 files retained). It contains the same messages shown in the log pane, with levels and full exception details.
 
 **Does the application collect my data?**
 It sends an anonymous usage ping and, for warnings and errors, an automatic bug report containing the message, environment details, and exception details. Expected environmental errors (disk space, network) are logged at Information level and are never reported. No personal data or file contents are collected.
 
 **How do I report a bug?**
-Warnings and errors are reported automatically with environment and exception details. For anything else, open an issue at <https://github.com/purelogiccode/XboxIsoStudio/issues> and include the relevant lines from the log pane or the log file (under the per-user application-data folder, see above).
+Warnings and errors are reported automatically with environment and exception details. For anything else, open an issue at <https://github.com/purelogiccode/XISOStudio/issues> and include the relevant lines from the log pane or the log file (under the per-user application-data folder, see above).
 
 **Where do I download new versions?**
-From the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page. The application checks for updates automatically and offers to open the page when a new version exists.
+From the [Releases](https://github.com/purelogiccode/XISOStudio/releases) page. The application checks for updates automatically and offers to open the page when a new version exists.
 
 **Is there an installer?**
 No. The application is portable — extract and run (see [Installation](Installation.md)).

@@ -1,4 +1,4 @@
-Xbox ISO Studio
+XISO Studio
 Copyright (C) 2026 PureLogicCode.com
 Lead Developer: Peterson Fernandes
 

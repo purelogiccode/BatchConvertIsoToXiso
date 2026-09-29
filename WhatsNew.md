@@ -1,4 +1,4 @@
-# What's New in Xbox ISO Studio
+# What's New in XISO Studio
 
 <!-- Keep this file focused on the newest release. Full history lives in docs/Release-Notes.md. -->
 
@@ -30,7 +30,7 @@ Version 3.0.0 is the **CHD, cross-platform & logging release**: the application 
 - Both game-partition-only CHDs (produced by this app) and full Redump-image CHDs (produced by `chdman createdvd`) are supported — partition offsets are auto-detected.
 
 #### Structured logging with automatic bug reports
-- All logging now runs through [Serilog](https://serilog.net/): the on-screen log viewer, a rolling daily file log (`%LocalAppData%\XboxIsoStudio\logs`), and a bug-report sink that forwards every **Warning-or-higher** event to the Bug Report API.
+- All logging now runs through [Serilog](https://serilog.net/): the on-screen log viewer, a rolling daily file log (`%LocalAppData%\XISOStudio\logs`), and a bug-report sink that forwards every **Warning-or-higher** event to the Bug Report API.
 - Reports include complete Environment, Error, and Exception sections (type, message, source, and stack trace, including nested exceptions); expected user/environmental errors are logged at Information level so they never generate noise.
 - Every `catch` block logs at an appropriate level, Avalonia's internal diagnostics are routed through the same pipeline, and global handlers (`AppDomain.UnhandledException`, `DispatcherUnhandledException`, `TaskScheduler.UnobservedTaskException`) report through the same path.
 

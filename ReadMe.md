@@ -1,39 +1,39 @@
-# Xbox ISO Studio
+# XISO Studio
 
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/purelogiccode/XboxIsoStudio/releases)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/purelogiccode/XISOStudio/releases)
 [![Windows 10 | 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6.svg?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
-[![Linux](https://img.shields.io/badge/Linux-x64%20%7C%20ARM64-FCC624.svg?logo=linux&logoColor=black)](https://github.com/purelogiccode/XboxIsoStudio/releases)
-[![macOS](https://img.shields.io/badge/macOS-Intel%20%7C%20Apple%20Silicon-000000.svg?logo=apple&logoColor=white)](https://github.com/purelogiccode/XboxIsoStudio/releases)
+[![Linux](https://img.shields.io/badge/Linux-x64%20%7C%20ARM64-FCC624.svg?logo=linux&logoColor=black)](https://github.com/purelogiccode/XISOStudio/releases)
+[![macOS](https://img.shields.io/badge/macOS-Intel%20%7C%20Apple%20Silicon-000000.svg?logo=apple&logoColor=white)](https://github.com/purelogiccode/XISOStudio/releases)
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![Avalonia](https://img.shields.io/badge/UI-Avalonia-8A2BE2.svg)](https://avaloniaui.net/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
-[![GitHub release](https://img.shields.io/github/v/release/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio/releases)
-[![GitHub release date](https://img.shields.io/github/release-date/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio/releases)
-[![Downloads](https://img.shields.io/github/downloads/purelogiccode/XboxIsoStudio/total)](https://github.com/purelogiccode/XboxIsoStudio/releases)
-[![GitHub stars](https://img.shields.io/github/stars/purelogiccode/XboxIsoStudio?style=social)](https://github.com/purelogiccode/XboxIsoStudio/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/purelogiccode/XboxIsoStudio?style=social)](https://github.com/purelogiccode/XboxIsoStudio/forks)
-[![GitHub issues](https://img.shields.io/github/issues/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio/issues)
-[![GitHub last commit](https://img.shields.io/github/last-commit/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio/commits/master)
-[![Repo size](https://img.shields.io/github/repo-size/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio)
-[![Top language](https://img.shields.io/github/languages/top/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio)
-[![CI](https://github.com/purelogiccode/XboxIsoStudio/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/XboxIsoStudio/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-purelogiccode.github.io-blue)](https://purelogiccode.github.io/XboxIsoStudio/)
-[![Wiki](https://img.shields.io/badge/wiki-GitHub-181717?logo=github)](https://github.com/purelogiccode/XboxIsoStudio/wiki)
+[![GitHub release](https://img.shields.io/github/v/release/purelogiccode/XISOStudio)](https://github.com/purelogiccode/XISOStudio/releases)
+[![GitHub release date](https://img.shields.io/github/release-date/purelogiccode/XISOStudio)](https://github.com/purelogiccode/XISOStudio/releases)
+[![Downloads](https://img.shields.io/github/downloads/purelogiccode/XISOStudio/total)](https://github.com/purelogiccode/XISOStudio/releases)
+[![GitHub stars](https://img.shields.io/github/stars/purelogiccode/XISOStudio?style=social)](https://github.com/purelogiccode/XISOStudio/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/purelogiccode/XISOStudio?style=social)](https://github.com/purelogiccode/XISOStudio/forks)
+[![GitHub issues](https://img.shields.io/github/issues/purelogiccode/XISOStudio)](https://github.com/purelogiccode/XISOStudio/issues)
+[![GitHub last commit](https://img.shields.io/github/last-commit/purelogiccode/XISOStudio)](https://github.com/purelogiccode/XISOStudio/commits/master)
+[![Repo size](https://img.shields.io/github/repo-size/purelogiccode/XISOStudio)](https://github.com/purelogiccode/XISOStudio)
+[![Top language](https://img.shields.io/github/languages/top/purelogiccode/XISOStudio)](https://github.com/purelogiccode/XISOStudio)
+[![CI](https://github.com/purelogiccode/XISOStudio/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/XISOStudio/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-purelogiccode.github.io-blue)](https://purelogiccode.github.io/XISOStudio/)
+[![Wiki](https://img.shields.io/badge/wiki-GitHub-181717?logo=github)](https://github.com/purelogiccode/XISOStudio/wiki)
 [![Powered by XISOSharp](https://img.shields.io/badge/Powered%20by-XISOSharp-8A2BE2.svg)](https://github.com/purelogiccode/XISOSharp)
 [![Powered by CHDSharp](https://img.shields.io/badge/Powered%20by-CHDSharp-8A2BE2.svg)](https://github.com/purelogiccode/CHDSharp)
 [![Powered by ZArchiveSharp](https://img.shields.io/badge/Powered%20by-ZArchiveSharp-8A2BE2.svg)](https://github.com/purelogiccode/ZArchiveSharp)
 [![Powered by SharpCompress](https://img.shields.io/badge/Powered%20by-SharpCompress-8A2BE2.svg)](https://github.com/adamhathcock/sharpcompress)
 [![Formats](https://img.shields.io/badge/formats-ISO%20%7C%20XISO%20%7C%20ZAR%20%7C%20CSO%20%7C%20CHD-orange.svg)](#supported-formats)
-[![Tests](https://img.shields.io/badge/tests-398%20passing-brightgreen.svg)](https://github.com/purelogiccode/XboxIsoStudio/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-398%20passing-brightgreen.svg)](https://github.com/purelogiccode/XISOStudio/actions/workflows/ci.yml)
 [![Code analyzers](https://img.shields.io/badge/analyzers-Meziantou%20%7C%20Roslynator-blueviolet)](docs/Architecture.md)
 [![Made with C#](https://img.shields.io/badge/Made%20with-C%23-239120.svg?logo=csharp&logoColor=white)](https://dotnet.microsoft.com/languages/csharp)
 [![Nullable](https://img.shields.io/badge/nullable-enabled-blue.svg)](https://learn.microsoft.com/dotnet/csharp/nullable-references)
 [![SemVer](https://img.shields.io/badge/SemVer-2.0.0-blue.svg)](https://semver.org/)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg?logo=conventionalcommits&logoColor=white)](https://conventionalcommits.org)
-[![Contributors](https://img.shields.io/github/contributors/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio/graphs/contributors)
-[![Commit activity](https://img.shields.io/github/commit-activity/m/purelogiccode/XboxIsoStudio)](https://github.com/purelogiccode/XboxIsoStudio/commits/master)
+[![Contributors](https://img.shields.io/github/contributors/purelogiccode/XISOStudio)](https://github.com/purelogiccode/XISOStudio/graphs/contributors)
+[![Commit activity](https://img.shields.io/github/commit-activity/m/purelogiccode/XISOStudio)](https://github.com/purelogiccode/XISOStudio/commits/master)
 [![Code style](https://img.shields.io/badge/code%20style-.editorconfig-ff69b4.svg)](https://editorconfig.org/)
-[![Maintenance](https://img.shields.io/badge/maintenance-active-brightgreen.svg)](https://github.com/purelogiccode/XboxIsoStudio/commits/master)
+[![Maintenance](https://img.shields.io/badge/maintenance-active-brightgreen.svg)](https://github.com/purelogiccode/XISOStudio/commits/master)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/Repository.md#contributing)
 
 A high-performance, cross-platform desktop utility for the Xbox preservation and emulation community, running on **Windows, Linux, and macOS**. Convert, verify, and explore Xbox and Xbox 360 images (ISO, CSO, ZAR, and CHD), powered by the XISOSharp and CHDSharp libraries.
@@ -59,7 +59,7 @@ A high-performance, cross-platform desktop utility for the Xbox preservation and
 
 ## Overview
 
-**Xbox ISO Studio** streamlines the process of converting standard Xbox and Xbox 360 ISOs into the optimized, trimmed **XISO** format (or compressed ZAR, CSO, and CHD images). Encoding and decoding is delegated to the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library, which repacks the XDVDFS game partition, and to **[CHDSharp](https://github.com/purelogiccode/CHDSharp)** for CHD compression, delivering superior performance and modern features like real-time disk write monitoring.
+**XISO Studio** streamlines the process of converting standard Xbox and Xbox 360 ISOs into the optimized, trimmed **XISO** format (or compressed ZAR, CSO, and CHD images). Encoding and decoding is delegated to the **[XISOSharp](https://github.com/purelogiccode/XISOSharp)** library, which repacks the XDVDFS game partition, and to **[CHDSharp](https://github.com/purelogiccode/CHDSharp)** for CHD compression, delivering superior performance and modern features like real-time disk write monitoring.
 
 Whether you're managing a large collection of Xbox game backups or verifying the integrity of your dumps, this application provides a user-friendly interface with powerful batch processing capabilities.
 
@@ -73,7 +73,7 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 - **CHD output format** — convert Xbox and Xbox 360 ISOs to **CHD** (`.chd`, CHD v5 with the chdman `createdvd` preset) alongside XISO/ZAR/CSO.
 - **CHD integrity testing** — test Xbox DVD CHD files, including an optional deep scan that verifies every hunk and checksum plus the Xbox filesystem structure.
 - **CHD explorer** — browse and extract files from CHD images directly, with hunk decompression on demand.
-- **Serilog logging pipeline** — all logging now runs through [Serilog](https://serilog.net/): the on-screen viewer, a rolling daily log file (`%LocalAppData%\XboxIsoStudio\logs`), and automatic forwarding of every Warning-or-higher event to the bug report API.
+- **Serilog logging pipeline** — all logging now runs through [Serilog](https://serilog.net/): the on-screen viewer, a rolling daily log file (`%LocalAppData%\XISOStudio\logs`), and automatic forwarding of every Warning-or-higher event to the bug report API.
 - **Complete bug reports** — every report includes Environment Details (app name/version, OS and Windows version, architecture, bitness, processor count, base directory, temp path), Error Details, and Exception Details (type, message, source, stack trace, including nested exceptions).
 - **Selectable file lists** — after choosing an input folder, the Convert and Test views list every supported file with a **Select** checkbox, file name, and size. Tick the files you want and click **Start**; only ticked files are processed. **Select All** / **Deselect All** toggle the whole list in one click, and **Search Subfolders** rescans the list immediately.
 - **Compressed output formats** — the Convert tab produces **ZAR** (`.zar`, ZArchive/zstd, loadable in Xenia canary) and **CSO** (`.cso`, CISO v2/LZ4, byte-identical to `xdvdfs compress`) in addition to optimized XISO; pick the format in the Options panel.
@@ -147,11 +147,11 @@ Read the full [What's New](WhatsNew.md) or browse the [Release Notes](docs/Relea
     - **macOS**: Intel (x64) and Apple Silicon (ARM64).
 
 ### Steps
-1. Download the release archive for your platform from the [Releases](https://github.com/purelogiccode/XboxIsoStudio/releases) page
+1. Download the release archive for your platform from the [Releases](https://github.com/purelogiccode/XISOStudio/releases) page
 2. Extract the archive to your desired location
 3. Run the executable:
-    - **Windows**: `XboxIsoStudio.exe`
-    - **Linux/macOS**: `./XboxIsoStudio` (run `chmod +x XboxIsoStudio` first if needed)
+    - **Windows**: `XISOStudio.exe`
+    - **Linux/macOS**: `./XISOStudio` (run `chmod +x XISOStudio` first if needed)
 
 No installation required – the application is fully portable.
 
@@ -234,10 +234,10 @@ The application follows modern software engineering principles with a clean, mai
 Utilizes `Microsoft.Extensions.DependencyInjection` for comprehensive service management. All core logic is decoupled from the UI, enabling easier testing and modular updates.
 
 ### Logging
-Logging runs through a single [Serilog](https://serilog.net/) pipeline with three sinks: the on-screen log viewer (`UiLogSink`), a rolling daily file log (`%LocalAppData%\XboxIsoStudio\logs`), and a bug-report sink (`BugReportSink`) that forwards every **Warning-or-higher** event to the Bug Report API. Reports include complete environment, error, and exception sections; expected user/environmental errors are logged at Information level so they never generate noise.
+Logging runs through a single [Serilog](https://serilog.net/) pipeline with three sinks: the on-screen log viewer (`UiLogSink`), a rolling daily file log (`%LocalAppData%\XISOStudio\logs`), and a bug-report sink (`BugReportSink`) that forwards every **Warning-or-higher** event to the Bug Report API. Reports include complete environment, error, and exception sections; expected user/environmental errors are logged at Information level so they never generate noise.
 
 ### Testing
-A comprehensive [xUnit](https://xunit.net/) test suite (`XboxIsoStudio.Tests`) covers models, services, and image services with 390+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
+A comprehensive [xUnit](https://xunit.net/) test suite (`XISOStudio.Tests`) covers models, services, and image services with 390+ tests, using [Moq](https://github.com/devlooped/moq) for mocking.
 
 ### Technical Documentation
 For a deep dive into the XDVDFS format, binary file structures, and the conversion algorithm, see the [XDVDFS Technical Documentation](docs/XDVDFS-Technical-Documentation.md). The full documentation (including installation, usage, troubleshooting, architecture, and [release notes](docs/Release-Notes.md)) lives in the [docs folder](docs/index.md) and doubles as the repository wiki. Highlights of the latest release are summarized in [What's New](WhatsNew.md).
@@ -260,7 +260,7 @@ For a deep dive into the XDVDFS format, binary file structures, and the conversi
 
 - **Atomic Operations**: Converted files are verified before originals are deleted
 - **Archive-Safe Replace Originals**: an archive is deleted only when every entry was extracted and every extracted image was converted; skipped or unprocessed entries keep the archive
-- **Automatic Cleanup**: [`TempFolderCleanupHelper`](XboxIsoStudio/Services/TempFolderCleanupHelper.cs) removes orphaned temporary files on startup or after crashes — only app-created GUID work folders older than six hours, so user folders with the same prefix and another instance's active folders are never touched
+- **Automatic Cleanup**: [`TempFolderCleanupHelper`](XISOStudio/Services/TempFolderCleanupHelper.cs) removes orphaned temporary files on startup or after crashes — only app-created GUID work folders older than six hours, so user folders with the same prefix and another instance's active folders are never touched
 - **Concurrency-Safe Explorer and Shutdown**: background copy-outs hold an explorer lease so the image can't be disposed mid-extraction, and the close confirmation can't be bypassed or shown twice
 - **Fallback Temp Drives**: Automatically searches alternative local drives when the system temp drive lacks sufficient space for archive extraction
 - **Robust Error Handling**: Comprehensive exception handling with [Serilog](https://serilog.net/) structured logging; every Warning-or-higher event is automatically forwarded to the bug report API with full environment and exception details

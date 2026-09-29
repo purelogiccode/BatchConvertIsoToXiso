@@ -1,4 +1,4 @@
-**Xbox ISO Studio**
+**XISO Studio**
 
 - [Home](index)
 - [Installation](Installation)
@@ -23,9 +23,9 @@
 
 **Releases**
 
-- [What's New](https://github.com/purelogiccode/XboxIsoStudio/blob/master/WhatsNew.md)
-- [GitHub Releases](https://github.com/purelogiccode/XboxIsoStudio/releases)
+- [What's New](https://github.com/purelogiccode/XISOStudio/blob/master/WhatsNew.md)
+- [GitHub Releases](https://github.com/purelogiccode/XISOStudio/releases)
 
 ---
 
-<https://github.com/purelogiccode/XboxIsoStudio>
+<https://github.com/purelogiccode/XISOStudio>
