@@ -34,11 +34,9 @@ public class OrchestratorService : IOrchestratorService
         public string ReserveOutputPath(string outputFolder, string baseName, string extension)
         {
             var candidate = Path.Combine(outputFolder, baseName + extension);
-            var counter = 2;
-            while (!_reservedOutputPaths.Add(candidate))
+            for (var counter = 2; !_reservedOutputPaths.Add(candidate); counter++)
             {
                 candidate = Path.Combine(outputFolder, $"{baseName} ({counter}){extension}");
-                counter++;
             }
 
             return candidate;

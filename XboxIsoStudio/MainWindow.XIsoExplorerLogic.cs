@@ -13,7 +13,8 @@ using XboxIsoStudio.Services;
 namespace XboxIsoStudio;
 
 [SuppressMessage("ReSharper", "UnusedMember.Local",
-    Justification = "XAML event handlers are resolved by the Avalonia markup compiler, which ReSharper does not link across partial class files.")]
+    Justification =
+        "XAML event handlers are resolved by the Avalonia markup compiler, which ReSharper does not link across partial class files.")]
 [SuppressMessage("ReSharper", "UnusedParameter.Local",
     Justification = "Parameters are required by XAML event handler signatures (sender, event args).")]
 public partial class MainWindow

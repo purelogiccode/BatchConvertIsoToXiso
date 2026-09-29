@@ -212,14 +212,14 @@ public class PathHelperTests
     {
         // 10% of 10 GB (1 GB) is larger than the 200 MB minimum buffer.
         const long tenGigabytes = 10L * 1024 * 1024 * 1024;
-        Assert.Equal(tenGigabytes + tenGigabytes / 10, PathHelper.AddSafetyBuffer(tenGigabytes));
+        Assert.Equal(tenGigabytes + (tenGigabytes / 10), PathHelper.AddSafetyBuffer(tenGigabytes));
     }
 
     [Fact]
     public void AddSafetyBufferSmallSizeUsesMinimumBuffer()
     {
         const long oneMegabyte = 1024L * 1024;
-        Assert.Equal(oneMegabyte + 200L * 1024 * 1024, PathHelper.AddSafetyBuffer(oneMegabyte));
+        Assert.Equal(oneMegabyte + (200L * 1024 * 1024), PathHelper.AddSafetyBuffer(oneMegabyte));
     }
 
     [Fact]

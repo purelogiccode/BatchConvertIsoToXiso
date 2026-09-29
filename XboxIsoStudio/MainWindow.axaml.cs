@@ -180,7 +180,8 @@ public partial class MainWindow : Window
         {
             if (_isOperationRunning)
             {
-                var result = await _messageBoxService.ShowAsync("An operation is still running. Exit anyway?", "Warning",
+                var result = await _messageBoxService.ShowAsync("An operation is still running. Exit anyway?",
+                    "Warning",
                     UiMessageBoxButton.YesNo, UiMessageBoxImage.Warning);
                 if (result != UiMessageBoxResult.Yes)
                 {

@@ -35,7 +35,8 @@ public class DiskMonitorService : IDiskMonitorService, IDisposable
 
         // Never treat a UNC path (which has no drive letter, so both values are null) as
         // "same drive" before the network check below; otherwise its status is never shown.
-        if (!isNetworkPath && string.Equals(CurrentDriveLetter, driveLetter, StringComparison.OrdinalIgnoreCase)) return;
+        if (!isNetworkPath &&
+            string.Equals(CurrentDriveLetter, driveLetter, StringComparison.OrdinalIgnoreCase)) return;
 
         StopMonitoring();
 
