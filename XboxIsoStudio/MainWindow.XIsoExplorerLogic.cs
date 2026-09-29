@@ -104,7 +104,9 @@ public partial class MainWindow
     /// <summary>
     ///     Runs <paramref name="action" /> on the current explorer while holding it in use,
     ///     so opening another image or closing the window cannot dispose it mid-operation.
-    ///     Returns false when no explorer is open.
+    ///     The action runs on the thread pool because explorer reads (hunk decompression,
+    ///     archive reads) are synchronous and can take seconds. Returns false when no
+    ///     explorer is open.
     /// </summary>
     private async Task<bool> UseExplorerAsync(Action<IImageExplorer> action, CancellationToken token)
     {
@@ -119,7 +121,7 @@ public partial class MainWindow
 
             if (explorer == null) return false;
 
-            action(explorer);
+            await Task.Run(() => action(explorer), token);
             return true;
         }
         finally
@@ -218,19 +220,36 @@ public partial class MainWindow
 
     private async Task OpenFileFromImage(ImageEntry entry, string fileName)
     {
+        CancellationToken token;
+        try
+        {
+            // Capture the token before queueing the background work: the window may be
+            // closed (and the source disposed) before the task actually starts.
+            token = _cts.Token;
+        }
+        catch (ObjectDisposedException)
+        {
+            // The window is shutting down.
+            return;
+        }
+
         await Task.Run(async () =>
         {
+            string? tempFolder = null;
+            var extracted = false;
             try
             {
-                var tempFolder = ResolveExplorerTempDirectory(entry.Size, "ImageExplorer");
+                tempFolder = ResolveExplorerTempDirectory(entry.Size, "ImageExplorer");
                 Directory.CreateDirectory(tempFolder);
                 var tempPath = Path.Combine(tempFolder, fileName);
 
                 // Extract file to temp location while the explorer is held in use.
-                if (!await UseExplorerAsync(explorer => explorer.CopyOut(entry.FullPath, tempPath), _cts.Token))
+                if (!await UseExplorerAsync(explorer => explorer.CopyOut(entry.FullPath, tempPath), token))
                 {
                     return;
                 }
+
+                extracted = true;
 
                 // Open with default application on UI thread
                 await Dispatcher.UIThread.InvokeAsync(() =>
@@ -246,31 +265,9 @@ public partial class MainWindow
                     }
                 });
 
-                // Schedule delayed cleanup of temp file
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(30_000);
-                    try
-                    {
-                        if (File.Exists(tempPath)) File.Delete(tempPath);
-                    }
-                    catch (Exception cleanupEx)
-                    {
-                        /* in use */
-                        _logger.Debug(cleanupEx, "Could not delete extracted temp file: {TempPath}", tempPath);
-                    }
-
-                    try
-                    {
-                        var dir = Path.GetDirectoryName(tempPath);
-                        if (dir != null && Directory.Exists(dir)) Directory.Delete(dir, true);
-                    }
-                    catch (Exception cleanupEx)
-                    {
-                        /* ignore cleanup failures */
-                        _logger.Debug(cleanupEx, "Could not delete extracted temp folder for: {TempPath}", tempPath);
-                    }
-                });
+                // Schedule delayed cleanup of the extracted file after the viewer had a
+                // chance to open it.
+                ScheduleTempFolderCleanup(tempFolder, TimeSpan.FromSeconds(30));
             }
             catch (OperationCanceledException)
             {
@@ -282,7 +279,37 @@ public partial class MainWindow
                 await Dispatcher.UIThread.InvokeAsync(() =>
                     _ = _messageBoxService.ShowErrorAsync($"Failed to extract and open file: {ex.Message}"));
             }
-        }, _cts.Token);
+            finally
+            {
+                // A partial or canceled extraction leaves files no other process can use;
+                // remove them so they do not accumulate in the temp folder.
+                if (!extracted && tempFolder != null)
+                {
+                    ScheduleTempFolderCleanup(tempFolder, TimeSpan.FromSeconds(5));
+                }
+            }
+        }, token);
+    }
+
+    /// <summary>
+    ///     Deletes a temporary extraction folder after a delay, so a process that is still
+    ///     reading the extracted files (file viewer, drag-and-drop target) is not disturbed.
+    ///     Failures are logged and left for the startup cleanup.
+    /// </summary>
+    private void ScheduleTempFolderCleanup(string tempFolder, TimeSpan delay)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(delay).ConfigureAwait(false);
+                if (Directory.Exists(tempFolder)) Directory.Delete(tempFolder, true);
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug(ex, "Could not delete explorer temp folder: {TempFolder}", tempFolder);
+            }
+        }, CancellationToken.None);
     }
 
     private void ExplorerDataGrid_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -312,7 +339,19 @@ public partial class MainWindow
 
             if (selectedItems is not { Count: > 0 }) return;
 
+            CancellationToken token;
+            try
+            {
+                token = _cts.Token;
+            }
+            catch (ObjectDisposedException)
+            {
+                // The window is shutting down.
+                return;
+            }
+
             string? tempFolder = null;
+            var dragStarted = false;
             try
             {
                 _isDragging = true;
@@ -333,7 +372,7 @@ public partial class MainWindow
                         explorer.CopyOut(item.Entry.FullPath, tempPath);
                         tempFiles.Add(tempPath);
                     }
-                }, _cts.Token);
+                }, token);
 
                 if (!copied) return;
 
@@ -355,6 +394,7 @@ public partial class MainWindow
 
                     if (addedCount > 0)
                     {
+                        dragStarted = true;
                         await DragDrop.DoDragDropAsync(_dragPointerArgs, data, DragDropEffects.Copy);
                     }
                 }
@@ -370,18 +410,14 @@ public partial class MainWindow
             }
             finally
             {
-                // The temp folder must be removed on every path, including a failed extraction.
+                // The drop target (for example File Explorer) copies the dropped files
+                // asynchronously after the drop returns, so deleting immediately can
+                // truncate the copy. Keep the files for a while and let the startup
+                // cleanup collect anything left behind after a crash.
                 if (tempFolder != null)
                 {
-                    try
-                    {
-                        Directory.Delete(tempFolder, true);
-                    }
-                    catch (Exception cleanupEx)
-                    {
-                        _logger.Debug(cleanupEx, "Could not delete drag-and-drop temp folder: {TempFolder}",
-                            tempFolder);
-                    }
+                    ScheduleTempFolderCleanup(tempFolder,
+                        dragStarted ? TimeSpan.FromMinutes(5) : TimeSpan.FromSeconds(5));
                 }
 
                 _isDragging = false;

@@ -136,8 +136,10 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
-                // Never let a log-viewer failure propagate back into the Serilog pipeline.
-                _logger.Debug(ex, "Failed to append a message to the on-screen log viewer");
+                // Never log this through Serilog: the UI sink is part of the same pipeline,
+                // so a persistent viewer failure would feed back into this method forever.
+                Serilog.Debugging.SelfLog.WriteLine(
+                    "Failed to append a message to the on-screen log viewer: {0}", ex);
             }
         });
     }

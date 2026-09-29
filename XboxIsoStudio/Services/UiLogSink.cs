@@ -12,6 +12,11 @@ public class UiLogSink : ILogEventSink
 {
     private readonly IFormatProvider? _formatProvider;
 
+    // Guards against a subscriber that logs again (directly or through the pipeline),
+    // which would otherwise recurse into Emit while it is still running.
+    [ThreadStatic]
+    private static bool _isEmitting;
+
     /// <summary>
     /// Event arguments for <see cref="MessageLogged"/>: a pre-formatted, timestamped
     /// log line ready for display.
@@ -39,11 +44,14 @@ public class UiLogSink : ILogEventSink
     /// <inheritdoc />
     public void Emit(LogEvent logEvent)
     {
+        if (_isEmitting) return;
+
         var handler = MessageLogged;
         if (handler is null) return;
 
         try
         {
+            _isEmitting = true;
             var message = logEvent.RenderMessage(_formatProvider);
             var line = $"[{logEvent.Timestamp:HH:mm:ss}] {message}";
             handler(null, new LogMessageEventArgs(line));
@@ -51,6 +59,10 @@ public class UiLogSink : ILogEventSink
         catch
         {
             // A failing subscriber must never propagate back into the Serilog pipeline.
+        }
+        finally
+        {
+            _isEmitting = false;
         }
     }
 }

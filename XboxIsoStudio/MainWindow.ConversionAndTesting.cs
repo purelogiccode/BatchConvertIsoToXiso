@@ -84,13 +84,15 @@ public partial class MainWindow
 
     private async void StartConversionButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
+        // Guard outside the try: the finally block tears the operation down, so an early
+        // return from inside it would finish the operation that is already running.
+        if (_isOperationRunning) return;
+
         var operationStarted = false;
         var operationCanceled = false;
 
         try
         {
-            if (_isOperationRunning) return;
-
             _isOperationRunning = true;
             _operationCompletedTcs = new TaskCompletionSource();
             SetControlsState(false);
@@ -265,13 +267,15 @@ public partial class MainWindow
 
     private async void StartTestButton_ClickAsync(object? sender, RoutedEventArgs e)
     {
+        // Guard outside the try: the finally block tears the operation down, so an early
+        // return from inside it would finish the operation that is already running.
+        if (_isOperationRunning) return;
+
         var operationStarted = false;
         var operationCanceled = false;
 
         try
         {
-            if (_isOperationRunning) return;
-
             _isOperationRunning = true;
             _operationCompletedTcs = new TaskCompletionSource();
             SetControlsState(false);

@@ -7,6 +7,9 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Configure logging before Avalonia initializes its platform subsystems so
+        // framework diagnostics emitted during startup are captured as well.
+        App.ConfigureLogging();
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

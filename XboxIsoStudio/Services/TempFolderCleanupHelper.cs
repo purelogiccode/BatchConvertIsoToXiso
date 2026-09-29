@@ -65,53 +65,60 @@ public static class TempFolderCleanupHelper
     }
 
     /// <summary>
-    ///     Work folders are always created as <c>&lt;XboxIsoStudio_*&gt;/&lt;guid&gt;</c>.
-    ///     Cleanup only removes those GUID-named children, and only when they are old
-    ///     enough that no running instance can still be using them. Unrelated user
-    ///     folders with the same prefix and another instance's fresh work folders are
+    ///     Work folders are always created as <c>&lt;parent&gt;/&lt;guid&gt;</c>, where the
+    ///     parent is an <c>XboxIsoStudio_*</c> folder or one of the image-explorer work
+    ///     folders. Cleanup only removes those GUID-named children, and only when they are
+    ///     old enough that no running instance can still be using them. Unrelated user
+    ///     folders with the same name and another instance's fresh work folders are
     ///     therefore left alone.
     /// </summary>
     private static readonly TimeSpan MinimumOrphanAge = TimeSpan.FromHours(6);
 
+    /// <summary>Names of the folders that contain GUID-named work directories.</summary>
+    private static readonly string[] WorkDirectoryParentPatterns =
+        ["XboxIsoStudio_*", "ImageExplorer", "ImageExplorer_DragDrop"];
+
     /// <summary>
-    ///     Finds stale <c>&lt;XboxIsoStudio_*&gt;/&lt;guid&gt;</c> work folders under the given
-    ///     roots. Only GUID-named children older than <see cref="MinimumOrphanAge" /> are
-    ///     returned; everything else is considered user data or still in use.
+    ///     Finds stale GUID-named work folders under the given roots. Only GUID-named
+    ///     children older than <see cref="MinimumOrphanAge" /> are returned; everything
+    ///     else is considered user data or still in use.
     /// </summary>
     internal static List<string> FindOrphanedWorkDirectories(IEnumerable<string> rootsToScan, DateTime utcNow,
         ILogger? logger)
     {
-        const string searchPattern = "XboxIsoStudio_*";
         var found = new List<string>();
 
         foreach (var root in rootsToScan)
         {
-            try
+            foreach (var searchPattern in WorkDirectoryParentPatterns)
             {
-                foreach (var parent in Directory.EnumerateDirectories(root, searchPattern,
-                             SearchOption.TopDirectoryOnly))
+                try
                 {
-                    try
+                    foreach (var parent in Directory.EnumerateDirectories(root, searchPattern,
+                                 SearchOption.TopDirectoryOnly))
                     {
-                        foreach (var child in Directory.EnumerateDirectories(parent))
+                        try
                         {
-                            if (!Guid.TryParse(Path.GetFileName(child), out _)) continue;
+                            foreach (var child in Directory.EnumerateDirectories(parent))
+                            {
+                                if (!Guid.TryParse(Path.GetFileName(child), out _)) continue;
 
-                            var lastWriteUtc = Directory.GetLastWriteTimeUtc(child);
-                            if (utcNow - lastWriteUtc < MinimumOrphanAge) continue;
+                                var lastWriteUtc = Directory.GetLastWriteTimeUtc(child);
+                                if (utcNow - lastWriteUtc < MinimumOrphanAge) continue;
 
-                            found.Add(child);
+                                found.Add(child);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            logger?.Debug(ex, "Could not inspect temp folder '{ParentFolder}'", parent);
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        logger?.Debug(ex, "Could not inspect temp folder '{ParentFolder}'", parent);
-                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                logger?.Warning(ex, "Error enumerating temp folders on {Root}", root);
+                catch (Exception ex)
+                {
+                    logger?.Warning(ex, "Error enumerating temp folders on {Root}", root);
+                }
             }
         }
 

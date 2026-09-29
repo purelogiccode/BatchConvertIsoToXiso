@@ -26,11 +26,12 @@ public class App : Application
     /// <summary>Name reported to the bug report and application statistics APIs.</summary>
     public const string ApplicationName = "XboxIsoStudio";
 
-    private IBugReportService? _bugReportService;
+    private static IBugReportService? _bugReportService;
     private IStatsService? _statsService;
     private static IServiceProvider? ServiceProvider { get; set; }
     private IMessageBoxService? _messageBoxService;
     private IClassicDesktopStyleApplicationLifetime? _desktop;
+    private static bool _isLoggingConfigured;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="App"/> class and bootstraps the
@@ -38,10 +39,26 @@ public class App : Application
     /// </summary>
     public App()
     {
-        // Bootstrap Serilog before the UI starts so every message emitted during
-        // construction and startup is captured. Warning and above are forwarded to the
-        // Bug Report API by the BugReportSink; the service is resolved lazily because
-        // the dependency injection container is built later during startup.
+        ConfigureLogging();
+
+        AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+        TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
+    }
+
+    /// <summary>
+    /// Bootstraps the Serilog pipeline and routes Avalonia's internal diagnostics through it.
+    /// Called from <c>Program.Main</c> before Avalonia initializes its platform subsystems so
+    /// framework diagnostics emitted during platform startup are captured as well; the call
+    /// from the constructor is a no-op in that case. Warning and above are forwarded to the
+    /// Bug Report API by the <see cref="BugReportSink"/>; the service is resolved lazily
+    /// because the dependency injection container is built later during startup.
+    /// </summary>
+    public static void ConfigureLogging()
+    {
+        if (_isLoggingConfigured) return;
+
+        _isLoggingConfigured = true;
+
         var logPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             ApplicationName,
@@ -67,9 +84,6 @@ public class App : Application
         Avalonia.Logging.Logger.Sink = new AvaloniaSerilogSink(Log.Logger);
 
         Log.Information("XboxIsoStudio v{Version} starting", GetApplicationVersion.GetProgramVersion());
-
-        AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-        TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
     }
 
     /// <summary>

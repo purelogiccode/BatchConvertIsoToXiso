@@ -121,8 +121,8 @@ public class FileMoverService : IFileMover
     {
         try
         {
-            var sourceRoot = Path.GetPathRoot(Path.GetFullPath(sourceFile));
-            var destinationRoot = Path.GetPathRoot(Path.GetFullPath(destinationFolder));
+            var sourceRoot = GetVolumeRoot(sourceFile);
+            var destinationRoot = GetVolumeRoot(destinationFolder);
             if (string.IsNullOrEmpty(sourceRoot) || string.IsNullOrEmpty(destinationRoot)) return true;
 
             var comparison = OperatingSystem.IsWindows()
@@ -137,6 +137,47 @@ public class FileMoverService : IFileMover
                 sourceFile, destinationFolder);
             return true;
         }
+    }
+
+    /// <summary>
+    /// Resolves the volume or mount point that contains <paramref name="path"/>. On Unix,
+    /// <see cref="Path.GetPathRoot(string)"/> always returns "/", so the longest matching
+    /// drive mount point is used instead; this keeps the free-space guard active for moves
+    /// between mount points (for example /tmp to a mounted USB drive).
+    /// </summary>
+    private string? GetVolumeRoot(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        if (OperatingSystem.IsWindows())
+        {
+            return Path.GetPathRoot(fullPath);
+        }
+
+        var bestRoot = Path.GetPathRoot(fullPath);
+        var fullPathWithSeparator = fullPath.EndsWith(Path.DirectorySeparatorChar)
+            ? fullPath
+            : fullPath + Path.DirectorySeparatorChar;
+
+        foreach (var drive in DriveInfo.GetDrives())
+        {
+            var root = drive.RootDirectory.FullName;
+            if (string.IsNullOrEmpty(root)) continue;
+
+            // Ensure the root ends with a separator so "/media/usb" cannot match
+            // "/media/usb2".
+            if (!root.EndsWith(Path.DirectorySeparatorChar))
+            {
+                root += Path.DirectorySeparatorChar;
+            }
+
+            if (fullPathWithSeparator.StartsWith(root, StringComparison.Ordinal) &&
+                root.Length > (bestRoot?.Length ?? 0))
+            {
+                bestRoot = root;
+            }
+        }
+
+        return bestRoot;
     }
 
     /// <summary>

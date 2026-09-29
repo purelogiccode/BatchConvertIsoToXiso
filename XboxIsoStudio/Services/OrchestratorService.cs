@@ -987,10 +987,13 @@ public class OrchestratorService : IOrchestratorService
         // set together instead of stranding the continuation parts.
         if (File.Exists(imagePath)) return;
 
+        // Preserve the original extension casing: on case-sensitive file systems a
+        // hard-coded ".cso" would never find parts named "game.2.CSO".
         var basePath = imagePath[..^".1.cso".Length];
+        var extension = imagePath[^4..];
         for (var part = 2;; part++)
         {
-            var partPath = $"{basePath}.{part}.cso";
+            var partPath = $"{basePath}.{part.ToString(CultureInfo.InvariantCulture)}{extension}";
             if (!File.Exists(partPath)) break;
 
             await _fileMover.MoveTestedFileAsync(partPath, destinationFolder, moveReason, token);

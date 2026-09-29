@@ -40,6 +40,10 @@ public class BugReportSink : ILogEventSink
     {
         if (logEvent.Level < _minimumLevel) return;
 
+        // Avalonia's internal diagnostics are captured for the log viewer and the log file,
+        // but framework warnings are not application defects and must not be auto-reported.
+        if (IsFrameworkEvent(logEvent)) return;
+
         var bugReportService = _bugReportServiceAccessor();
         if (bugReportService is null) return;
 
@@ -65,5 +69,12 @@ public class BugReportSink : ILogEventSink
                 // Silently ignore reporting failures.
             }
         });
+    }
+
+    private static bool IsFrameworkEvent(LogEvent logEvent)
+    {
+        return logEvent.Properties.TryGetValue("SourceContext", out var value) &&
+               value is ScalarValue { Value: string context } &&
+               context.StartsWith("Avalonia", StringComparison.Ordinal);
     }
 }
