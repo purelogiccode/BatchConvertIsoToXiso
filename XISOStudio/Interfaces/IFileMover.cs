@@ -8,7 +8,8 @@ public interface IFileMover
     /// <summary>
     /// Moves a tested file into <paramref name="destinationFolder" />, creating the folder
     /// when needed and retrying transient failures. Returns normally without moving when the
-    /// source is missing or the destination file already exists; throws when the move fails.
+    /// source is missing or the destination file already exists; throws when the move fails,
+    /// including when a cross-volume move does not have enough free space at the destination.
     /// </summary>
     /// <param name="sourceFile">Full path to the file to move.</param>
     /// <param name="destinationFolder">Folder the file is moved into.</param>

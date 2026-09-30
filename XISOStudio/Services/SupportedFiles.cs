@@ -39,24 +39,20 @@ public static class SupportedFiles
     /// <returns><c>true</c> when the path is an image the integrity test can verify; otherwise <c>false</c>.</returns>
     public static bool IsTestable(string path)
     {
-        return IsImage(path);
+        return IsImage(path) && !IsSplitContinuationPart(path);
     }
 
     /// <summary>
-    ///     Returns true when the path has an image extension the integrity test understands,
-    ///     excluding continuation parts of a split CISO set.
+    ///     Returns true when the path has an image extension (<c>.iso</c>, <c>.cso</c>,
+    ///     <c>.zar</c>, or <c>.chd</c>) regardless of whether it is a standalone image or a
+    ///     continuation part of a split CISO set.
     /// </summary>
     /// <param name="path">Path to inspect.</param>
-    /// <returns><c>true</c> when the path is a testable image; otherwise <c>false</c>.</returns>
-    private static bool IsImage(string path)
+    /// <returns><c>true</c> when the path is an image file; otherwise <c>false</c>.</returns>
+    public static bool IsImage(string path)
     {
         var extension = Path.GetExtension(path).ToLowerInvariant();
-        return extension switch
-        {
-            ".iso" or ".zar" or ".chd" => true,
-            ".cso" => !IsSplitContinuationPart(path),
-            _ => false
-        };
+        return extension is ".iso" or ".cso" or ".zar" or ".chd";
     }
 
     /// <summary>

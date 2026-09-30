@@ -1398,6 +1398,28 @@ public class OrchestratorServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ConvertFilesAsyncArchiveWithLoneSplitContinuationPartKeepsArchive()
+    {
+        var archivePath = CreateTempFile("games.zip", "archive data");
+        var extractor = CreateExtractor((100L, 2), path =>
+        {
+            Directory.CreateDirectory(path);
+            File.WriteAllText(Path.Combine(path, "game.iso"), "iso data");
+            File.WriteAllText(Path.Combine(path, "disc.2.cso"), "cso part data");
+        }, new ArchiveExtractionResult(true, []));
+        var progress = new CollectingProgress();
+        var orchestrator = CreateOrchestrator(extractor, FileProcessingStatus.Converted);
+
+        await orchestrator.ConvertFilesAsync([archivePath], Path.Combine(_tempDir, "out"), true, false, false,
+            OutputFormat.Xiso, progress, CloudRetrySkip, CancellationToken.None);
+
+        // The .2.cso part is extracted but never converted; deleting the archive would
+        // destroy the only copy of that part.
+        Assert.True(File.Exists(archivePath));
+        Assert.Contains(progress.Reports, p => p.LogMessage?.Contains("not plain", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
     public async Task ConvertFilesAsyncArchiveWithAlreadyOptimizedImageReportsSkippedArchive()
     {
         var archivePath = CreateTempFile("games.zip", "archive data");
@@ -1598,6 +1620,25 @@ public class OrchestratorServiceTests : IDisposable
         // A file whose move failed is reported as failed, not as a success, and the batch continues.
         Assert.Equal(2, progress.Reports.Count(p => p.FailedCount == 1));
         Assert.DoesNotContain(progress.Reports, p => p.SuccessCount > 0);
+    }
+
+    [Fact]
+    public async Task TestFilesAsyncFailedTestWithFailingMoveCountsFileOnce()
+    {
+        var isoPath = CreateTempFile("game.iso", "iso data");
+        var fileMover = new Mock<IFileMover>();
+        fileMover.Setup(static m => m.MoveTestedFileAsync(It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("move failed"));
+        var progress = new CollectingProgress();
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), FileProcessingStatus.Converted,
+            integrityResult: false, fileMover: fileMover);
+
+        await orchestrator.TestFilesAsync(_tempDir, [isoPath], false, true, false, progress,
+            CloudRetrySkip, CancellationToken.None);
+
+        // The test already failed; the failed move must not count the same file a second time.
+        Assert.Equal(1, progress.Reports.Count(p => p.FailedCount == 1));
     }
 
     [Fact]

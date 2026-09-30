@@ -189,6 +189,32 @@ public class SupportedFilesTests
         Assert.False(SupportedFiles.IsTestable(path));
     }
 
+    [Theory]
+    [InlineData("game.iso")]
+    [InlineData("game.cso")]
+    [InlineData("game.1.cso")]
+    [InlineData("game.2.cso")]
+    [InlineData("GAME.2.CSO")]
+    [InlineData(@"C:\folder\my.game.12.cso")]
+    [InlineData("game.zar")]
+    [InlineData("game.chd")]
+    public void IsImageAllImageExtensionsIncludingSplitContinuationPartsReturnTrue(string path)
+    {
+        Assert.True(SupportedFiles.IsImage(path));
+    }
+
+    [Theory]
+    [InlineData("game.zip")]
+    [InlineData("game.7z")]
+    [InlineData("game.rar")]
+    [InlineData("game.bin")]
+    [InlineData("game.xiso")]
+    [InlineData("game")]
+    public void IsImageNonImageFilesReturnFalse(string path)
+    {
+        Assert.False(SupportedFiles.IsImage(path));
+    }
+
     [Fact]
     public void IsConvertibleNullThrowsNullReferenceException()
     {

@@ -192,4 +192,13 @@ public class ImagePathsTests
     {
         Assert.Equal("/media", ImagePaths.GetParent(path));
     }
+
+    [Theory]
+    [InlineData("/a//b", "/a")]
+    [InlineData("/a//b//c", "/a//b")]
+    [InlineData("//a", "/")]
+    public void GetParentReturnsNormalizedParentForRepeatedInteriorSlashes(string path, string expected)
+    {
+        Assert.Equal(expected, ImagePaths.GetParent(path));
+    }
 }

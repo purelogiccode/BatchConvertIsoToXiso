@@ -97,4 +97,4 @@ Whether you are managing a large collection of game backups, preparing files for
 
 ---
 
-*This documentation is published automatically to the [GitHub wiki](https://github.com/purelogiccode/XISOStudio/wiki) and [GitHub Pages](https://purelogiccode.github.io/XISOStudio/) on every change.*
+*This documentation is published automatically to the [GitHub wiki](https://github.com/purelogiccode/XISOStudio/wiki) and [GitHub Pages](https://purelogiccode.github.io/XISOStudio/) on every change. Both destinations show the same side menu: the wiki renders [`_Sidebar.md`](https://github.com/purelogiccode/XISOStudio/blob/master/docs/_Sidebar.md), and the Pages site renders [`_layouts/default.html`](https://github.com/purelogiccode/XISOStudio/blob/master/docs/_layouts/default.html).*

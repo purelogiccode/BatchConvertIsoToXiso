@@ -164,7 +164,7 @@ Three layers of defense:
 ## Testing
 
 The `XISOStudio.Tests` project (xUnit, Moq) covers models, services, and helper utilities with
-**398 tests**:
+**1,407 tests**:
 
 ```bash
 dotnet test CSharp_XISOStudio.sln

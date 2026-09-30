@@ -83,7 +83,11 @@ public class FileMoverService : IFileMover
                     _logger.Information(
                         "Cannot move {FileName}: Insufficient disk space. Required: {RequiredSpace}, Available: {AvailableSpace}",
                         fileName, requiredSpace, availableSpaceFormatted);
-                    return;
+                    // Throwing (instead of returning normally) keeps the IFileMover contract:
+                    // the caller must report the file as failed rather than as moved.
+                    throw new IOException(
+                        $"Insufficient disk space to move '{fileName}' to '{destinationFolder}'. " +
+                        $"Required: {requiredSpace}, Available: {availableSpaceFormatted}.");
                 }
             }
 
@@ -131,10 +135,9 @@ public class FileMoverService : IFileMover
             var destinationRoot = GetVolumeRoot(destinationFolder);
             if (string.IsNullOrEmpty(sourceRoot) || string.IsNullOrEmpty(destinationRoot)) return true;
 
-            var comparison = OperatingSystem.IsWindows()
-                ? StringComparison.OrdinalIgnoreCase
-                : StringComparison.Ordinal;
-            return !sourceRoot.Equals(destinationRoot, comparison);
+            // Same platform policy as the rest of the app: case-insensitive on Windows
+            // and macOS, ordinal on Linux.
+            return !sourceRoot.Equals(destinationRoot, PathHelper.PathComparison);
         }
         catch (Exception ex)
         {

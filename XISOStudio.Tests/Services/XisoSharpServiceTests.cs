@@ -801,4 +801,18 @@ public sealed class XisoSharpServiceTests : IDisposable
             Assert.Equal(FileProcessingStatus.Failed, status);
         }
     }
+
+    [Fact]
+    public async Task ChdFormatIsRejectedInsteadOfProducingAnXiso()
+    {
+        var isoPath = CreateOptimizedXiso();
+        var service = CreateService();
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.ConvertIsoAsync(isoPath, outputFolder,
+            "game.chd", OutputFormat.Chd, false, false, new CollectingProgress(), CancellationToken.None));
+
+        // CHD encoding is owned by IChdService: no mislabeled XISO may be written.
+        Assert.False(File.Exists(Path.Combine(outputFolder, "game.chd")));
+    }
 }

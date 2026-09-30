@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="{{ site.lang | default: 'en-US' }}">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    {% seo %}
+    <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        color: #24292f;
+        background: #ffffff;
+      }
+      .layout { display: flex; min-height: 100vh; }
+      .sidebar {
+        flex: 0 0 264px;
+        background: #f6f8fa;
+        border-right: 1px solid #d0d7de;
+        padding: 24px 20px 40px;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+      }
+      .sidebar .brand {
+        display: block;
+        font-size: 20px;
+        font-weight: 700;
+        color: #0969da;
+        text-decoration: none;
+        margin-bottom: 2px;
+      }
+      .sidebar .tagline { font-size: 12px; color: #57606a; margin: 0 0 18px; }
+      .sidebar h2 {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: #57606a;
+        margin: 18px 0 6px;
+      }
+      .sidebar ul { list-style: none; margin: 0; padding: 0; }
+      .sidebar li { margin: 0; }
+      .sidebar a {
+        display: block;
+        padding: 4px 8px;
+        border-radius: 6px;
+        color: #24292f;
+        text-decoration: none;
+        font-size: 14px;
+      }
+      .sidebar a:hover { background: #eaeef2; color: #0969da; }
+      .sidebar a.active { background: #0969da; color: #ffffff; font-weight: 600; }
+      .content { flex: 1 1 auto; min-width: 0; padding: 32px 40px 64px; }
+      .content .markdown-body { max-width: 980px; }
+      .page-footer {
+        margin-top: 48px;
+        padding-top: 16px;
+        border-top: 1px solid #d0d7de;
+        font-size: 12px;
+        color: #57606a;
+      }
+      @media (max-width: 800px) {
+        .layout { flex-direction: column; }
+        .sidebar {
+          position: static;
+          height: auto;
+          width: 100%;
+          flex: none;
+          border-right: 0;
+          border-bottom: 1px solid #d0d7de;
+        }
+        .content { padding: 20px 16px 48px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <nav class="sidebar" aria-label="Documentation menu">
+        <a class="brand" href="{{ '/' | relative_url }}">{{ site.title }}</a>
+        <p class="tagline">Documentation</p>
+
+        {% assign current = page.url | remove_first: '/' | remove: '.html' %}
+
+        <h2>Getting Started</h2>
+        <ul>
+          <li><a href="{{ '/' | relative_url }}"{% if current == '' or current == 'index' %} class="active"{% endif %}>Home</a></li>
+          <li><a href="{{ '/Installation.html' | relative_url }}"{% if current == 'Installation' %} class="active"{% endif %}>Installation</a></li>
+        </ul>
+
+        <h2>Using the App</h2>
+        <ul>
+          <li><a href="{{ '/Usage-Guide.html' | relative_url }}"{% if current == 'Usage-Guide' %} class="active"{% endif %}>Usage Guide</a></li>
+          <li><a href="{{ '/Conversion-Methods.html' | relative_url }}"{% if current == 'Conversion-Methods' %} class="active"{% endif %}>Conversion Methods</a></li>
+          <li><a href="{{ '/XISO-Explorer.html' | relative_url }}"{% if current == 'XISO-Explorer' %} class="active"{% endif %}>XISO Explorer</a></li>
+          <li><a href="{{ '/Troubleshooting-and-FAQ.html' | relative_url }}"{% if current == 'Troubleshooting-and-FAQ' %} class="active"{% endif %}>Troubleshooting &amp; FAQ</a></li>
+        </ul>
+
+        <h2>Technical Reference</h2>
+        <ul>
+          <li><a href="{{ '/Architecture.html' | relative_url }}"{% if current == 'Architecture' %} class="active"{% endif %}>Architecture</a></li>
+          <li><a href="{{ '/XDVDFS-Technical-Documentation.html' | relative_url }}"{% if current == 'XDVDFS-Technical-Documentation' %} class="active"{% endif %}>XDVDFS Technical Docs</a></li>
+        </ul>
+
+        <h2>Project</h2>
+        <ul>
+          <li><a href="{{ '/Building-from-Source.html' | relative_url }}"{% if current == 'Building-from-Source' %} class="active"{% endif %}>Building from Source</a></li>
+          <li><a href="{{ '/Repository.html' | relative_url }}"{% if current == 'Repository' %} class="active"{% endif %}>Repository</a></li>
+          <li><a href="{{ '/Release-Notes.html' | relative_url }}"{% if current == 'Release-Notes' %} class="active"{% endif %}>Release Notes</a></li>
+        </ul>
+
+        <h2>Releases</h2>
+        <ul>
+          <li><a href="https://github.com/purelogiccode/XISOStudio/blob/master/WhatsNew.md">What's New</a></li>
+          <li><a href="https://github.com/purelogiccode/XISOStudio/releases">GitHub Releases</a></li>
+        </ul>
+      </nav>
+
+      <main class="content">
+        <article class="markdown-body">
+          {{ content }}
+        </article>
+        <div class="page-footer">
+          XISO Studio documentation &mdash; also published as the
+          <a href="https://github.com/purelogiccode/XISOStudio/wiki">GitHub wiki</a>.
+          <a href="https://github.com/purelogiccode/XISOStudio/edit/master/docs/{{ page.name | default: 'index.md' }}">Edit this page</a>.
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

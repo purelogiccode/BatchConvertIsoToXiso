@@ -165,8 +165,12 @@ public class XisoSharpService : IXisoSharpService
                     skipSystemUpdate, checkIntegrity, progress, token),
                 OutputFormat.Cso => ConvertToCompressedCore(OutputFormat.Cso, inputFile, outputPath,
                     skipSystemUpdate, checkIntegrity, progress, token),
-                _ => ConvertToXisoCore(inputFile, outputFolder, outputPath, skipSystemUpdate, checkIntegrity,
-                    progress, token)
+                OutputFormat.Xiso => ConvertToXisoCore(inputFile, outputFolder, outputPath, skipSystemUpdate,
+                    checkIntegrity, progress, token),
+                // CHD encoding lives in IChdService; failing loudly prevents a mis-routed
+                // call from silently producing an XISO file under a .chd name.
+                _ => throw new ArgumentOutOfRangeException(nameof(outputFormat), outputFormat,
+                    "Only XISO, ZAR, and CSO are handled by IXisoSharpService; CHD is handled by IChdService.")
             }, token);
     }
 

@@ -21,7 +21,7 @@ This page describes the repository itself: where things live, how releases are m
 ## Repository Layout
 
 ```text
-├── docs/                                  This documentation (repository wiki)
+├── docs/                                  This documentation (repository wiki + GitHub Pages)
 │   ├── index.md                           Home page
 │   ├── Installation.md
 │   ├── Usage-Guide.md
@@ -33,7 +33,9 @@ This page describes the repository itself: where things live, how releases are m
 │   ├── Building-from-Source.md
 │   ├── Release-Notes.md                   Full version history
 │   ├── Repository.md                      This page
-│   └── _Sidebar.md                        Sidebar menu (GitHub wiki)
+│   ├── _Sidebar.md                        Side menu (GitHub wiki)
+│   ├── _config.yml                        GitHub Pages configuration (title, theme)
+│   └── _layouts/default.html              GitHub Pages layout with the side menu
 ├── XISOStudio/                 Main Avalonia application project
 │   ├── Program.cs                         Entry point (Avalonia AppBuilder)
 │   ├── App.axaml(.cs)                     Theme/styles + DI composition
@@ -102,10 +104,20 @@ Contributions are welcome!
 
 ## Documentation
 
-The `docs/` folder doubles as the repository wiki:
+The `docs/` folder is the single source for both documentation destinations, and each destination
+gets a side menu:
 
-- On GitHub, `docs/_Sidebar.md` provides the side menu when the pages are imported into the repository wiki (GitHub renders `_Sidebar.md` next to every wiki page automatically).
-- Every page also embeds the same navigation table at the top so the documentation is fully navigable when browsed inside the repository.
+- **GitHub wiki** — `docs/_Sidebar.md` is the side menu (GitHub renders `_Sidebar.md` next to every
+  wiki page automatically). The [Update Wiki workflow](https://github.com/purelogiccode/XISOStudio/blob/master/.github/workflows/wiki.yml)
+  copies the pages into the wiki and rewrites internal links on every push to `docs/`.
+- **GitHub Pages** (<https://purelogiccode.github.io/XISOStudio/>) — `docs/_layouts/default.html`
+  renders the side menu (mirroring `_Sidebar.md`) for every page, and `docs/_config.yml` holds the
+  site title, description, and theme. Pages is built by GitHub from the `master` branch `/docs`
+  folder.
+
+Every page also embeds the same navigation table at the top so the documentation is fully navigable
+when browsed inside the repository. When adding or renaming a page, update all three navigation
+locations: `_Sidebar.md`, `_layouts/default.html`, and the page's top table.
 
 When adding features, please update the relevant documentation pages in the same pull request.
 

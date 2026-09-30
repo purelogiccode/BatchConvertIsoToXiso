@@ -41,6 +41,11 @@ public static class ImagePaths
     {
         var normalized = Normalize(internalPath);
         var lastSlash = normalized.LastIndexOf('/');
-        return lastSlash <= 0 ? "/" : normalized[..lastSlash];
+        if (lastSlash <= 0) return "/";
+
+        // Interior repeated slashes are preserved by Normalize, so trim any trailing
+        // separators to return a normalized parent ("/a//b" -> "/a", not "/a/").
+        var parent = normalized[..lastSlash].TrimEnd('/');
+        return parent.Length == 0 ? "/" : parent;
     }
 }

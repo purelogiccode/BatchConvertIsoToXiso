@@ -52,14 +52,17 @@ public class XisoIntegrityService : IXisoIntegrityService
                 if (Path.GetExtension(isoPath).Equals(".zar", StringComparison.OrdinalIgnoreCase))
                 {
                     var zarPassed = TestZarIntegrity(isoPath, performDeepScan, progress, token);
-                    if (!zarPassed) ReportInvalidIso(progress);
+                    // A file that vanished or cannot be opened is missing, not an invalid
+                    // image, so it must not count toward the "not valid Xbox ISOs" warning.
+                    if (!zarPassed && File.Exists(isoPath)) ReportInvalidIso(progress);
                     return zarPassed;
                 }
 
                 if (Path.GetExtension(isoPath).Equals(".chd", StringComparison.OrdinalIgnoreCase))
                 {
                     var chdPassed = TestChdIntegrity(isoPath, performDeepScan, progress, token);
-                    if (!chdPassed) ReportInvalidIso(progress);
+                    // Same as ZAR: only a readable-but-invalid image is counted.
+                    if (!chdPassed && File.Exists(isoPath)) ReportInvalidIso(progress);
                     return chdPassed;
                 }
 

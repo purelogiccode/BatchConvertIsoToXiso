@@ -12,7 +12,7 @@
 
 | Version | Date | Summary |
 |:---|:---|:---|
-| [3.0.0](#300) | September 2026 | Cross-platform Avalonia port (Windows/Linux/macOS); CHD output, Xbox CHD integrity testing, and CHD exploration; Serilog logging with automatic bug reporting; per-file selection lists; XISO/ZAR/CSO output formats; extensive reliability and bug-fix pass (38 fixes) plus a pre-release review |
+| [3.0.0](#300) | September 2026 | Cross-platform Avalonia port (Windows/Linux/macOS); CHD output, Xbox CHD integrity testing, and CHD exploration; Serilog logging with automatic bug reporting; per-file selection lists; XISO/ZAR/CSO output formats; extensive reliability and bug-fix pass (38 fixes) plus two pre-release reviews |
 | [2.8.0](#280) | September 2026 | XISOSharp migration: in-process conversion, integrity testing, and exploration; external engines removed |
 | [2.7.1](https://github.com/purelogiccode/XISOStudio/releases/tag/release_2.7.1) | July 2026 | Resource cleanup, cancellation, better error filtering |
 | [2.7.0](https://github.com/purelogiccode/XISOStudio/releases/tag/release_2.7.0) | June 2026 | Improved ISO compatibility, disk-space detection, cancellation and performance |
@@ -239,13 +239,41 @@ A full review of the `XISOStudio` and `XISOStudio.Tests` projects found and fixe
 - **The on-screen log viewer could feed failures back into the logging pipeline** — the UI sink has a
   re-entrancy guard and viewer failures are written to `Serilog.Debugging.SelfLog` instead of Serilog.
 
+**Final review follow-up**
+
+- **A failed test with a failed move was counted twice** — the test-failure report was emitted before the
+  `_failed` move, and a move exception reported the same file again. The failure path now moves first
+  (mirroring the success path) and reports the failure once.
+- **A cross-volume move skipped for lack of space was reported as a successful move** —
+  `FileMoverService` returned normally when the destination lacked free space, so the test view could
+  report "passed" while the file was still in the input folder. Insufficient space now throws
+  `IOException`, matching the `IFileMover` contract, and the file is reported as failed.
+- **An archive could be deleted while it still held a lone split-CISO continuation part** — the
+  archive-retention check used the testable-image filter, which hides `*.2.cso` parts; the new
+  `SupportedFiles.IsImage` predicate counts every image extension (continuation parts included), so the
+  archive is kept.
+- **A missing `.zar`/`.chd` file counted toward the "not valid Xbox ISOs" warning** — like the ISO path,
+  the ZAR/CHD paths now only report an invalid image when the file still exists, so vanished files are
+  treated as missing rather than invalid.
+- **A mis-routed CHD conversion could silently produce an XISO** — `XisoSharpService` fell through to
+  the XISO path for `OutputFormat.Chd`; the unsupported format now throws
+  `ArgumentOutOfRangeException` instead of writing a mislabeled file (CHD encoding lives in
+  `ChdService`).
+- **macOS folder validation used a Windows-only case comparison** — input/output folder equality and the
+  subfolder guard, plus `FileMoverService`'s cross-volume detection, now use
+  `PathHelper.PathComparison` (case-insensitive on Windows and macOS, ordinal on Linux).
+- **Cancel and Exit were ignored during the pre-operation temp-folder scan** — the cleanup now receives
+  the batch cancellation token, so a long cleanup no longer delays cancellation or shutdown.
+- **`ImagePaths.GetParent` returned an unnormalized path for interior repeated slashes** — `"/a//b"`
+  returned `"/a/"`; trailing separators are now trimmed, so the returned parent is always normalized.
+
 ### Internal
 
 - Added `Models/ArchiveExtractionResult` (extraction success + skipped entries), the
   `FileProcessingStatus.InvalidInput` value, `BatchOperationProgress.InvalidIsoCount`, and
   `PathHelper.PathComparison`/`PathHelper.AddSafetyBuffer`.
 - `IFileExtractor.ExtractArchiveAsync` now returns `ArchiveExtractionResult` instead of a bool.
-- The xUnit suite grew to **398 tests**, including regression tests for every fixed defect. Test
+- The xUnit suite grew to **1,407 tests**, including regression tests for every fixed defect. Test
   parallelization is disabled (`CollectionBehavior(DisableTestParallelization = true)`) because
   XISOSharp uses process-wide static state and the process working directory during extract/pack.
 - Ported `MainWindow`, `AboutWindow`, `App`, and theming from XAML/WPF to Avalonia

@@ -73,13 +73,21 @@ public partial class MainWindow
     }
 
     /// <summary>Removes stale temporary folders before a batch operation starts.</summary>
-    private async Task PreOperationCleanupAsync()
+    /// <param name="token">Batch cancellation token; Cancel or Exit during the scan stops the cleanup.</param>
+    private async Task PreOperationCleanupAsync(CancellationToken token)
     {
         try
         {
             _logger.Information("Performing pre-operation cleanup of temporary folders...");
-            await TempFolderCleanupHelper.CleanupTempFoldersAsync(_logger);
+            await TempFolderCleanupHelper.CleanupTempFoldersAsync(_logger, token);
             _logger.Information("Pre-operation cleanup completed.");
+        }
+        catch (OperationCanceledException)
+        {
+            // The user canceled (or asked to exit) while the cleanup scan was running:
+            // let the batch start handler finish the operation as canceled.
+            _logger.Information("Pre-operation cleanup canceled.");
+            throw;
         }
         catch (Exception ex)
         {
@@ -192,9 +200,9 @@ public partial class MainWindow
     {
         try
         {
-            var comparison = OperatingSystem.IsWindows()
-                ? StringComparison.OrdinalIgnoreCase
-                : StringComparison.Ordinal;
+            // macOS is case-insensitive too (default APFS/HFS+), so the shared policy is
+            // used instead of a Windows-only check.
+            var comparison = PathHelper.PathComparison;
             var normalizedInput = Path.GetFullPath(inputFolder)
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             var normalizedOutput = Path.GetFullPath(outputFolder)

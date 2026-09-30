@@ -468,7 +468,7 @@ public class FileMoverServiceTests : IDisposable
     #region Cross-Volume Space Check Tests
 
     [Fact]
-    public async Task MoveTestedFileAsyncCrossVolumeInsufficientSpaceSkipsMove()
+    public async Task MoveTestedFileAsyncCrossVolumeInsufficientSpaceThrows()
     {
         if (!OperatingSystem.IsWindows()) return;
 
@@ -476,7 +476,8 @@ public class FileMoverServiceTests : IDisposable
         var destinationFolder = Path.Combine(_tempDir, "_cross");
         var service = CreateService(10, out var diskMonitor);
 
-        await service.MoveTestedFileAsync(@"\\?\" + source, destinationFolder, "reason", CancellationToken.None);
+        await Assert.ThrowsAsync<IOException>(() => service.MoveTestedFileAsync(@"\\?\" + source,
+            destinationFolder, "reason", CancellationToken.None));
 
         Assert.True(File.Exists(source));
         Assert.False(File.Exists(Path.Combine(destinationFolder, "game.iso")));
@@ -492,7 +493,8 @@ public class FileMoverServiceTests : IDisposable
         var destinationFolder = Path.Combine(_tempDir, "_cross");
         var service = CreateService(10);
 
-        await service.MoveTestedFileAsync(@"\\?\" + source, destinationFolder, "reason", CancellationToken.None);
+        await Assert.ThrowsAsync<IOException>(() => service.MoveTestedFileAsync(@"\\?\" + source,
+            destinationFolder, "reason", CancellationToken.None));
 
         Assert.True(_logger.HasMessage("Insufficient disk space"));
         Assert.True(_logger.HasMessage("Required:"));
@@ -508,7 +510,8 @@ public class FileMoverServiceTests : IDisposable
         var destinationFolder = Path.Combine(_tempDir, "_cross");
         var service = CreateService(10, out var diskMonitor);
 
-        await service.MoveTestedFileAsync(@"\\?\" + source, destinationFolder, "reason", CancellationToken.None);
+        await Assert.ThrowsAsync<IOException>(() => service.MoveTestedFileAsync(@"\\?\" + source,
+            destinationFolder, "reason", CancellationToken.None));
 
         diskMonitor.Verify(d => d.GetAvailableFreeSpace(destinationFolder), Times.Once);
     }

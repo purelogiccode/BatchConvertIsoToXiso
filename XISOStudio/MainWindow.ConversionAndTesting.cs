@@ -137,7 +137,7 @@ public partial class MainWindow
                 ProgressTextBlock.Text = "Preparing conversion...";
 
                 UpdateStatus("Cleaning up temporary files...");
-                await PreOperationCleanupAsync();
+                await PreOperationCleanupAsync(cts.Token);
 
                 var inputFolder = ConversionInputFolderTextBox.Text;
                 var outputFolder = ConversionOutputFolderTextBox.Text;
@@ -340,7 +340,7 @@ public partial class MainWindow
                 ProgressTextBlock.Text = "Preparing integrity test...";
 
                 UpdateStatus("Cleaning up temporary files...");
-                await PreOperationCleanupAsync();
+                await PreOperationCleanupAsync(cts.Token);
 
                 var inputFolder = TestInputFolderTextBox.Text;
                 if (string.IsNullOrEmpty(inputFolder))

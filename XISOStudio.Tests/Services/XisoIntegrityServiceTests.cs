@@ -684,11 +684,13 @@ public sealed class XisoIntegrityServiceTests : IDisposable
     public async Task MissingZarFailsWithoutBugReport()
     {
         var service = CreateService();
+        var progress = new CollectingProgress();
 
         var passed = await service.TestIsoIntegrityAsync(Path.Combine(_tempRoot, "missing.zar"), false,
-            new CollectingProgress(), CancellationToken.None);
+            progress, CancellationToken.None);
 
         Assert.False(passed);
+        Assert.Equal(0, TotalInvalidIsoCount(progress));
         Assert.DoesNotContain(_logger.Events, e => e.Level >= LogEventLevel.Warning);
     }
 
@@ -696,10 +698,12 @@ public sealed class XisoIntegrityServiceTests : IDisposable
     public async Task MissingChdFailsWithoutThrowing()
     {
         var service = CreateService();
+        var progress = new CollectingProgress();
 
         var passed = await service.TestIsoIntegrityAsync(Path.Combine(_tempRoot, "missing.chd"), false,
-            new CollectingProgress(), CancellationToken.None);
+            progress, CancellationToken.None);
 
         Assert.False(passed);
+        Assert.Equal(0, TotalInvalidIsoCount(progress));
     }
 }

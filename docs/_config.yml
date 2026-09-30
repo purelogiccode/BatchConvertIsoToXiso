@@ -1,0 +1,10 @@
+# GitHub Pages configuration.
+#
+# The same docs/ folder also feeds the GitHub wiki (see .github/workflows/wiki.yml).
+# The wiki renders the menu from docs/_Sidebar.md; the Pages site renders the menu
+# from docs/_layouts/default.html, which mirrors that sidebar.
+title: XISO Studio
+description: >-
+  Documentation for XISO Studio - a cross-platform utility for converting, testing,
+  and exploring Xbox and Xbox 360 images (ISO, CSO, ZAR, and CHD).
+theme: jekyll-theme-primer

@@ -526,11 +526,12 @@ public class OrchestratorService : IOrchestratorService
                 var isoFiles = extractedFiles.Where(SupportedFiles.IsIso).ToList();
                 isoFileCount = isoFiles.Count;
 
-                // Images that are not plain ISOs (CSO/ZAR/CHD) are extracted but never
-                // converted, so they keep the archive alive when deletion is enabled.
+                // Images that are not plain ISOs (CSO/ZAR/CHD, including the continuation
+                // parts of a split CISO set) are extracted but never converted, so they
+                // keep the archive alive when deletion is enabled.
                 unprocessedImages =
                 [
-                    .. extractedFiles.Where(file => !SupportedFiles.IsIso(file) && SupportedFiles.IsTestable(file))
+                    .. extractedFiles.Where(file => !SupportedFiles.IsIso(file) && SupportedFiles.IsImage(file))
                 ];
 
                 foreach (var file in isoFiles)
@@ -1031,13 +1032,17 @@ public class OrchestratorService : IOrchestratorService
                 }
                 else
                 {
+                    // Move first, mirroring the success path: when the move throws, the
+                    // catch below reports the file once — reporting here as well would
+                    // count the same file twice.
+                    if (moveFailed) await MoveTestedImageAsync(imagePath, failedFolder, "failed test", token);
+
                     progress.Report(new BatchOperationProgress
                     {
                         FailedCount = 1, FailedPathToAdd = imagePath,
                         LogMessage = $"  FAILURE: '{fileName}' failed test."
                     });
                     _logger.Information("Test failed for {FileName}", fileName);
-                    if (moveFailed) await MoveTestedImageAsync(imagePath, failedFolder, "failed test", token);
                 }
             }
             catch (OperationCanceledException)

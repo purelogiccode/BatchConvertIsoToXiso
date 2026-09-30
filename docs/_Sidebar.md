@@ -1,3 +1,5 @@
+<!-- GitHub wiki side menu. Keep in sync with docs/_layouts/default.html (GitHub Pages menu). -->
+
 **XISO Studio**
 
 - [Home](index)
