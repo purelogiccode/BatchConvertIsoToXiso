@@ -815,4 +815,23 @@ public sealed class XisoSharpServiceTests : IDisposable
         // CHD encoding is owned by IChdService: no mislabeled XISO may be written.
         Assert.False(File.Exists(Path.Combine(outputFolder, "game.chd")));
     }
+
+    [Fact]
+    public async Task ConversionDoesNotForwardControlCharactersOrEmptyLibraryLines()
+    {
+        // The rewrite/repack path is where XISOSharp emits its per-character backspace
+        // progress animation; every forwarded line must be a complete, sanitized line.
+        var isoPath = CreateXisoWithSystemUpdate("control-chars.iso", optimized: true);
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), "control-chars.iso",
+            OutputFormat.Xiso, true, false, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        Assert.DoesNotContain(_logger.Events, e =>
+        {
+            var message = e.RenderMessage(CultureInfo.InvariantCulture);
+            return message.Contains('\b') || message.Contains('\r') || message.Trim() is "  [xiso]";
+        });
+    }
 }

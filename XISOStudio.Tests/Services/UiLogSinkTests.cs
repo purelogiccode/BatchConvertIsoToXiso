@@ -40,7 +40,23 @@ public class UiLogSinkTests
         sink.Emit(CreateEvent("User {Name} logged in", ("Name", "alice")));
 
         var args = Assert.Single(received);
-        Assert.Contains("User \"alice\" logged in", args.Message, StringComparison.Ordinal);
+        Assert.Contains("User alice logged in", args.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EmitDoesNotQuoteStringPropertiesWithJsonQuotes()
+    {
+        var (sink, _) = CreateLogger();
+        var received = new List<UiLogSink.LogMessageEventArgs>();
+        using var subscription = Subscribe((_, e) => received.Add(e));
+
+        sink.Emit(CreateEvent("Successfully converted '{FileName}' to XISO format.",
+            ("FileName", "AFL Live.iso")));
+
+        var args = Assert.Single(received);
+        Assert.Contains("Successfully converted 'AFL Live.iso' to XISO format.", args.Message,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("\"AFL Live.iso\"", args.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -253,7 +269,7 @@ public class UiLogSinkTests
         sink.Emit(CreateEvent("Count {Count} for {Name}", ("Count", 42), ("Name", "app")));
 
         var args = Assert.Single(received);
-        Assert.Contains("Count 42 for \"app\"", args.Message, StringComparison.Ordinal);
+        Assert.Contains("Count 42 for app", args.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -300,7 +316,7 @@ public class UiLogSinkTests
         sink.Emit(CreateEvent(level, "level {Level} for {Name}", ("Level", level.ToString()), ("Name", "app")));
 
         var args = Assert.Single(received);
-        Assert.Contains($"level \"{level}\" for \"app\"", args.Message, StringComparison.Ordinal);
+        Assert.Contains($"level {level} for app", args.Message, StringComparison.Ordinal);
     }
 
     private static LogEvent CreateEvent(string template, params (string Name, object? Value)[] properties)

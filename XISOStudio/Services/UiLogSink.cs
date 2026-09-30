@@ -1,5 +1,6 @@
 using Serilog.Core;
 using Serilog.Events;
+using Serilog.Formatting.Display;
 
 namespace XISOStudio.Services;
 
@@ -11,6 +12,7 @@ namespace XISOStudio.Services;
 public class UiLogSink : ILogEventSink
 {
     private readonly IFormatProvider? _formatProvider;
+    private readonly MessageTemplateTextFormatter _messageFormatter;
 
     // Guards against a subscriber that logs again (directly or through the pipeline),
     // which would otherwise recurse into Emit while it is still running.
@@ -39,6 +41,10 @@ public class UiLogSink : ILogEventSink
     public UiLogSink(IFormatProvider? formatProvider = null)
     {
         _formatProvider = formatProvider;
+        // Serilog 4 renders string properties with JSON-style quotes by default
+        // (for example "Game.iso"); the literal ("l") format keeps the viewer readable,
+        // matching the rolling file log.
+        _messageFormatter = new MessageTemplateTextFormatter("{Message:l}", formatProvider);
     }
 
     /// <inheritdoc />
@@ -52,8 +58,9 @@ public class UiLogSink : ILogEventSink
         try
         {
             _isEmitting = true;
-            var message = logEvent.RenderMessage(_formatProvider);
-            var line = $"[{logEvent.Timestamp:HH:mm:ss}] {message}";
+            using var writer = new StringWriter(_formatProvider);
+            _messageFormatter.Format(logEvent, writer);
+            var line = $"[{logEvent.Timestamp:HH:mm:ss}] {writer}";
             handler(null, new LogMessageEventArgs(line));
         }
         catch (Exception ex)

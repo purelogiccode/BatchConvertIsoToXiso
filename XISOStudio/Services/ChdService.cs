@@ -132,6 +132,7 @@ public class ChdService : IChdService
                 Directory.CreateDirectory(tempDir);
 
                 progress.Report(new BatchOperationProgress { StatusText = "Preparing XISO for CHD compression..." });
+                _logger.Information("Preparing an optimized XISO for CHD compression...");
 
                 var rewriteStatus = await _xisoSharpService.ConvertIsoAsync(inputFile, tempDir, "source.iso",
                     OutputFormat.Xiso, skipSystemUpdate, checkIntegrity: false, progress, token);
@@ -247,6 +248,7 @@ public class ChdService : IChdService
     {
         var fileName = Path.GetFileName(sourcePath);
 
+        _logger.Information("Encoding '{FileName}' to CHD v5 (createdvd preset)...", fileName);
         progress.Report(new BatchOperationProgress { StatusText = "Compressing to CHD..." });
 
         var codecTags = ChdCodecs.ParseCodecTags(DvdCodecList);
@@ -269,8 +271,14 @@ public class ChdService : IChdService
             return FileProcessingStatus.Failed;
         }
 
+        _logger.Information("CHD encoding completed ({OutputSize}).",
+            Formatter.FormatBytes(new FileInfo(outputPath).Length));
+
         progress.Report(new BatchOperationProgress
             { StatusText = checkIntegrity ? "Verifying CHD output..." : "Checking CHD output..." });
+        _logger.Information(checkIntegrity
+            ? "Verifying CHD output (every hunk and checksum)..."
+            : "Checking CHD output...");
 
         using var stream = new FileStream(outputPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024);
         var result = Chd.CheckFile(stream, Path.GetFileName(outputPath), checkIntegrity,
@@ -290,12 +298,13 @@ public class ChdService : IChdService
     }
 
     /// <summary>
-    /// Reports encoding progress at 5% steps; CHDSharp invokes the callback once per
-    /// compressed hunk (in hunk order), which would otherwise flood the UI.
+    /// Reports encoding progress at 5% steps and writes each step to the log as well, so the
+    /// on-screen log shows activity during the (CPU-heavy, minutes-long) CHD encoding.
+    /// CHDSharp invokes the callback once per compressed hunk (in hunk order).
     /// </summary>
     /// <param name="progress">Receives the converted progress updates.</param>
-    /// <returns>A callback that reports encoding progress to the batch.</returns>
-    private static Action<HunkProgress> CreateEncodeProgressCallback(IProgress<BatchOperationProgress> progress)
+    /// <returns>A callback that reports encoding progress to the batch and the log.</returns>
+    private Action<HunkProgress> CreateEncodeProgressCallback(IProgress<BatchOperationProgress> progress)
     {
         var lastPercent = -1;
         return hunk =>
@@ -306,14 +315,15 @@ public class ChdService : IChdService
             if (percent < lastPercent + 5 && percent < 100) return;
 
             lastPercent = percent;
+            _logger.Information("Compressing to CHD: {Percent}%", percent);
             progress.Report(new BatchOperationProgress { StatusText = $"Compressing to CHD: {percent}%" });
         };
     }
 
-    /// <summary>Reports deep-verification progress at 5% steps.</summary>
+    /// <summary>Reports deep-verification progress at 5% steps and writes each step to the log.</summary>
     /// <param name="progress">Receives the converted progress updates.</param>
-    /// <returns>An adapter that reports deep-verification progress to the batch.</returns>
-    private static IProgress<ChdProgress> CreateVerifyProgressAdapter(IProgress<BatchOperationProgress> progress)
+    /// <returns>An adapter that reports deep-verification progress to the batch and the log.</returns>
+    private IProgress<ChdProgress> CreateVerifyProgressAdapter(IProgress<BatchOperationProgress> progress)
     {
         var lastPercent = -1;
         return new Progress<ChdProgress>(chdProgress =>
@@ -322,6 +332,7 @@ public class ChdService : IChdService
             if (percent < lastPercent + 5 && percent < 100) return;
 
             lastPercent = percent;
+            _logger.Information("Verifying CHD: {Percent}%", percent);
             progress.Report(new BatchOperationProgress { StatusText = $"Verifying CHD: {percent}%" });
         });
     }

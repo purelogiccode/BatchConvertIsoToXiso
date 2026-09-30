@@ -90,6 +90,24 @@ public sealed class ChdServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ConvertLogsEncodingAndVerificationProgress()
+    {
+        var isoPath = CreateOptimizedXiso();
+        var service = CreateService();
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        var status = await service.ConvertIsoToChdAsync(isoPath, outputFolder, "game.chd", false, true,
+            new Progress<BatchOperationProgress>(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        Assert.True(_logger.HasMessage("Encoding '"));
+        Assert.True(_logger.HasMessage("Compressing to CHD:"));
+        Assert.True(_logger.HasMessage("CHD encoding completed"));
+        Assert.True(_logger.HasMessage("Verifying CHD output"));
+        Assert.True(_logger.HasMessage("Successfully converted"));
+    }
+
+    [Fact]
     public async Task ConvertNonOptimizedIsoRewritesToGamePartitionBeforeEncoding()
     {
         var isoPath = CreateOptimizedXiso();

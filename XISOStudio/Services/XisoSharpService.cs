@@ -204,8 +204,11 @@ public class XisoSharpService : IXisoSharpService
             // static state. Conversions are serialized by the orchestrator, so save and
             // restore the previous values around this conversion.
             Logger.RemoveSystemUpdate = skipSystemUpdate;
-            Logger.ForwardInfo = message => _logger.Information("  [xiso] {Message:l}", message.TrimEnd());
-            Logger.ForwardError = message => _logger.Information("  [xiso] ERROR: {Message:l}", message.TrimEnd());
+            // Reassemble the library's chunked console output into complete, sanitized lines:
+            // its per-character backspace/space progress animation would otherwise flood the
+            // log viewer with thousands of "[xiso] ?" entries.
+            Logger.ForwardInfo = new LibraryOutputLineBuffer(_logger, "  [xiso] ").Append;
+            Logger.ForwardError = new LibraryOutputLineBuffer(_logger, "  [xiso] ERROR: ").Append;
 
             var progressAdapter = CreateRewriteProgressAdapter(progress);
 
@@ -443,8 +446,11 @@ public class XisoSharpService : IXisoSharpService
         try
         {
             Logger.RemoveSystemUpdate = skipSystemUpdate;
-            Logger.ForwardInfo = message => _logger.Information("  [xiso] {Message:l}", message.TrimEnd());
-            Logger.ForwardError = message => _logger.Information("  [xiso] ERROR: {Message:l}", message.TrimEnd());
+            // Reassemble the library's chunked console output into complete, sanitized lines:
+            // its per-character backspace/space progress animation would otherwise flood the
+            // log viewer with thousands of "[xiso] ?" entries.
+            Logger.ForwardInfo = new LibraryOutputLineBuffer(_logger, "  [xiso] ").Append;
+            Logger.ForwardError = new LibraryOutputLineBuffer(_logger, "  [xiso] ERROR: ").Append;
 
             if (outputFormat == OutputFormat.Cso)
             {

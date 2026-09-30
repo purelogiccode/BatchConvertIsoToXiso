@@ -132,7 +132,7 @@ Safety characteristics of the pipeline:
 
 Logging uses a single [Serilog](https://serilog.net/) pipeline configured by `App.ConfigureLogging()` — called from `Program.Main` before Avalonia initializes its platform subsystems, and idempotently from the `App` constructor — with three sinks:
 
-1. **UI** (`UiLogSink`) — timestamped lines in the on-screen log pane (with a re-entrancy guard so a failing viewer cannot feed back into the pipeline).
+1. **UI** (`UiLogSink`) — timestamped lines in the on-screen log pane. The window queues them in a bounded buffer (`LogViewBuffer`, newest 2,000 lines) and updates the viewer in throttled batches (500 lines per 100 ms), so a logging burst can neither queue one dispatcher callback per line nor grow the text control without limit; a re-entrancy guard keeps a failing viewer from feeding back into the pipeline. XISOSharp's chunked console output is reassembled into complete, sanitized lines (`LibraryOutputLineBuffer`) first, so its backspace/space progress animation never floods the viewer.
 2. **File** — rolling daily log under the per-user application-data folder (`%LocalAppData%\XISOStudio\logs` on Windows, `~/.local/share/XISOStudio/logs` or `~/Library/Application Support/XISOStudio/logs` elsewhere) as `log-*.txt` (10 MB per file, 14 files retained) with level and exception details.
 3. **Bug report** (`BugReportSink`) — every event at **Warning or higher** is forwarded to the bug report API (fire-and-forget, never throws). Avalonia framework events (`SourceContext = "Avalonia"`) are written to the viewer and log file but excluded from automatic reports.
 
@@ -164,7 +164,7 @@ Three layers of defense:
 ## Testing
 
 The `XISOStudio.Tests` project (xUnit, Moq) covers models, services, and helper utilities with
-**1,407 tests**:
+**1,432 tests**:
 
 ```bash
 dotnet test CSharp_XISOStudio.sln

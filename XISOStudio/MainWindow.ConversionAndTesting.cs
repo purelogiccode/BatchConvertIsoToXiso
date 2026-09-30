@@ -129,7 +129,7 @@ public partial class MainWindow
                 }
 
                 SetControlsState(false);
-                LogViewer.Text = string.Empty;
+                ClearLogViewer();
                 ResetSummaryStats();
 
                 // Immediate visual feedback while the background thread scans the filesystem
@@ -332,7 +332,7 @@ public partial class MainWindow
                 }
 
                 SetControlsState(false);
-                LogViewer.Text = string.Empty;
+                ClearLogViewer();
                 ResetSummaryStats();
 
                 // Immediate visual feedback while the background thread scans the filesystem

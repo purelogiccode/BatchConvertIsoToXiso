@@ -42,6 +42,24 @@ public class BugReportSinkTests
     }
 
     [Fact]
+    public async Task ForwardedMessageDoesNotQuoteStringPropertiesWithJsonQuotes()
+    {
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bugReport = new Mock<IBugReportService>();
+        bugReport.Setup(static b => b.SendBugReportAsync(It.IsAny<string>()))
+            .Callback(() => tcs.TrySetResult(true))
+            .ReturnsAsync(true);
+
+        var logger = CreateLogger(bugReport.Object, LogEventLevel.Warning);
+        logger.Warning("Could not move {FileName} to {Folder}", "game.iso", @"D:\Out");
+
+        Assert.True(await WaitForAsync(tcs), "The warning was not forwarded to the bug report service");
+        bugReport.Verify(
+            static b => b.SendBugReportAsync(It.Is<string>(m => m == @"Could not move game.iso to D:\Out")),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task ErrorEventWithExceptionIsForwardedWithException()
     {
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

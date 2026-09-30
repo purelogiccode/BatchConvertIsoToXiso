@@ -271,6 +271,13 @@ public partial class MainWindow
     private async Task FinishOperationAsync(string operationType, bool operationStarted, bool operationCanceled,
         TaskCompletionSource operationCompletedTcs)
     {
+        // The batch reports its results through Progress<T>, which posts every callback to the
+        // dispatcher queue. The batch can complete inline on the UI thread before the last
+        // queued callback ran, so drain the queue before reading the summary counters —
+        // otherwise the last file is missing from the summary (for example 1 success for
+        // 2 converted files). The lower-priority no-op runs after every queued report.
+        await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
+
         FinalizeUiState();
 
         _isOperationRunning = false;

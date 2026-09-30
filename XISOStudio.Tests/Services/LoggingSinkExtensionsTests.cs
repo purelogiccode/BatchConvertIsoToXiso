@@ -15,7 +15,7 @@ namespace XISOStudio.Tests.Services;
 public class LoggingSinkExtensionsTests
 {
     private static readonly Regex TimestampedHello = new(
-        @"^\[\d{2}:\d{2}:\d{2}\] Hello ""world""$", RegexOptions.NonBacktracking);
+        @"^\[\d{2}:\d{2}:\d{2}\] Hello world$", RegexOptions.NonBacktracking);
 
     [Fact]
     public void UiReturnsSameLoggerConfigurationForChaining()
@@ -39,7 +39,7 @@ public class LoggingSinkExtensionsTests
 
         logger.Information("Hello {Name}", "world");
 
-        Assert.Contains(messages, static m => m.Contains("Hello \"world\"", StringComparison.Ordinal));
+        Assert.Contains(messages, static m => m.Contains("Hello world", StringComparison.Ordinal));
     }
 
     [Fact]

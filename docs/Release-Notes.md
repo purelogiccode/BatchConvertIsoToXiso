@@ -266,6 +266,26 @@ A full review of the `XISOStudio` and `XISOStudio.Tests` projects found and fixe
   the batch cancellation token, so a long cleanup no longer delays cancellation or shutdown.
 - **`ImagePaths.GetParent` returned an unnormalized path for interior repeated slashes** — `"/a//b"`
   returned `"/a/"`; trailing separators are now trimmed, so the returned parent is always normalized.
+- **The on-screen log viewer could freeze the window during conversion** — every log line queued its
+  own UI callback and the text control grew without bound, so a chatty conversion (XISOSharp's
+  per-character backspace progress animation) froze the window and hid the Cancel button. Log lines
+  now go through a bounded buffer (`LogViewBuffer`, newest 2,000 lines, 500 lines flushed per 100 ms),
+  and the library's chunked console output is reassembled into complete, sanitized lines
+  (`LibraryOutputLineBuffer`), so the `[xiso]` control-character noise never reaches the viewer and
+  the UI stays responsive to Cancel and Exit.
+- **Log messages are rendered as plain text** — Serilog 4 renders string properties with JSON-style
+  quotes by default (`Successfully converted '"game.iso"'`); the on-screen viewer and bug reports now
+  use the literal format, so names and paths appear as written (`Successfully converted 'game.iso'`),
+  matching the rolling file log.
+- **The batch summary could undercount the last file** — `Progress<T>` delivers its callbacks through
+  the dispatcher queue, and the batch could finish (inline on the UI thread) before the last queued
+  result was processed, so a 2-file batch could report "Successfully converted: 1 files". The finish
+  path now drains the dispatcher queue before reading the counters, so the summary and the statistics
+  panel always include the last file.
+- **CHD conversion was silent in the log** — the encoding and verification phases only reported a
+  status-bar percentage, so a minutes-long CHD encode showed nothing in the log pane. CHD conversion
+  now logs each phase (prepare, encode, verify) and every 5% progress step, matching the XISO/ZAR/CSO
+  output.
 
 ### Internal
 
@@ -273,7 +293,7 @@ A full review of the `XISOStudio` and `XISOStudio.Tests` projects found and fixe
   `FileProcessingStatus.InvalidInput` value, `BatchOperationProgress.InvalidIsoCount`, and
   `PathHelper.PathComparison`/`PathHelper.AddSafetyBuffer`.
 - `IFileExtractor.ExtractArchiveAsync` now returns `ArchiveExtractionResult` instead of a bool.
-- The xUnit suite grew to **1,407 tests**, including regression tests for every fixed defect. Test
+- The xUnit suite grew to **1,432 tests**, including regression tests for every fixed defect. Test
   parallelization is disabled (`CollectionBehavior(DisableTestParallelization = true)`) because
   XISOSharp uses process-wide static state and the process working directory during extract/pack.
 - Ported `MainWindow`, `AboutWindow`, `App`, and theming from XAML/WPF to Avalonia

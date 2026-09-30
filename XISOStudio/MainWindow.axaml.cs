@@ -17,8 +17,17 @@ namespace XISOStudio;
 /// </summary>
 public partial class MainWindow : Window
 {
-    /// <summary>Maximum number of characters kept in the on-screen log viewer before the oldest half is dropped.</summary>
-    private const int MaxLogLength = 100000; // Approx 1000-2000 lines depending on length
+    /// <summary>Maximum number of log lines appended per UI flush; larger bursts are split into several flushes.</summary>
+    private const int MaxLogLinesPerFlush = 500;
+
+    /// <summary>How often pending log lines are pushed to the viewer; at most ~10 text updates per second.</summary>
+    private static readonly TimeSpan LogFlushInterval = TimeSpan.FromMilliseconds(100);
+
+    /// <summary>Bounded buffer of rendered log lines waiting for/held by the on-screen viewer.</summary>
+    private readonly LogViewBuffer _logBuffer = new();
+
+    /// <summary>Throttles viewer updates so a logging burst cannot flood the dispatcher.</summary>
+    private readonly DispatcherTimer _logFlushTimer = new() { Interval = LogFlushInterval };
 
     /// <summary>Coordinates batch conversion and integrity testing.</summary>
     private readonly IOrchestratorService _orchestratorService = null!;
@@ -152,6 +161,8 @@ public partial class MainWindow : Window
 
         _processingTimer.Tick += ProcessingTimer_Tick;
         _memoryTimer.Tick += MemoryTimer_Tick;
+        _logFlushTimer.Tick += LogFlushTimer_Tick;
+        _logFlushTimer.Start();
 
         ResetSummaryStats();
         DisplayInstructions.Initialize(_logger);
@@ -166,54 +177,65 @@ public partial class MainWindow : Window
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
         UiLogSink.MessageLogged -= OnLogMessage;
+        _logFlushTimer.Stop();
     }
 
     /// <summary>
-    /// Called by <see cref="UiLogSink"/> for every log event. Appends the pre-formatted
-    /// line to the log viewer on the UI thread, truncating the oldest half when the
-    /// viewer grows too large.
+    /// Called by <see cref="UiLogSink"/> for every log event. The rendered line is queued in a
+    /// bounded buffer; the UI is updated by <see cref="_logFlushTimer"/> in throttled batches,
+    /// so a logging burst can neither queue one dispatcher operation per line nor freeze the
+    /// window with an ever-growing text control.
     /// </summary>
     /// <param name="sender">The log sink that raised the event.</param>
     /// <param name="e">The pre-formatted log message.</param>
     private void OnLogMessage(object? sender, UiLogSink.LogMessageEventArgs e)
     {
-        var logViewer = LogViewer;
-
-        _ = Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            try
-            {
-                var text = logViewer.Text ?? string.Empty;
-                if (text.Length > MaxLogLength)
-                {
-                    // Keep the last ~50% of the log, try to cut at a newline
-                    var cutIndex = text.IndexOf('\n', text.Length / 2);
-                    text = cutIndex >= 0 ? text.Substring(cutIndex + 1) : text.Substring(text.Length / 2);
-                    logViewer.Text = text;
-                }
-
-                AppendLogText($"{e.Message}{Environment.NewLine}");
-            }
-            catch (Exception ex)
-            {
-                // Never log this through Serilog: the UI sink is part of the same pipeline,
-                // so a persistent viewer failure would feed back into this method forever.
-                Serilog.Debugging.SelfLog.WriteLine(
-                    "Failed to append a message to the on-screen log viewer: {0}", ex);
-            }
-        });
+        _logBuffer.Enqueue(e.Message);
     }
 
     /// <summary>
-    /// Appends text to the log viewer and keeps the caret at the end so the view
-    /// scrolls to the newest line.
+    /// Appends a bounded batch of pending lines to the viewer and drops the oldest lines
+    /// beyond the display limit. One timer tick updates the viewer once instead of once per
+    /// line, and only a limited number of lines is drained per tick, so the UI thread always
+    /// stays free for input, rendering, and the Cancel button.
     /// </summary>
-    /// <param name="line">The text to append, including any trailing newline.</param>
-    private void AppendLogText(string line)
+    /// <param name="sender">The timer that raised the event.</param>
+    /// <param name="e">The event data.</param>
+    private void LogFlushTimer_Tick(object? sender, EventArgs e)
     {
-        var logViewer = LogViewer;
-        logViewer.Text = (logViewer.Text ?? string.Empty) + line;
-        logViewer.CaretIndex = logViewer.Text.Length;
+        try
+        {
+            var drained = _logBuffer.Drain(MaxLogLinesPerFlush);
+            if (drained.Count == 0) return;
+
+            if (_logBuffer.Commit(drained))
+            {
+                // Lines were dropped: rebuild the viewer once from the bounded buffer.
+                LogViewer.Text = string.Join(Environment.NewLine, _logBuffer.Snapshot()) + Environment.NewLine;
+            }
+            else
+            {
+                LogViewer.Text = (LogViewer.Text ?? string.Empty) +
+                                 string.Join(Environment.NewLine, drained) + Environment.NewLine;
+            }
+
+            // Keep the caret at the end so the view scrolls to the newest line.
+            LogViewer.CaretIndex = LogViewer.Text?.Length ?? 0;
+        }
+        catch (Exception ex)
+        {
+            // Never log this through Serilog: the UI sink is part of the same pipeline,
+            // so a persistent viewer failure would feed back into this method forever.
+            Serilog.Debugging.SelfLog.WriteLine(
+                "Failed to append messages to the on-screen log viewer: {0}", ex);
+        }
+    }
+
+    /// <summary>Clears the viewer and the bounded line buffer (for example when a batch starts).</summary>
+    private void ClearLogViewer()
+    {
+        _logBuffer.Clear();
+        LogViewer.Text = string.Empty;
     }
 
     /// <summary>Sets the initial navigation style and starts the update check once the window is loaded.</summary>

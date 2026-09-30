@@ -176,7 +176,7 @@
                              VerticalContentAlignment="Top"
                              Padding="8"
                              CaretBrush="{StaticResource TerminalForegroundBrush}"
-                             ToolTip.Tip="Displays real-time conversion, testing, and general operation output logs">
+                             ToolTip.Tip="Displays real-time conversion, testing, and general operation output logs. Only the newest lines are kept so heavy logging cannot freeze the window.">
                         <TextBox.Effect>
                             <DropShadowEffect OffsetX="0" OffsetY="0" Color="#39FF14" BlurRadius="2" Opacity="0.4"/>
                         </TextBox.Effect>

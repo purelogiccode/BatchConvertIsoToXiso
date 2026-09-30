@@ -1,6 +1,7 @@
 using XISOStudio.Interfaces;
 using Serilog.Core;
 using Serilog.Events;
+using Serilog.Formatting.Display;
 
 namespace XISOStudio.Services;
 
@@ -14,6 +15,7 @@ public class BugReportSink : ILogEventSink
     private readonly Func<IBugReportService?> _bugReportServiceAccessor;
     private readonly IFormatProvider? _formatProvider;
     private readonly LogEventLevel _minimumLevel;
+    private readonly MessageTemplateTextFormatter _messageFormatter;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BugReportSink"/> class.
@@ -33,6 +35,9 @@ public class BugReportSink : ILogEventSink
         _bugReportServiceAccessor = bugReportServiceAccessor;
         _minimumLevel = minimumLevel;
         _formatProvider = formatProvider;
+        // Report the message as plain text, without Serilog 4's JSON-style quotes around
+        // string properties.
+        _messageFormatter = new MessageTemplateTextFormatter("{Message:l}", formatProvider);
     }
 
     /// <inheritdoc />
@@ -52,7 +57,9 @@ public class BugReportSink : ILogEventSink
             var bugReportService = _bugReportServiceAccessor();
             if (bugReportService is null) return;
 
-            var message = logEvent.RenderMessage(_formatProvider);
+            using var writer = new StringWriter(_formatProvider);
+            _messageFormatter.Format(logEvent, writer);
+            var message = writer.ToString();
             var exception = logEvent.Exception;
 
             // Fire-and-forget: never block the logging pipeline and never let reporting failures surface.
