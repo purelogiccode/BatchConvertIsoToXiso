@@ -19,6 +19,15 @@ public class PathHelperTests
         Assert.Equal(expected, result);
     }
 
+    [Fact]
+    public void GetDriveLetterUnixRootReturnsNullInsteadOfEmptyString()
+    {
+        if (OperatingSystem.IsWindows()) return;
+
+        Assert.Null(PathHelper.GetDriveLetter("/"));
+        Assert.Null(PathHelper.GetDriveLetter("/tmp/file.iso"));
+    }
+
     [Theory]
     [InlineData(null, false)]
     [InlineData("", false)]

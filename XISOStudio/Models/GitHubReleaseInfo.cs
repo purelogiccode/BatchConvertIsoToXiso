@@ -8,8 +8,10 @@ namespace XISOStudio.Models;
 public class GitHubReleaseInfo
 {
     /// <summary>Gets or sets the release tag name (for example <c>v1.2.3</c>).</summary>
-    [JsonPropertyName("tag_name")] public string? TagName { get; set; }
+    [JsonPropertyName("tag_name")]
+    public string? TagName { get; set; }
 
     /// <summary>Gets or sets the URL of the release page on GitHub.</summary>
-    [JsonPropertyName("html_url")] public string? HtmlUrl { get; set; }
+    [JsonPropertyName("html_url")]
+    public string? HtmlUrl { get; set; }
 }

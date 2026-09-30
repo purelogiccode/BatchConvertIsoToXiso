@@ -37,7 +37,10 @@ public static class PathHelper
             if (string.IsNullOrEmpty(pathRoot)) return null;
 
             var driveInfo = new DriveInfo(pathRoot);
-            return driveInfo.Name.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var driveName = driveInfo.Name.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            // Unix roots ("/") trim to an empty string; report them as "no drive letter"
+            // instead of an empty string, matching the documented contract.
+            return driveName.Length == 0 ? null : driveName;
         }
         catch (Exception ex)
         {

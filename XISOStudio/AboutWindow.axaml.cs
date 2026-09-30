@@ -57,7 +57,31 @@ public partial class AboutWindow : Window
         catch (Exception ex)
         {
             _logger.Error(ex, "Unable to open link: {Uri}", url);
-            _ = _messageBoxService.ShowErrorAsync($"Unable to open link: {ex.Message}");
+            ShowErrorSafe($"Unable to open link: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Shows an error message box without awaiting it, swallowing failures so a dialog
+    /// failure cannot surface as an unobserved task exception.
+    /// </summary>
+    /// <param name="message">Error message to display.</param>
+    private void ShowErrorSafe(string message)
+    {
+        _ = ShowErrorSafeAsync(message);
+    }
+
+    /// <summary>Shows an error message box, logging (not throwing) when the dialog itself fails.</summary>
+    /// <param name="message">Error message to display.</param>
+    private async Task ShowErrorSafeAsync(string message)
+    {
+        try
+        {
+            await _messageBoxService.ShowErrorAsync(message);
+        }
+        catch (Exception ex)
+        {
+            _logger.Information(ex, "Failed to show an error message box");
         }
     }
 }

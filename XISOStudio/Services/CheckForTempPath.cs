@@ -15,19 +15,54 @@ public static class CheckForTempPath
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(selectedPath);
 
-        var systemTempPath = Path.GetTempPath();
-
-        // Normalize both paths to ensure consistent comparison (e.g., handle trailing slashes)
-        var normalizedSystemTempPath = Path.GetFullPath(systemTempPath)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var normalizedSelectedPath = Path.GetFullPath(selectedPath)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-        // Check if the selected path is exactly the system temp path or starts with it (indicating a subfolder).
-        // The comparison is case-sensitive on file systems that are case-sensitive (Linux).
         var comparison = PathHelper.PathComparison;
-        return normalizedSelectedPath.Equals(normalizedSystemTempPath, comparison) ||
-               normalizedSelectedPath.StartsWith(normalizedSystemTempPath + Path.DirectorySeparatorChar,
-                   comparison);
+        var systemTempFullPath = Path.GetFullPath(Path.GetTempPath());
+        var normalizedSystemTempPath = NormalizeForComparison(systemTempFullPath);
+        var normalizedSelectedPath = NormalizeForComparison(Path.GetFullPath(selectedPath));
+
+        // Check if the selected path is exactly the system temp path or starts with it
+        // (indicating a subfolder). The comparison is case-sensitive on file systems that
+        // are case-sensitive (Linux).
+        if (normalizedSelectedPath.Equals(normalizedSystemTempPath, comparison)) return true;
+
+        // A temp folder that is itself a filesystem root ("C:\", "/") must not mark the whole
+        // drive as temp: with a root temp path, only the root itself is rejected.
+        if (IsFileSystemRoot(systemTempFullPath)) return false;
+
+        return normalizedSelectedPath.StartsWith(normalizedSystemTempPath + Path.DirectorySeparatorChar,
+            comparison);
+    }
+
+    /// <summary>
+    /// Normalizes a full path for comparison: trailing separators are removed, except for a
+    /// filesystem root, which keeps its separator so it cannot become a prefix that matches
+    /// every path on the volume.
+    /// </summary>
+    /// <param name="fullPath">Full path to normalize.</param>
+    /// <returns>The normalized path used for comparisons.</returns>
+    private static string NormalizeForComparison(string fullPath)
+    {
+        var root = Path.GetPathRoot(fullPath);
+        if (!string.IsNullOrEmpty(root) && fullPath.Length <= root.Length)
+        {
+            return root;
+        }
+
+        return fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+
+    /// <summary>
+    /// True when the path is a filesystem root (for example "C:\" or "/").
+    /// </summary>
+    /// <param name="fullPath">Full path to inspect.</param>
+    /// <returns><c>true</c> when the path is a filesystem root; otherwise <c>false</c>.</returns>
+    private static bool IsFileSystemRoot(string fullPath)
+    {
+        var root = Path.GetPathRoot(fullPath);
+        if (string.IsNullOrEmpty(root)) return false;
+
+        return fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .Equals(root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                PathHelper.PathComparison);
     }
 }

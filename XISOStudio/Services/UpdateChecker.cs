@@ -44,10 +44,13 @@ public partial class UpdateChecker : IUpdateChecker
     /// version.
     /// </summary>
     /// <returns>
-    /// A tuple containing whether a newer version is available, the latest version string when
-    /// one was found, and the release download URL.
+    /// A tuple containing whether the check succeeded, whether a newer version is available,
+    /// the latest version string when one was found, and the release page URL. A failed check
+    /// returns <c>false</c> for <c>CheckSucceeded</c> so the caller can distinguish "offline"
+    /// from "up to date".
     /// </returns>
-    public async Task<(bool IsNewVersionAvailable, string? LatestVersion, string? DownloadUrl)> CheckForUpdateAsync()
+    public async Task<(bool CheckSucceeded, bool IsNewVersionAvailable, string? LatestVersion, string? DownloadUrl)>
+        CheckForUpdateAsync()
     {
         try
         {
@@ -62,31 +65,36 @@ public partial class UpdateChecker : IUpdateChecker
 
             if (releaseInfo?.TagName is null || releaseInfo.HtmlUrl is null)
             {
-                return (false, null, null);
+                return (false, false, null, null);
             }
 
             var versionMatch = MyRegex().Match(releaseInfo.TagName);
             if (!versionMatch.Success)
             {
-                return (false, null, null);
+                return (false, false, null, null);
             }
 
             var latestVersionStr = versionMatch.Value;
 
             if (Version.TryParse(latestVersionStr, out var latestVersion) &&
-                Version.TryParse(_currentVersion, out var currentVersion) &&
-                latestVersion > currentVersion)
+                Version.TryParse(_currentVersion, out var currentVersion))
             {
-                return (true, latestVersion.ToString(), releaseInfo.HtmlUrl);
+                return latestVersion > currentVersion
+                    ? (true, true, latestVersion.ToString(), releaseInfo.HtmlUrl)
+                    : (true, false, null, null);
             }
+
+            // The release or the running version could not be parsed: the check did not
+            // determine anything, so it must not be reported as "up to date".
+            return (false, false, null, null);
         }
         catch (Exception ex)
         {
-            _logger.Warning(ex, "Failed to check for updates.");
-            return (false, null, null);
+            // Update checks fail whenever the machine is offline, GitHub is unreachable or
+            // rate-limiting; that is environmental and must not be uploaded as a bug report.
+            _logger.Information(ex, "Failed to check for updates.");
+            return (false, false, null, null);
         }
-
-        return (false, null, null);
     }
 
     [GeneratedRegex(@"\d+(\.\d+){1,3}", RegexOptions.None | RegexOptions.ExplicitCapture,

@@ -16,7 +16,17 @@ public partial class MainWindow
             _logger.Information("Application started. Current version: {CurrentVersion}", currentVersion);
             _logger.Information("Checking for updates...");
 
-            var (isNewVersionAvailable, latestVersion, downloadUrl) = await _updateChecker.CheckForUpdateAsync();
+            var (checkSucceeded, isNewVersionAvailable, latestVersion, downloadUrl) =
+                await _updateChecker.CheckForUpdateAsync();
+
+            if (!checkSucceeded)
+            {
+                // Offline, rate-limited, or the release could not be parsed: do not claim
+                // the running version is up to date.
+                _logger.Information(
+                    "Could not check for updates. Please check your internet connection and try again later.");
+                return;
+            }
 
             if (isNewVersionAvailable && !string.IsNullOrEmpty(downloadUrl) && !string.IsNullOrEmpty(latestVersion))
             {
@@ -31,7 +41,16 @@ public partial class MainWindow
 
                 if (result == UiMessageBoxResult.Yes)
                 {
-                    _urlOpener.OpenUrl(downloadUrl);
+                    try
+                    {
+                        _urlOpener.OpenUrl(downloadUrl);
+                    }
+                    catch (Exception ex)
+                    {
+                        // No browser/handler configured is an environment condition, not a defect.
+                        _logger.Information(ex, "Could not open the download page for version {LatestVersion}",
+                            latestVersion);
+                    }
                 }
             }
             else

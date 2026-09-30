@@ -32,6 +32,7 @@ public class ChdService : IChdService
 
     /// <summary>Logger used to report conversion progress and failures.</summary>
     private readonly ILogger _logger;
+
     /// <summary>XISO service used to prepare optimized source images.</summary>
     private readonly IXisoSharpService _xisoSharpService;
 

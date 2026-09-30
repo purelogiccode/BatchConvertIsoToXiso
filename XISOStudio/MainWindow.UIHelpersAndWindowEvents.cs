@@ -122,6 +122,30 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>
+    /// Shows an error message box without awaiting it, swallowing failures so a dialog
+    /// failure cannot surface as an unobserved task exception.
+    /// </summary>
+    /// <param name="message">Error message to display.</param>
+    private void ShowErrorSafe(string message)
+    {
+        _ = ShowErrorSafeAsync(message);
+    }
+
+    /// <summary>Shows an error message box, logging (not throwing) when the dialog itself fails.</summary>
+    /// <param name="message">Error message to display.</param>
+    private async Task ShowErrorSafeAsync(string message)
+    {
+        try
+        {
+            await _messageBoxService.ShowErrorAsync(message);
+        }
+        catch (Exception ex)
+        {
+            _logger.Information(ex, "Failed to show an error message box");
+        }
+    }
+
     /// <summary>Opens the donation page in the default browser.</summary>
     /// <param name="sender">The button that raised the event.</param>
     /// <param name="e">The event data.</param>
@@ -134,7 +158,7 @@ public partial class MainWindow
         catch (Exception ex)
         {
             _logger.Error(ex, "Error opening the donation page");
-            _ = _messageBoxService.ShowErrorAsync($"Unable to open the donation page: {ex.Message}");
+            ShowErrorSafe($"Unable to open the donation page: {ex.Message}");
         }
     }
 
@@ -168,7 +192,9 @@ public partial class MainWindow
     {
         try
         {
-            var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            var comparison = OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
             var normalizedInput = Path.GetFullPath(inputFolder)
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             var normalizedOutput = Path.GetFullPath(outputFolder)
@@ -233,22 +259,20 @@ public partial class MainWindow
     /// <param name="operationType">Operation name ("Conversion" or "Test").</param>
     /// <param name="operationStarted">Whether the batch actually started.</param>
     /// <param name="operationCanceled">Whether the user canceled the batch.</param>
-    private async Task FinishOperationAsync(string operationType, bool operationStarted, bool operationCanceled)
+    /// <param name="operationCompletedTcs">Completion source of the operation being finished.</param>
+    private async Task FinishOperationAsync(string operationType, bool operationStarted, bool operationCanceled,
+        TaskCompletionSource operationCompletedTcs)
     {
         FinalizeUiState();
 
         _isOperationRunning = false;
         SetControlsState(true);
 
-        try
-        {
-            await LogOperationSummaryAsync(operationType, operationStarted, operationCanceled);
-        }
-        finally
-        {
-            // Always release the shutdown wait, even if the summary failed.
-            _operationCompletedTcs.TrySetResult();
-        }
+        // Release the shutdown wait before the summary dialog: the batch work is done, and
+        // the user must be able to keep reading the summary while the app exits.
+        operationCompletedTcs.TrySetResult();
+
+        await LogOperationSummaryAsync(operationType, operationStarted, operationCanceled);
     }
 
     /// <summary>Writes the batch summary to the log and shows the result dialog.</summary>
@@ -446,6 +470,7 @@ public partial class MainWindow
 
     /// <summary>Log column width saved while the explorer hides the log panel.</summary>
     private GridLength _savedLogColumnWidth = new(1, GridUnitType.Star);
+
     /// <summary>Splitter column width saved while the explorer hides the log panel.</summary>
     private GridLength _savedSplitterColumnWidth = new(10);
 

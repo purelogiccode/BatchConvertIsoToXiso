@@ -22,55 +22,81 @@ public partial class MainWindow : Window
 
     /// <summary>Coordinates batch conversion and integrity testing.</summary>
     private readonly IOrchestratorService _orchestratorService = null!;
+
     /// <summary>Reports disk read/write speed and free space while an operation runs.</summary>
     private readonly IDiskMonitorService _diskMonitorService = null!;
+
     /// <summary>Cancels the current batch operation.</summary>
     private CancellationTokenSource _cts = new();
+
+    /// <summary>
+    ///     Cancels explorer extractions. Kept separate from <see cref="_cts"/> so a canceled
+    ///     batch does not leave the explorer's token canceled for later open/drag operations.
+    /// </summary>
+    private readonly CancellationTokenSource _explorerCts = new();
+
     /// <summary>Signals completion of the current batch operation to the shutdown flow.</summary>
     private TaskCompletionSource _operationCompletedTcs = new();
+
     /// <summary>Checks GitHub for a newer release at startup.</summary>
     private readonly IUpdateChecker _updateChecker = null!;
+
     /// <summary>Logger scoped to this window.</summary>
     private readonly ILogger _logger = null!;
+
     /// <summary>Shows modal dialogs such as confirmations and errors.</summary>
     private readonly IMessageBoxService _messageBoxService = null!;
+
     /// <summary>Opens links in the default browser.</summary>
     private readonly IUrlOpener _urlOpener = null!;
+
     /// <summary>Captures the active window for the F8 screenshot shortcut.</summary>
     private readonly IScreenshotService _screenshotService = null!;
 
     // Summary Stats
     /// <summary>Measures the elapsed time of the current operation.</summary>
     private readonly Stopwatch _operationStopwatch = new();
+
     /// <summary>Updates the elapsed-time and disk-speed display every second.</summary>
     private readonly DispatcherTimer _processingTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+
     /// <summary>Updates the managed-memory display every two seconds.</summary>
     private readonly DispatcherTimer _memoryTimer = new() { Interval = TimeSpan.FromSeconds(2) };
+
     /// <summary>Total number of files reported for the current operation.</summary>
     private int _uiTotalFiles;
+
     /// <summary>Number of files processed successfully in the current operation.</summary>
     private int _uiSuccessCount;
+
     /// <summary>Number of files that failed in the current operation.</summary>
     private int _uiFailedCount;
+
     /// <summary>Number of files skipped in the current operation.</summary>
     private int _uiSkippedCount;
+
     /// <summary>Indicates whether a batch operation is currently running.</summary>
     private bool _isOperationRunning;
+
     /// <summary>Indicates that the window is closing without further confirmation.</summary>
     private bool _isForceClosing;
+
     /// <summary>Indicates that a close negotiation is already in progress.</summary>
     private bool _isClosingInProgress;
 
     /// <summary>Number of processed files that were not valid Xbox ISOs.</summary>
     private int _invalidIsoErrorCount;
+
     /// <summary>Total number of files processed in the current operation.</summary>
     private int _totalProcessedFiles;
+
     /// <summary>Paths of the files that failed in the current operation.</summary>
     private readonly HashSet<string> _failedFilePaths = new(StringComparer.OrdinalIgnoreCase);
 
     // Image Explorer State
     /// <summary>Explorer for the image currently open in the explorer view.</summary>
     private IImageExplorer? _explorer;
+
     /// <summary>Guards access to <see cref="_explorer"/>.</summary>
     private readonly Lock _explorerLock = new();
 
@@ -78,6 +104,7 @@ public partial class MainWindow : Window
     // background copy-out still using it has finished.
     /// <summary>Serializes explorer use with explorer retirement.</summary>
     private readonly SemaphoreSlim _explorerUseLock = new(1, 1);
+
     /// <summary>Directory currently shown in the explorer view.</summary>
     private string _currentInternalPath = "/";
 
@@ -301,25 +328,37 @@ public partial class MainWindow : Window
             }
 
             // Now perform cleanup and close on the UI thread
+            if (timedOut)
+            {
+                // Arm the process-level exit before awaiting the dispatcher: if the UI
+                // thread is blocked by a modal dialog, the continuation after InvokeAsync
+                // never runs, so the watchdog must already be scheduled.
+                var dispatcherCompleted = 0;
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    Thread.Sleep(5000);
+                    if (Volatile.Read(ref dispatcherCompleted) == 0)
+                    {
+                        Environment.Exit(0);
+                    }
+                });
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _isForceClosing = true;
+                    CleanupResources();
+                    Close();
+                    Volatile.Write(ref dispatcherCompleted, 1);
+                });
+                return;
+            }
+
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 _isForceClosing = true;
                 CleanupResources();
                 Close();
             });
-
-            // If the operation timed out, the UI thread may still be blocked by a
-            // queued message box or another modal dialog. Force a process-level exit
-            // after a delay as a last resort — this skips normal cleanup but prevents
-            // a permanently hung process.
-            if (timedOut)
-            {
-                ThreadPool.QueueUserWorkItem(static _ =>
-                {
-                    Thread.Sleep(5000);
-                    Environment.Exit(0);
-                });
-            }
         }
         catch (Exception ex)
         {
@@ -355,13 +394,16 @@ public partial class MainWindow : Window
 
         try
         {
+            // Cancel only, never dispose: a timed-out operation may still be registering
+            // on these tokens, and disposal would make it throw ObjectDisposedException.
+            // The process is exiting, so leaving the sources undisposed is harmless.
             _cts.Cancel();
-            _cts.Dispose();
+            _explorerCts.Cancel();
         }
         catch (Exception ex)
         {
-            // Ignore disposal errors during shutdown
-            _logger.Debug(ex, "Ignoring cancellation token disposal error during shutdown");
+            // Ignore cancellation errors during shutdown
+            _logger.Debug(ex, "Ignoring cancellation token error during shutdown");
         }
     }
 
@@ -406,6 +448,14 @@ public partial class MainWindow : Window
                 if (filePath is not null)
                 {
                     _logger.Information("Screenshot captured: {FilePath}", filePath);
+                }
+                else
+                {
+                    // The service already logged why; tell the user instead of failing silently.
+                    _logger.Information("Screenshot could not be captured.");
+                    await _messageBoxService.ShowErrorAsync(
+                        "The screenshot could not be saved. Please check that the application folder or your " +
+                        "user data folder is writable and try again.");
                 }
             }
         }

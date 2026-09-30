@@ -18,7 +18,7 @@ public interface IXisoSharpService
     /// <param name="outputFileName">File name to use for the result.</param>
     /// <param name="outputFormat">Target format (XISO, ZAR, or CSO).</param>
     /// <param name="skipSystemUpdate">Whether to exclude the $SystemUpdate folder from the optimized image.</param>
-    /// <param name="checkIntegrity">Whether to verify the result after conversion.</param>
+    /// <param name="checkIntegrity">Whether to validate image structure: the converted XISO output, or the source image when producing ZAR/CSO (those formats are streamed and are not re-read afterwards).</param>
     /// <param name="progress">Receives batch progress and status updates.</param>
     /// <param name="token">Token that cancels the conversion.</param>
     /// <returns>The status of the completed conversion.</returns>

@@ -69,7 +69,12 @@ public class FileItem : INotifyPropertyChanged
         get => _fileSize;
         set
         {
-            if (_fileSize == value) return;
+            if (_fileSize == value)
+            {
+                // A fresh item has size 0 but no formatted display yet; keep it consistent.
+                if (string.IsNullOrEmpty(_displaySize)) DisplaySize = FormatSize(value);
+                return;
+            }
 
             _fileSize = value;
             OnPropertyChanged();

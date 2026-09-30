@@ -1,6 +1,8 @@
+using XISOStudio.Models;
 using XISOStudio.Services;
 using XISOSharp;
 using Xunit;
+using ZArchiveSharp;
 
 namespace XISOStudio.Tests.Services;
 
@@ -198,5 +200,454 @@ public sealed class ImageExplorerTests : IDisposable
     public void ImagePathsGetParentReturnsParent(string input, string expected)
     {
         Assert.Equal(expected, ImagePaths.GetParent(input));
+    }
+
+    private static void AssertRootListing(string imagePath)
+    {
+        using var explorer = ImageExplorerFactory.Open(imagePath);
+
+        var root = explorer.ListChildren("/");
+        Assert.Contains(root,
+            static e => e is { Name: "default.xbe", FullPath: "/default.xbe", IsDirectory: false, Size: > 0 });
+        Assert.Contains(root,
+            static e => e is { Name: "media", FullPath: "/media", IsDirectory: true, Size: 0 });
+    }
+
+    private static void AssertNestedListing(string imagePath)
+    {
+        using var explorer = ImageExplorerFactory.Open(imagePath);
+
+        var media = explorer.ListChildren("/media");
+        var data = Assert.Single(media);
+        Assert.Equal(new ImageEntry("data.bin", "/media/data.bin", false, 5), data);
+    }
+
+    private void AssertCopyOutOverwritesExistingFile(string imagePath)
+    {
+        using var explorer = ImageExplorerFactory.Open(imagePath);
+
+        var dest = Path.Combine(_tempRoot, "overwrite", "data.bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+        File.WriteAllText(dest, "stale content");
+
+        explorer.CopyOut("/media/data.bin", dest);
+
+        Assert.Equal([1, 2, 3, 4, 5], File.ReadAllBytes(dest));
+    }
+
+    private void AssertCopyOutCreatesDestinationDirectories(string imagePath)
+    {
+        using var explorer = ImageExplorerFactory.Open(imagePath);
+
+        var dest = Path.Combine(_tempRoot, "created", "deeper", "data.bin");
+        explorer.CopyOut("/media/data.bin", dest);
+
+        Assert.Equal([1, 2, 3, 4, 5], File.ReadAllBytes(dest));
+    }
+
+    private void AssertCaseInsensitivePaths(string imagePath)
+    {
+        using var explorer = ImageExplorerFactory.Open(imagePath);
+
+        var media = explorer.ListChildren("/MEDIA");
+        Assert.Single(media);
+
+        var dest = Path.Combine(_tempRoot, "case", "DATA.BIN");
+        explorer.CopyOut("/Media/DATA.BIN", dest);
+
+        Assert.Equal([1, 2, 3, 4, 5], File.ReadAllBytes(dest));
+    }
+
+    private void AssertPathTraversalIsRejected(string imagePath)
+    {
+        using var explorer = ImageExplorerFactory.Open(imagePath);
+
+        Assert.Throws<InvalidDataException>(() => explorer.ListChildren("/../"));
+
+        var escaped = Path.Combine(_tempRoot, "escaped.txt");
+        Assert.Throws<InvalidDataException>(() => explorer.CopyOut("/../escaped.txt", escaped));
+        Assert.False(File.Exists(escaped));
+    }
+
+    private static void AssertEmptyPathListsRoot(string imagePath)
+    {
+        using var explorer = ImageExplorerFactory.Open(imagePath);
+
+        var root = explorer.ListChildren("");
+        Assert.Contains(root, static e => string.Equals(e.Name, "default.xbe", StringComparison.Ordinal));
+        var nullPath = explorer.ListChildren(null!);
+        Assert.Equal(root.Count, nullPath.Count);
+    }
+
+    private static void AssertDisposeIsIdempotent(string imagePath)
+    {
+        var explorer = ImageExplorerFactory.Open(imagePath);
+        explorer.Dispose();
+        explorer.Dispose();
+    }
+
+    private static void AssertDisposeReleasesFileHandle(string imagePath)
+    {
+        var explorer = ImageExplorerFactory.Open(imagePath);
+        explorer.Dispose();
+
+        File.Delete(imagePath);
+        Assert.False(File.Exists(imagePath));
+    }
+
+    private string CreateCraftedZar(string entryPath, string name = "crafted.zar")
+    {
+        var zarPath = Path.Combine(_tempRoot, name);
+        using var output = File.Create(zarPath);
+        using var writer = new ZArchiveWriter(output);
+        var slash = entryPath.LastIndexOf('/');
+        if (slash > 0)
+        {
+            Assert.True(writer.MakeDir(entryPath[..slash], recursive: true));
+        }
+
+        Assert.True(writer.StartNewFile(entryPath));
+        writer.AppendData("unsafe"u8);
+        writer.Finalize();
+
+        return zarPath;
+    }
+
+    [Fact]
+    public void XisoImageExplorerRootListingIncludesCanonicalPaths()
+    {
+        AssertRootListing(CreateXiso());
+    }
+
+    [Fact]
+    public void XisoImageExplorerNestedListingHasExpectedEntry()
+    {
+        AssertNestedListing(CreateXiso());
+    }
+
+    [Fact]
+    public void CisoImageExplorerListsNestedDirectory()
+    {
+        AssertNestedListing(CreateCiso());
+    }
+
+    [Fact]
+    public void ZarImageExplorerRootListingIncludesCanonicalPaths()
+    {
+        AssertRootListing(CreateZar());
+    }
+
+    [Fact]
+    public void ZarImageExplorerNestedListingHasExpectedEntry()
+    {
+        AssertNestedListing(CreateZar());
+    }
+
+    [Fact]
+    public void ChdImageExplorerRootListingIncludesCanonicalPaths()
+    {
+        AssertRootListing(CreateChd());
+    }
+
+    [Fact]
+    public void ChdImageExplorerNestedListingHasExpectedEntry()
+    {
+        AssertNestedListing(CreateChd());
+    }
+
+    [Fact]
+    public void XisoImageExplorerInvalidPathThrows()
+    {
+        using var explorer = ImageExplorerFactory.Open(CreateXiso());
+
+        Assert.Throws<InvalidDataException>(() => explorer.ListChildren("/missing"));
+        Assert.Throws<InvalidDataException>(() => explorer.CopyOut("/missing", Path.Combine(_tempRoot, "x")));
+    }
+
+    [Fact]
+    public void CisoImageExplorerInvalidPathThrows()
+    {
+        using var explorer = ImageExplorerFactory.Open(CreateCiso());
+
+        Assert.Throws<InvalidDataException>(() => explorer.ListChildren("/missing"));
+    }
+
+    [Fact]
+    public void XisoImageExplorerListingFileAsDirectoryThrows()
+    {
+        using var explorer = ImageExplorerFactory.Open(CreateXiso());
+
+        Assert.Throws<InvalidDataException>(() => explorer.ListChildren("/default.xbe"));
+    }
+
+    [Fact]
+    public void ZarImageExplorerListingFileAsDirectoryThrows()
+    {
+        using var explorer = ImageExplorerFactory.Open(CreateZar());
+
+        Assert.Throws<InvalidDataException>(() => explorer.ListChildren("/default.xbe"));
+    }
+
+    [Fact]
+    public void ChdImageExplorerListingFileAsDirectoryThrows()
+    {
+        using var explorer = ImageExplorerFactory.Open(CreateChd());
+
+        Assert.Throws<InvalidDataException>(() => explorer.ListChildren("/default.xbe"));
+    }
+
+    [Fact]
+    public void XisoImageExplorerCopyOutOverwritesExistingFile()
+    {
+        AssertCopyOutOverwritesExistingFile(CreateXiso());
+    }
+
+    [Fact]
+    public void ZarImageExplorerCopyOutOverwritesExistingFile()
+    {
+        AssertCopyOutOverwritesExistingFile(CreateZar());
+    }
+
+    [Fact]
+    public void ChdImageExplorerCopyOutOverwritesExistingFile()
+    {
+        AssertCopyOutOverwritesExistingFile(CreateChd());
+    }
+
+    [Fact]
+    public void XisoImageExplorerCopyOutCreatesMissingDirectories()
+    {
+        AssertCopyOutCreatesDestinationDirectories(CreateXiso());
+    }
+
+    [Fact]
+    public void ZarImageExplorerCopyOutCreatesMissingDirectories()
+    {
+        AssertCopyOutCreatesDestinationDirectories(CreateZar());
+    }
+
+    [Fact]
+    public void ChdImageExplorerCopyOutCreatesMissingDirectories()
+    {
+        AssertCopyOutCreatesDestinationDirectories(CreateChd());
+    }
+
+    [Fact]
+    public void XisoImageExplorerPathsAreCaseInsensitive()
+    {
+        AssertCaseInsensitivePaths(CreateXiso());
+    }
+
+    [Fact]
+    public void ZarImageExplorerPathsAreCaseInsensitive()
+    {
+        AssertCaseInsensitivePaths(CreateZar());
+    }
+
+    [Fact]
+    public void ChdImageExplorerPathsAreCaseInsensitive()
+    {
+        AssertCaseInsensitivePaths(CreateChd());
+    }
+
+    [Fact]
+    public void XisoImageExplorerRejectsPathTraversal()
+    {
+        AssertPathTraversalIsRejected(CreateXiso());
+    }
+
+    [Fact]
+    public void ZarImageExplorerRejectsPathTraversal()
+    {
+        AssertPathTraversalIsRejected(CreateZar());
+    }
+
+    [Fact]
+    public void ChdImageExplorerRejectsPathTraversal()
+    {
+        AssertPathTraversalIsRejected(CreateChd());
+    }
+
+    [Fact]
+    public void ZarImageExplorerSkipsReservedDeviceNameEntry()
+    {
+        var zarPath = CreateCraftedZar("dir/CON");
+        using var explorer = ImageExplorerFactory.Open(zarPath);
+
+        // The device name must never be exposed to the UI: listed names become paths.
+        var listed = explorer.ListChildren("/dir");
+        Assert.DoesNotContain(listed, static e => string.Equals(e.Name, "CON", StringComparison.Ordinal));
+
+        var dest = Path.Combine(_tempRoot, "con-out");
+        explorer.CopyOut("/dir", dest);
+        Assert.True(Directory.Exists(dest));
+        Assert.Empty(Directory.GetFiles(dest, "*", SearchOption.AllDirectories));
+        Assert.False(File.Exists(Path.Combine(_tempRoot, "CON")));
+    }
+
+    [Fact]
+    public void ZarImageExplorerSkipsParentDirectoryEntry()
+    {
+        var zarPath = CreateCraftedZar("dir/..");
+        using var explorer = ImageExplorerFactory.Open(zarPath);
+
+        // ".." must not be listed (the UI would navigate to it) nor copied out.
+        var listed = explorer.ListChildren("/dir");
+        Assert.DoesNotContain(listed, static e => string.Equals(e.Name, "..", StringComparison.Ordinal));
+
+        var dest = Path.Combine(_tempRoot, "dotdot-out");
+        explorer.CopyOut("/dir", dest);
+        Assert.True(Directory.Exists(dest));
+        Assert.Empty(Directory.GetFiles(dest, "*", SearchOption.AllDirectories));
+    }
+
+    [Fact]
+    public void ZarImageExplorerSkipsAlternateDataStreamEntry()
+    {
+        var zarPath = CreateCraftedZar("dir/file:stream");
+        using var explorer = ImageExplorerFactory.Open(zarPath);
+
+        // A colon would create an NTFS alternate data stream instead of a file.
+        var listed = explorer.ListChildren("/dir");
+        Assert.DoesNotContain(listed, static e => string.Equals(e.Name, "file:stream", StringComparison.Ordinal));
+
+        var dest = Path.Combine(_tempRoot, "ads-out");
+        explorer.CopyOut("/dir", dest);
+        Assert.True(Directory.Exists(dest));
+        Assert.Empty(Directory.GetFiles(dest, "*", SearchOption.AllDirectories));
+    }
+
+    [Theory]
+    [InlineData("CON ")]
+    [InlineData("NUL.")]
+    [InlineData("COM1 ")]
+    [InlineData("LPT9.")]
+    public void ZarImageExplorerSkipsDeviceNameWithTrailingDotsOrSpaces(string name)
+    {
+        // Win32 strips trailing dots/spaces, so these still resolve to the device.
+        var zarPath = CreateCraftedZar("dir/" + name);
+        using var explorer = ImageExplorerFactory.Open(zarPath);
+
+        var listed = explorer.ListChildren("/dir");
+        Assert.DoesNotContain(listed, e => string.Equals(e.Name, name, StringComparison.Ordinal));
+
+        var dest = Path.Combine(_tempRoot, "device-out");
+        explorer.CopyOut("/dir", dest);
+        Assert.True(Directory.Exists(dest));
+        Assert.Empty(Directory.GetFiles(dest, "*", SearchOption.AllDirectories));
+    }
+
+    [Fact]
+    public void ZarImageExplorerRejectsExcessiveDirectoryNesting()
+    {
+        const int depth = 1100;
+        var deepPath = string.Join('/', Enumerable.Repeat("d", depth));
+        var zarPath = Path.Combine(_tempRoot, "deep.zar");
+        using (var output = File.Create(zarPath))
+        using (var writer = new ZArchiveWriter(output))
+        {
+            Assert.True(writer.MakeDir(deepPath, recursive: true));
+            Assert.True(writer.StartNewFile(deepPath + "/f.bin"));
+            writer.AppendData("deep"u8);
+            writer.Finalize();
+        }
+
+        using var explorer = ImageExplorerFactory.Open(zarPath);
+
+        // A crafted deep tree must fail catchably instead of overflowing the stack.
+        Assert.Throws<InvalidDataException>(() => explorer.CopyOut("/d", Path.Combine(_tempRoot, "deep-out")));
+    }
+
+    [Fact]
+    public void XisoImageExplorerInvalidIsoThrows()
+    {
+        var badIso = Path.Combine(_tempRoot, "bad.iso");
+        File.WriteAllText(badIso, "not an xiso");
+
+        Assert.Throws<XisoFormatException>(() => ImageExplorerFactory.Open(badIso));
+    }
+
+    [Fact]
+    public void XisoImageExplorerMissingFileThrows()
+    {
+        Assert.Throws<FileNotFoundException>(() => ImageExplorerFactory.Open(Path.Combine(_tempRoot, "missing.iso")));
+    }
+
+    [Fact]
+    public void ZarImageExplorerMissingFileThrows()
+    {
+        Assert.Throws<InvalidDataException>(() => ImageExplorerFactory.Open(Path.Combine(_tempRoot, "missing.zar")));
+    }
+
+    [Fact]
+    public void ChdImageExplorerMissingFileThrows()
+    {
+        Assert.Throws<InvalidDataException>(() => ImageExplorerFactory.Open(Path.Combine(_tempRoot, "missing.chd")));
+    }
+
+    [Fact]
+    public void XisoImageExplorerEmptyPathListsRoot()
+    {
+        AssertEmptyPathListsRoot(CreateXiso());
+    }
+
+    [Fact]
+    public void ZarImageExplorerEmptyPathListsRoot()
+    {
+        AssertEmptyPathListsRoot(CreateZar());
+    }
+
+    [Fact]
+    public void ChdImageExplorerEmptyPathListsRoot()
+    {
+        AssertEmptyPathListsRoot(CreateChd());
+    }
+
+    [Fact]
+    public void XisoImageExplorerDisposeIsIdempotent()
+    {
+        AssertDisposeIsIdempotent(CreateXiso());
+    }
+
+    [Fact]
+    public void ZarImageExplorerDisposeIsIdempotent()
+    {
+        AssertDisposeIsIdempotent(CreateZar());
+    }
+
+    [Fact]
+    public void ChdImageExplorerDisposeIsIdempotent()
+    {
+        AssertDisposeIsIdempotent(CreateChd());
+    }
+
+    [Fact]
+    public void XisoImageExplorerThrowsAfterDispose()
+    {
+        var isoPath = CreateXiso();
+        var explorer = ImageExplorerFactory.Open(isoPath);
+        explorer.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => explorer.ListChildren("/"));
+        Assert.Throws<ObjectDisposedException>(() =>
+            explorer.CopyOut("/default.xbe", Path.Combine(_tempRoot, "after-dispose.bin")));
+    }
+
+    [Fact]
+    public void XisoImageExplorerDisposeReleasesFileHandle()
+    {
+        AssertDisposeReleasesFileHandle(CreateXiso());
+    }
+
+    [Fact]
+    public void ZarImageExplorerDisposeReleasesFileHandle()
+    {
+        AssertDisposeReleasesFileHandle(CreateZar());
+    }
+
+    [Fact]
+    public void ChdImageExplorerDisposeReleasesFileHandle()
+    {
+        AssertDisposeReleasesFileHandle(CreateChd());
     }
 }

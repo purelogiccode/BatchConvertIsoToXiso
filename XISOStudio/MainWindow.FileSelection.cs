@@ -17,6 +17,7 @@ public partial class MainWindow
 {
     /// <summary>Files discovered for batch conversion.</summary>
     private readonly ObservableCollection<FileItem> _conversionFiles = new();
+
     /// <summary>Files discovered for batch integrity testing.</summary>
     private readonly ObservableCollection<FileItem> _testFiles = new();
 
@@ -25,6 +26,7 @@ public partial class MainWindow
     // the list after a newer one (e.g. when the user changes the source folder quickly).
     /// <summary>Guards the per-list scan generation counters.</summary>
     private readonly Lock _fileListRefreshLock = new();
+
     /// <summary>Newest scan generation for each file list.</summary>
     private readonly Dictionary<ObservableCollection<FileItem>, int> _fileListRefreshGeneration = new();
 

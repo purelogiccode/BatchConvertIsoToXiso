@@ -20,10 +20,10 @@ public static class Formatter
         return bytes switch
         {
             < kilobyte => $"{bytes} B",
-            < megabyte => $"{bytes / kilobyte:F1} KB",
-            < gigabyte => $"{bytes / megabyte:F1} MB",
-            < terabyte => $"{bytes / gigabyte:F1} GB",
-            _ => $"{bytes / terabyte:F1} TB"
+            < megabyte => $"{bytes / (double)kilobyte:F1} KB",
+            < gigabyte => $"{bytes / (double)megabyte:F1} MB",
+            < terabyte => $"{bytes / (double)gigabyte:F1} GB",
+            _ => $"{bytes / (double)terabyte:F1} TB"
         };
     }
 

@@ -38,39 +38,50 @@ public class BugReportSink : ILogEventSink
     /// <inheritdoc />
     public void Emit(LogEvent logEvent)
     {
-        if (logEvent.Level < _minimumLevel) return;
-
-        // Avalonia's internal diagnostics are captured for the log viewer and the log file,
-        // but framework warnings are not application defects and must not be auto-reported.
-        if (IsFrameworkEvent(logEvent)) return;
-
-        var bugReportService = _bugReportServiceAccessor();
-        if (bugReportService is null) return;
-
-        var message = logEvent.RenderMessage(_formatProvider);
-        var exception = logEvent.Exception;
-
-        // Fire-and-forget: never block the logging pipeline and never let reporting failures surface.
-        _ = Task.Run(async () =>
+        // The sink promises that logging never throws, so even the service accessor and the
+        // message rendering are guarded: a throwing accessor would otherwise surface through
+        // Serilog's pipeline.
+        try
         {
-            try
+            if (logEvent.Level < _minimumLevel) return;
+
+            // Avalonia's internal diagnostics are captured for the log viewer and the log file,
+            // but framework warnings are not application defects and must not be auto-reported.
+            if (IsFrameworkEvent(logEvent)) return;
+
+            var bugReportService = _bugReportServiceAccessor();
+            if (bugReportService is null) return;
+
+            var message = logEvent.RenderMessage(_formatProvider);
+            var exception = logEvent.Exception;
+
+            // Fire-and-forget: never block the logging pipeline and never let reporting failures surface.
+            _ = Task.Run(async () =>
             {
-                if (exception != null)
+                try
                 {
-                    await bugReportService.SendBugReportAsync(message, exception);
+                    if (exception != null)
+                    {
+                        await bugReportService.SendBugReportAsync(message, exception);
+                    }
+                    else
+                    {
+                        await bugReportService.SendBugReportAsync(message);
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    await bugReportService.SendBugReportAsync(message);
+                    // Silently ignore reporting failures, but keep a trace through the self-log:
+                    // writing to the logging pipeline here would recurse into this sink.
+                    Serilog.Debugging.SelfLog.WriteLine("BugReportSink failed to forward a bug report: {0}", ex);
                 }
-            }
-            catch (Exception ex)
-            {
-                // Silently ignore reporting failures, but keep a trace through the self-log:
-                // writing to the logging pipeline here would recurse into this sink.
-                Serilog.Debugging.SelfLog.WriteLine("BugReportSink failed to forward a bug report: {0}", ex);
-            }
-        });
+            });
+        }
+        catch (Exception ex)
+        {
+            // Never throw from a Serilog sink: writing to the pipeline here would recurse.
+            Serilog.Debugging.SelfLog.WriteLine("BugReportSink failed to emit a log event: {0}", ex);
+        }
     }
 
     /// <summary>

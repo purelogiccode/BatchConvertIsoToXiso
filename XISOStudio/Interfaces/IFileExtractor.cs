@@ -15,8 +15,10 @@ public interface IFileExtractor
     /// <param name="extractionPath">Directory the archive contents are written to.</param>
     /// <param name="token">Token used to cancel the extraction.</param>
     /// <returns>
-    /// The extraction outcome; <see cref="ArchiveExtractionResult.Success" /> is <c>false</c>
-    /// when nothing was extracted.
+    /// The extraction outcome. <see cref="ArchiveExtractionResult.Success" /> is <c>true</c>
+    /// when the extraction completed without a fatal error, including archives whose entries
+    /// were all skipped or that contain no extractable entries; it is <c>false</c> only when
+    /// the extraction itself failed.
     /// </returns>
     Task<ArchiveExtractionResult> ExtractArchiveAsync(string archivePath, string extractionPath,
         CancellationToken token);

@@ -14,8 +14,7 @@ public class UiLogSink : ILogEventSink
 
     // Guards against a subscriber that logs again (directly or through the pipeline),
     // which would otherwise recurse into Emit while it is still running.
-    [ThreadStatic]
-    private static bool _isEmitting;
+    [ThreadStatic] private static bool _isEmitting;
 
     /// <summary>
     /// Event arguments for <see cref="MessageLogged"/>: a pre-formatted, timestamped

@@ -65,8 +65,8 @@ public interface IOrchestratorService
     /// Tests every supported image found in <paramref name="inputFolder" />.
     /// </summary>
     /// <param name="inputFolder">Folder scanned for images to test.</param>
-    /// <param name="moveSuccessful">When <c>true</c>, moves images that pass the test into a "success" subfolder.</param>
-    /// <param name="moveFailed">When <c>true</c>, moves images that fail the test into a "failed" subfolder.</param>
+    /// <param name="moveSuccessful">When <c>true</c>, moves images that pass the test into a "_success" subfolder.</param>
+    /// <param name="moveFailed">When <c>true</c>, moves images that fail the test into a "_failed" subfolder.</param>
     /// <param name="searchSubfolders">When <c>true</c>, also scans subfolders of the input folder.</param>
     /// <param name="performDeepScan">
     /// When <c>true</c>, reads all image data to detect media or decompression errors.
@@ -90,10 +90,10 @@ public interface IOrchestratorService
     /// <summary>
     /// Tests the specified images.
     /// </summary>
-    /// <param name="inputFolder">Folder used to resolve the "success" and "failed" subfolders.</param>
+    /// <param name="inputFolder">Folder used to resolve the "_success" and "_failed" subfolders.</param>
     /// <param name="files">Full paths of the images to test; unsupported files are ignored.</param>
-    /// <param name="moveSuccessful">When <c>true</c>, moves images that pass the test into a "success" subfolder.</param>
-    /// <param name="moveFailed">When <c>true</c>, moves images that fail the test into a "failed" subfolder.</param>
+    /// <param name="moveSuccessful">When <c>true</c>, moves images that pass the test into a "_success" subfolder.</param>
+    /// <param name="moveFailed">When <c>true</c>, moves images that fail the test into a "_failed" subfolder.</param>
     /// <param name="performDeepScan">
     /// When <c>true</c>, reads all image data to detect media or decompression errors.
     /// </param>

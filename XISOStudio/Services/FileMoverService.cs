@@ -37,6 +37,7 @@ public class FileMoverService : IFileMover
     /// <param name="destinationFolder">Folder that receives the file.</param>
     /// <param name="moveReason">Reason for the move, recorded in the log.</param>
     /// <param name="token">Cancellation token for the operation.</param>
+    /// <exception cref="IOException">When the file cannot be moved (after retrying transient errors).</exception>
     public async Task MoveTestedFileAsync(string sourceFile, string destinationFolder, string moveReason,
         CancellationToken token)
     {
@@ -106,10 +107,12 @@ public class FileMoverService : IFileMover
         }
         catch (Exception ex)
         {
-            // A move failure (locked file, permissions, full disk) is environmental; the
-            // user already sees the failure in the summary, so do not auto-report it.
+            // A move failure (locked file, permissions, full disk) is environmental; log it
+            // at Information so it is not auto-uploaded as a bug report, then rethrow so the
+            // batch can report the file as failed instead of silently counting it as moved.
             _logger.Information(ex, "Error moving {FileName} to {DestinationFolder}: {Message}", fileName,
                 destinationFolder, ex.Message);
+            throw;
         }
     }
 
@@ -197,35 +200,26 @@ public class FileMoverService : IFileMover
     private async Task MoveFileWithRetryAsync(string source, string dest, string fileName, bool isNetworkOperation,
         CancellationToken token)
     {
-        Exception? lastException = null;
-
-        for (var attempt = 0; attempt < MaxRetryAttempts; attempt++)
+        for (var attempt = 0;; attempt++)
         {
             try
             {
                 await Task.Run(() => File.Move(source, dest), token);
                 return; // Success
             }
-            catch (IOException ex) when (attempt < MaxRetryAttempts - 1)
+            catch (IOException ex) when (attempt < MaxRetryAttempts - 1 &&
+                                         FileExtractorService.IsTransientIoError(ex))
             {
-                lastException = ex;
-
-                // Exponential backoff: 1000ms, 2000ms, 4000ms, 8000ms, 16000ms, etc.
-                var delayMs = InitialRetryDelayMs * (int)Math.Pow(2, attempt);
+                // Exponential backoff: 1000ms, 2000ms, 4000ms, 8000ms, 16000ms.
+                var delayMs = InitialRetryDelayMs * (1 << attempt);
                 var reason = isNetworkOperation ? "Network error" : "File is locked or in use";
                 _logger.Information(ex,
                     "{Reason} moving {FileName}, retrying in {DelayMs}ms... (attempt {Attempt}/{MaxRetryAttempts})",
                     reason, fileName, delayMs, attempt + 1, MaxRetryAttempts);
                 await Task.Delay(delayMs, token);
             }
-        }
-
-        // All retries exhausted
-        if (lastException != null)
-        {
-            throw new IOException(
-                $"Failed to move file after {MaxRetryAttempts} attempts. Last error: {lastException.Message}",
-                lastException);
+            // Permanent errors and the final attempt propagate to the caller: retrying a
+            // full disk or an invalid path only delays the failure report.
         }
     }
 }

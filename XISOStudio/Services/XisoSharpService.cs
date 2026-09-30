@@ -22,8 +22,37 @@ public class XisoSharpService : IXisoSharpService
 
     /// <summary>Logger used for diagnostics.</summary>
     private readonly ILogger _logger;
+
     /// <summary>Resolves temporary directories based on free disk space.</summary>
     private readonly IDiskMonitorService _diskMonitorService;
+
+    /// <summary>
+    /// Serializes conversions because XISOSharp exposes its system-update filter and
+    /// diagnostics callbacks as process-wide static state; two conversions must not overlap.
+    /// The gate is reentrant on the same thread (the CSO path nests the filter repack).
+    /// </summary>
+    private static readonly SemaphoreSlim LoggerHookGate = new(1, 1);
+
+    /// <summary>Per-thread nesting depth of holders of <see cref="LoggerHookGate"/>.</summary>
+    [ThreadStatic] private static int _loggerHookDepth;
+
+    /// <summary>Enters the process-wide logger-hook scope, waiting for any other conversion.</summary>
+    private static void EnterLoggerHookScope()
+    {
+        if (_loggerHookDepth++ == 0)
+        {
+            LoggerHookGate.Wait();
+        }
+    }
+
+    /// <summary>Leaves the process-wide logger-hook scope, releasing it for other conversions.</summary>
+    private static void ExitLoggerHookScope()
+    {
+        if (--_loggerHookDepth == 0)
+        {
+            LoggerHookGate.Release();
+        }
+    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="XisoSharpService"/> class.
@@ -164,6 +193,7 @@ public class XisoSharpService : IXisoSharpService
         var previousForwardInfo = Logger.ForwardInfo;
         var previousForwardError = Logger.ForwardError;
 
+        EnterLoggerHookScope();
         try
         {
             // The library exposes the $SystemUpdate filter and diagnostics as process-wide
@@ -282,6 +312,7 @@ public class XisoSharpService : IXisoSharpService
             Logger.RemoveSystemUpdate = previousRemoveSystemUpdate;
             Logger.ForwardInfo = previousForwardInfo;
             Logger.ForwardError = previousForwardError;
+            ExitLoggerHookScope();
         }
     }
 
@@ -304,20 +335,14 @@ public class XisoSharpService : IXisoSharpService
         string? tempDir = null;
 
         var previousRemoveSystemUpdate = Logger.RemoveSystemUpdate;
+
+        EnterLoggerHookScope();
         try
         {
-            try
-            {
-                tempDir = PathHelper.ResolveTempDirectory(new FileInfo(inputFile).Length, "XISOStudio_Filter",
-                    _diskMonitorService);
-            }
-            catch (Exception ex)
-            {
-                _logger.Warning(ex,
-                    "Could not resolve a temp directory for the $SystemUpdate filter on '{FileName}'; using the default temp path",
-                    fileName);
-                tempDir = Path.Combine(Path.GetTempPath(), "XISOStudio_Filter", Guid.NewGuid().ToString("N"));
-            }
+            // No fallback to the default temp path: ResolveTempDirectory only throws when no
+            // local drive has enough space, and the default drive is one of those checked.
+            tempDir = PathHelper.ResolveTempDirectory(new FileInfo(inputFile).Length, "XISOStudio_Filter",
+                _diskMonitorService);
 
             Directory.CreateDirectory(tempDir);
 
@@ -361,6 +386,8 @@ public class XisoSharpService : IXisoSharpService
                     _logger.Debug(ex, "Could not delete temporary filter folder '{TempDir}'", tempDir);
                 }
             }
+
+            ExitLoggerHookScope();
         }
 
         if (checkIntegrity)
@@ -408,6 +435,7 @@ public class XisoSharpService : IXisoSharpService
         var previousForwardInfo = Logger.ForwardInfo;
         var previousForwardError = Logger.ForwardError;
 
+        EnterLoggerHookScope();
         try
         {
             Logger.RemoveSystemUpdate = skipSystemUpdate;
@@ -423,19 +451,11 @@ public class XisoSharpService : IXisoSharpService
                 var sourceForCompression = inputFile;
                 if (!XisoReader.IsOptimizedImage(inputFile) || skipSystemUpdate)
                 {
-                    try
-                    {
-                        tempDir = PathHelper.ResolveTempDirectory(new FileInfo(inputFile).Length,
-                            "XISOStudio_Cso", _diskMonitorService);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Warning(ex,
-                            "Could not resolve a temp directory for CSO conversion of '{FileName}'; using the default temp path",
-                            fileName);
-                        tempDir = Path.Combine(Path.GetTempPath(), "XISOStudio_Cso",
-                            Guid.NewGuid().ToString("N"));
-                    }
+                    // No fallback to the default temp path: ResolveTempDirectory only throws
+                    // when no local drive has enough space, and the default drive is one of
+                    // those checked.
+                    tempDir = PathHelper.ResolveTempDirectory(new FileInfo(inputFile).Length,
+                        "XISOStudio_Cso", _diskMonitorService);
 
                     Directory.CreateDirectory(tempDir);
 
@@ -591,6 +611,8 @@ public class XisoSharpService : IXisoSharpService
                     _logger.Debug(ex, "Could not delete temporary CSO working folder '{TempDir}'", tempDir);
                 }
             }
+
+            ExitLoggerHookScope();
         }
     }
 

@@ -23,8 +23,10 @@ public partial class MainWindow
     // Drag-drop state tracking
     /// <summary>Pointer position where the current drag gesture started.</summary>
     private Point _dragStartPoint;
+
     /// <summary>Pointer arguments captured when the drag gesture started.</summary>
     private PointerPressedEventArgs? _dragPointerArgs;
+
     /// <summary>Indicates that a drag operation is in progress.</summary>
     private bool _isDragging;
 
@@ -60,7 +62,7 @@ public partial class MainWindow
             if (string.IsNullOrEmpty(selectedPath)) return;
 
             ExplorerFilePathTextBox.Text = selectedPath;
-            InitializeExplorer(selectedPath);
+            await InitializeExplorerAsync(selectedPath);
         }
         catch (Exception ex)
         {
@@ -70,7 +72,7 @@ public partial class MainWindow
 
     /// <summary>Opens the image and loads its root directory, retiring any previous explorer.</summary>
     /// <param name="imagePath">Path of the image or archive to open.</param>
-    private void InitializeExplorer(string imagePath)
+    private async Task InitializeExplorerAsync(string imagePath)
     {
         IImageExplorer? previous;
         lock (_explorerLock)
@@ -92,7 +94,7 @@ public partial class MainWindow
                 _explorer = explorer;
             }
 
-            LoadDirectory("/");
+            await LoadDirectoryAsync("/");
         }
         catch (Exception ex)
         {
@@ -102,7 +104,7 @@ public partial class MainWindow
             }
 
             _logger.Error(ex, "Failed to read image: {ImagePath}", imagePath);
-            _ = _messageBoxService.ShowErrorAsync($"Failed to read image: {ex.Message}");
+            ShowErrorSafe($"Failed to read image: {ex.Message}");
 
             // The grid would otherwise keep showing the previous (now disposed) image.
             ExplorerDataGrid.ItemsSource = null;
@@ -173,37 +175,59 @@ public partial class MainWindow
 
     /// <summary>Lists a directory of the open image and binds it to the explorer grid.</summary>
     /// <param name="internalPath">Directory path within the image (<c>"/"</c> for the root).</param>
-    private void LoadDirectory(string internalPath)
+    private async Task LoadDirectoryAsync(string internalPath)
     {
-        IImageExplorer explorer;
-        lock (_explorerLock)
-        {
-            if (_explorer == null) return;
-            explorer = _explorer;
-        }
-
+        CancellationToken token;
         try
         {
-            var entries = explorer.ListChildren(internalPath);
-            var uiItems = entries.Select(static e => new XisoExplorerItem
-                {
-                    Name = e.Name,
-                    IsDirectory = e.IsDirectory,
-                    SizeFormatted = e.IsDirectory ? "" : Formatter.FormatBytes(e.Size),
-                    Entry = e
-                }).OrderByDescending(static i => i.IsDirectory)
-                .ThenBy(static i => i.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            token = _explorerCts.Token;
+        }
+        catch (ObjectDisposedException ex)
+        {
+            // The window is shutting down.
+            _logger.Debug(ex, "Skipping directory load because the window is shutting down");
+            return;
+        }
 
-            ExplorerDataGrid.ItemsSource = uiItems;
-            _currentInternalPath = ImagePaths.Normalize(internalPath);
-            UpdateExplorerUiState();
+        IReadOnlyList<ImageEntry> entries;
+        try
+        {
+            // Explorer reads (hunk decompression, archive reads) can take seconds, so run
+            // them off the UI thread while holding the explorer in use; opening another
+            // image or closing the window cannot dispose it mid-read.
+            IReadOnlyList<ImageEntry>? listed = null;
+            if (!await UseExplorerAsync(explorer => listed = explorer.ListChildren(internalPath), token))
+            {
+                return;
+            }
+
+            entries = listed ?? [];
+        }
+        catch (OperationCanceledException ex)
+        {
+            _logger.Debug(ex, "Loading directory {InternalPath} was canceled", internalPath);
+            return;
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Error loading directory: {InternalPath}", internalPath);
-            _ = _messageBoxService.ShowErrorAsync($"Error loading directory: {ex.Message}");
+            ShowErrorSafe($"Error loading directory: {ex.Message}");
+            return;
         }
+
+        var uiItems = entries.Select(static e => new XisoExplorerItem
+            {
+                Name = e.Name,
+                IsDirectory = e.IsDirectory,
+                SizeFormatted = e.IsDirectory ? "" : Formatter.FormatBytes(e.Size),
+                Entry = e
+            }).OrderByDescending(static i => i.IsDirectory)
+            .ThenBy(static i => i.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        ExplorerDataGrid.ItemsSource = uiItems;
+        _currentInternalPath = ImagePaths.Normalize(internalPath);
+        UpdateExplorerUiState();
     }
 
     /// <summary>Updates the explorer path text and the enabled state of the up button.</summary>
@@ -224,7 +248,7 @@ public partial class MainWindow
 
             if (item.IsDirectory)
             {
-                LoadDirectory(item.Entry.FullPath);
+                await LoadDirectoryAsync(item.Entry.FullPath);
             }
             else
             {
@@ -248,7 +272,7 @@ public partial class MainWindow
         {
             // Capture the token before queueing the background work: the window may be
             // closed (and the source disposed) before the task actually starts.
-            token = _cts.Token;
+            token = _explorerCts.Token;
         }
         catch (ObjectDisposedException ex)
         {
@@ -280,12 +304,12 @@ public partial class MainWindow
                 {
                     try
                     {
-                        Process.Start(new ProcessStartInfo(tempPath) { UseShellExecute = true });
+                        using var process = Process.Start(new ProcessStartInfo(tempPath) { UseShellExecute = true });
                     }
                     catch (Exception ex)
                     {
                         _logger.Error(ex, "Failed to open extracted file: {TempPath}", tempPath);
-                        _ = _messageBoxService.ShowErrorAsync($"Failed to open file: {ex.Message}");
+                        ShowErrorSafe($"Failed to open file: {ex.Message}");
                     }
                 });
 
@@ -300,8 +324,7 @@ public partial class MainWindow
             catch (Exception ex)
             {
                 _logger.Error(ex, "Failed to extract and open file from image: {FileName}", fileName);
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                    _ = _messageBoxService.ShowErrorAsync($"Failed to extract and open file: {ex.Message}"));
+                ShowErrorSafe($"Failed to extract and open file: {ex.Message}");
             }
             finally
             {
@@ -374,7 +397,7 @@ public partial class MainWindow
             CancellationToken token;
             try
             {
-                token = _cts.Token;
+                token = _explorerCts.Token;
             }
             catch (ObjectDisposedException ex)
             {
@@ -439,7 +462,7 @@ public partial class MainWindow
             catch (Exception ex)
             {
                 _logger.Error(ex, "Failed to prepare files for drag operation");
-                _ = _messageBoxService.ShowErrorAsync($"Failed to prepare files for drag operation: {ex.Message}");
+                ShowErrorSafe($"Failed to prepare files for drag operation: {ex.Message}");
             }
             finally
             {
@@ -459,33 +482,38 @@ public partial class MainWindow
         catch (Exception ex)
         {
             _logger.Error(ex, "Drag operation failed");
-            _ = _messageBoxService.ShowErrorAsync($"Drag operation failed: {ex.Message}");
+            ShowErrorSafe($"Drag operation failed: {ex.Message}");
         }
     }
 
     /// <summary>File picker patterns matching every file.</summary>
     private static readonly string[] OptionsArray3 = new[] { "*" };
+
     /// <summary>File picker patterns matching CHD images.</summary>
     private static readonly string[] OptionsArray2 = new[] { "*.chd" };
+
     /// <summary>File picker patterns matching ZAR archives.</summary>
     private static readonly string[] OptionsArray1 = new[] { "*.zar" };
+
     /// <summary>File picker patterns matching CSO images.</summary>
     private static readonly string[] OptionsArray0 = new[] { "*.cso" };
+
     /// <summary>File picker patterns matching ISO images.</summary>
     private static readonly string[] OptionsArray = new[] { "*.iso" };
+
     /// <summary>File picker patterns matching all supported Xbox images.</summary>
     private static readonly string[] Options = new[] { "*.iso", "*.cso", "*.zar", "*.chd" };
 
     /// <summary>Navigates to the parent directory of the explorer view.</summary>
     /// <param name="sender">The button that raised the event.</param>
     /// <param name="e">The event data.</param>
-    private void ExplorerUpButton_Click(object? sender, RoutedEventArgs e)
+    private async void ExplorerUpButton_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
             if (string.Equals(_currentInternalPath, "/", StringComparison.Ordinal)) return;
 
-            LoadDirectory(ImagePaths.GetParent(_currentInternalPath));
+            await LoadDirectoryAsync(ImagePaths.GetParent(_currentInternalPath));
         }
         catch (Exception ex)
         {
@@ -499,30 +527,8 @@ public partial class MainWindow
     /// <returns>Path of the temporary folder to create.</returns>
     private string ResolveExplorerTempDirectory(long requiredSize, string tempSubfolder)
     {
-        var defaultTempPath = Path.GetTempPath();
-        var defaultTempDriveRoot = Path.GetPathRoot(defaultTempPath);
-        var requiredWithBuffer = requiredSize + Math.Max(requiredSize / 10, 200L * 1024 * 1024);
-
-        if (defaultTempDriveRoot != null)
-        {
-            try
-            {
-                var defaultDrive = new DriveInfo(defaultTempDriveRoot);
-                if (defaultDrive.IsReady && defaultDrive.AvailableFreeSpace >= requiredWithBuffer)
-                    return Path.Combine(defaultTempPath, tempSubfolder, Guid.NewGuid().ToString());
-            }
-            catch (Exception ex)
-            {
-                // Ignore and fall through to alternative search
-                _logger.Debug(ex, "Could not inspect default temp drive: {TempDriveRoot}", defaultTempDriveRoot);
-            }
-        }
-
-        var altDrive = _diskMonitorService.FindDriveWithFreeSpace(requiredSize, defaultTempDriveRoot);
-        if (altDrive != null)
-            return Path.Combine(altDrive, tempSubfolder, Guid.NewGuid().ToString());
-
-        // Fall back to default even if space is low — let the operation attempt and fail with a clear error
-        return Path.Combine(defaultTempPath, tempSubfolder, Guid.NewGuid().ToString());
+        // Reuse the shared resolver: it applies the same safety buffer and drive selection as
+        // the batch pipeline and never falls back to a drive known to be full.
+        return PathHelper.ResolveTempDirectory(requiredSize, tempSubfolder, _diskMonitorService);
     }
 }

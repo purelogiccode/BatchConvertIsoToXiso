@@ -12,6 +12,9 @@ public partial class MessageBoxWindow : Window
 {
     private readonly TaskCompletionSource<UiMessageBoxResult> _result = new();
 
+    /// <summary>Result returned when the dialog is closed without clicking a button.</summary>
+    private readonly UiMessageBoxResult _defaultResult = UiMessageBoxResult.Ok;
+
     /// <summary>Completion source used when the dialog is shown without an owner window.</summary>
     public Task<UiMessageBoxResult> Result => _result.Task;
 
@@ -23,8 +26,9 @@ public partial class MessageBoxWindow : Window
     {
         InitializeComponent();
 
-        // Closing via the window chrome completes the no-owner path with the default result.
-        Closed += (_, _) => _result.TrySetResult(UiMessageBoxResult.Ok);
+        // Closing via the window chrome must not silently choose the affirmative action:
+        // complete with the default result for the offered buttons instead.
+        Closed += (_, _) => _result.TrySetResult(_defaultResult);
     }
 
     /// <summary>
@@ -53,6 +57,14 @@ public partial class MessageBoxWindow : Window
         NoButton.IsVisible = buttons is UiMessageBoxButton.YesNo or UiMessageBoxButton.YesNoCancel;
         CancelButton.IsVisible = buttons is UiMessageBoxButton.YesNoCancel;
         OkButton.IsVisible = buttons is UiMessageBoxButton.Ok;
+
+        // Closing the dialog must never imply consent: fall back to the safest offered answer.
+        _defaultResult = buttons switch
+        {
+            UiMessageBoxButton.YesNo => UiMessageBoxResult.No,
+            UiMessageBoxButton.YesNoCancel => UiMessageBoxResult.Cancel,
+            _ => UiMessageBoxResult.Ok
+        };
 
         if (buttons == UiMessageBoxButton.Ok)
         {

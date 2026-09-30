@@ -65,6 +65,8 @@ public class App : Application
             "logs",
             "log-.txt");
 
+        ConfigureSelfLog();
+
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
             .WriteTo.Ui(formatProvider: CultureInfo.InvariantCulture)
@@ -84,6 +86,43 @@ public class App : Application
         Avalonia.Logging.Logger.Sink = new AvaloniaSerilogSink(Log.Logger);
 
         Log.Information("XISOStudio v{Version} starting", GetApplicationVersion.GetProgramVersion());
+    }
+
+    /// <summary>
+    /// Routes Serilog's SelfLog to a dedicated file. The UI and bug-report sinks promise to
+    /// record failures there (they cannot write to the logging pipeline without recursing);
+    /// without an enabled listener those diagnostics are silently discarded.
+    /// </summary>
+    private static void ConfigureSelfLog()
+    {
+        try
+        {
+            var selfLogPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                ApplicationName,
+                "logs",
+                "selflog.txt");
+
+            var directory = Path.GetDirectoryName(selfLogPath);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+
+            Serilog.Debugging.SelfLog.Enable(message =>
+            {
+                try
+                {
+                    File.AppendAllText(selfLogPath,
+                        $"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)} {message}{Environment.NewLine}");
+                }
+                catch
+                {
+                    // SelfLog must never throw: failures here have nowhere left to go.
+                }
+            });
+        }
+        catch
+        {
+            // Never let diagnostics setup break application startup.
+        }
     }
 
     /// <summary>

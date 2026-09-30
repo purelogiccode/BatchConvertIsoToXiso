@@ -156,6 +156,12 @@ public class FileExtractorService : IFileExtractor
 
             return true;
         }
+        catch (OperationCanceledException)
+        {
+            // Cancellation is not a hydration failure: propagate it so the caller can
+            // stop the batch instead of reporting a misleading cloud-provider error.
+            throw;
+        }
         catch (IOException ex) when
             ((ex.HResult & 0xFFFF) == ErrorCloudFileProviderNotRunning ||
              ex.Message.Contains("cloud file provider", StringComparison.OrdinalIgnoreCase))
@@ -289,7 +295,9 @@ public class FileExtractorService : IFileExtractor
             if (string.IsNullOrEmpty(root)) return;
 
             var drive = new DriveInfo(root);
-            var requiredWithBuffer = totalSize + Math.Max(totalSize / 10, 200L * 1024 * 1024);
+            // Saturating buffer: an archive declaring sizes near long.MaxValue must not wrap
+            // around and make an undersized drive look sufficient.
+            var requiredWithBuffer = PathHelper.AddSafetyBuffer(totalSize);
             if (drive.AvailableFreeSpace < requiredWithBuffer)
             {
                 var requiredSpace = Formatter.FormatBytes(totalSize);

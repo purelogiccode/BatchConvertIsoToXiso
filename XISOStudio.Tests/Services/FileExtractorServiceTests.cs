@@ -1,4 +1,7 @@
+using System.Formats.Tar;
 using System.IO.Compression;
+using System.Reflection;
+using System.Text;
 using XISOStudio.Services;
 using Serilog.Events;
 using Xunit;
@@ -125,7 +128,7 @@ public class FileExtractorServiceTests : IDisposable
     public async Task GetArchiveInfoAsyncEmptyZipReturnsZero()
     {
         var zipPath = Path.Combine(_tempDir, "empty.zip");
-        await using (ZipFile.Open(zipPath, ZipArchiveMode.Create))
+        await using (await ZipFile.OpenAsync(zipPath, ZipArchiveMode.Create))
         {
             // empty archive
         }
@@ -144,7 +147,7 @@ public class FileExtractorServiceTests : IDisposable
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "f.txt", "d" } });
         var service = CreateService();
         using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             service.GetArchiveInfoAsync(zipPath, cts.Token));
@@ -232,7 +235,7 @@ public class FileExtractorServiceTests : IDisposable
 
         Assert.True(result.Success);
         Assert.True(File.Exists(Path.Combine(outDir, "test.txt")));
-        Assert.Equal("hello world", File.ReadAllText(Path.Combine(outDir, "test.txt")));
+        Assert.Equal("hello world", await File.ReadAllTextAsync(Path.Combine(outDir, "test.txt")));
     }
 
     [Fact]
@@ -315,7 +318,7 @@ public class FileExtractorServiceTests : IDisposable
         var service = CreateService();
         var outDir = Path.Combine(_tempDir, "extract_cancel");
         using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
 
         try
         {
@@ -338,11 +341,11 @@ public class FileExtractorServiceTests : IDisposable
     {
         // Create a zip with a path traversal attempt
         var zipPath = Path.Combine(_tempDir, "zipslip.zip");
-        await using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+        await using (var archive = await ZipFile.OpenAsync(zipPath, ZipArchiveMode.Create))
         {
             var entry = archive.CreateEntry("../../../etc/passwd");
-            await using var writer = new StreamWriter(entry.Open());
-            writer.Write("malicious content");
+            await using var writer = new StreamWriter(await entry.OpenAsync());
+            await writer.WriteAsync("malicious content");
         }
 
         var service = CreateService();
@@ -356,7 +359,717 @@ public class FileExtractorServiceTests : IDisposable
 
     #endregion
 
+    #region GetArchiveInfoAsync - Additional Archive Types and Failures
+
+    [Fact]
+    public async Task GetArchiveInfoAsyncTarReturnsCorrectCountAndSize()
+    {
+        var tarPath = CreateTestTar("info.tar", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "hello.txt", "hello tar" },
+            { "sub/world.txt", "world tar" }
+        });
+        var service = CreateService();
+
+        var (totalSize, fileCount) = await service.GetArchiveInfoAsync(tarPath, CancellationToken.None);
+
+        Assert.Equal(2, fileCount);
+        Assert.Equal("hello tar".Length + "world tar".Length, totalSize);
+    }
+
+    [Fact]
+    public async Task GetArchiveInfoAsyncCountsEmptyFileWithZeroSize()
+    {
+        var zipPath = CreateTestZip("empty-file.zip", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "empty.txt", string.Empty },
+            { "full.txt", "12345" }
+        });
+        var service = CreateService();
+
+        var (totalSize, fileCount) = await service.GetArchiveInfoAsync(zipPath, CancellationToken.None);
+
+        Assert.Equal(2, fileCount);
+        Assert.Equal(5, totalSize);
+    }
+
+    [Fact]
+    public async Task GetArchiveInfoAsyncOnlyDirectoryEntriesReturnsZero()
+    {
+        var zipPath = Path.Combine(_tempDir, "dirs-only.zip");
+        await using (var archive = await ZipFile.OpenAsync(zipPath, ZipArchiveMode.Create))
+        {
+            archive.CreateEntry("folder/");
+            archive.CreateEntry("folder/nested/");
+        }
+
+        var service = CreateService();
+        var (totalSize, fileCount) = await service.GetArchiveInfoAsync(zipPath, CancellationToken.None);
+
+        Assert.Equal(0, fileCount);
+        Assert.Equal(0, totalSize);
+    }
+
+    [Fact]
+    public async Task GetArchiveInfoAsyncSumsSizesAcrossNestedDirectories()
+    {
+        var zipPath = CreateTestZip("nested-sizes.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "a.txt", "1234567890" },
+                { "sub/b.txt", "12345" },
+                { "sub/deep/c.txt", "123" }
+            });
+        var service = CreateService();
+
+        var (totalSize, fileCount) = await service.GetArchiveInfoAsync(zipPath, CancellationToken.None);
+
+        Assert.Equal(3, fileCount);
+        Assert.Equal(18, totalSize);
+    }
+
+    [Fact]
+    public async Task GetArchiveInfoAsyncMissingFileThrowsAndLogsWarning()
+    {
+        var service = CreateService();
+        var missing = Path.Combine(_tempDir, "missing-info.zip");
+
+        await Assert.ThrowsAnyAsync<Exception>(() => service.GetArchiveInfoAsync(missing, CancellationToken.None));
+
+        Assert.True(_logger.HasMessage(LogEventLevel.Warning, "Failed to read archive info"));
+    }
+
+    [Fact]
+    public async Task GetArchiveInfoAsyncPlainTextFileThrowsAndLogsWarning()
+    {
+        var path = Path.Combine(_tempDir, "plain-info.zip");
+        await File.WriteAllTextAsync(path, "this is not an archive");
+        var service = CreateService();
+
+        await Assert.ThrowsAnyAsync<Exception>(() => service.GetArchiveInfoAsync(path, CancellationToken.None));
+
+        Assert.True(_logger.HasMessage(LogEventLevel.Warning, "Failed to read archive info"));
+    }
+
+    [Fact]
+    public async Task GetArchiveInfoAsyncCorruptZipThrowsAndLogsWarning()
+    {
+        var corruptPath = CreateCorruptZip("corrupt-info.zip");
+        var service = CreateService();
+
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            service.GetArchiveInfoAsync(corruptPath, CancellationToken.None));
+
+        Assert.True(_logger.HasMessage(LogEventLevel.Warning, "Failed to read archive info"));
+    }
+
+    [Fact]
+    public async Task GetArchiveInfoAsyncCancellationLogsDebugCanceled()
+    {
+        var zipPath = CreateTestZip("cancel-info.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "f.txt", "d" } });
+        var service = CreateService();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.GetArchiveInfoAsync(zipPath, cts.Token));
+
+        Assert.True(_logger.HasMessage(LogEventLevel.Debug, "canceled"));
+    }
+
+    #endregion
+
+    #region Transient Error Detection - Additional Tests
+
+    [Fact]
+    public void IsTransientIoErrorDiskFullMessageReturnsFalse()
+    {
+        var ex = new IOException("There is not enough disk space on the drive.");
+        Assert.False(FileExtractorService.IsTransientIoError(ex));
+    }
+
+    [Fact]
+    public void IsTransientIoErrorDiskFullHResultTakesPrecedenceOverNetworkMessage()
+    {
+        var ex = new IOException("The network path was not found.", unchecked((int)0x80070070));
+        Assert.False(FileExtractorService.IsTransientIoError(ex));
+    }
+
+    [Fact]
+    public void IsTransientIoErrorDeviceNotReadyReturnsFalse()
+    {
+        Assert.False(FileExtractorService.IsTransientIoError(new IOException("The device is not ready.")));
+    }
+
+    [Fact]
+    public void IsTransientIoErrorDeviceIoErrorReturnsFalse()
+    {
+        var ex = new IOException("The request could not be performed because of an I/O device error.",
+            unchecked((int)0x8007045D));
+        Assert.False(FileExtractorService.IsTransientIoError(ex));
+    }
+
+    [Fact]
+    public void IsTransientIoErrorGenericIoReturnsFalse()
+    {
+        Assert.False(FileExtractorService.IsTransientIoError(new IOException("Something went wrong.")));
+    }
+
+    [Fact]
+    public void IsTransientIoErrorNetworkMessageIsCaseInsensitive()
+    {
+        Assert.True(FileExtractorService.IsTransientIoError(new IOException("THE NETWORK PATH WAS NOT FOUND.")));
+    }
+
+    [Theory]
+    [InlineData("Das Netzwerk ist nicht mehr verfügbar.")]
+    [InlineData("Le réseau n'est plus disponible.")]
+    [InlineData("La red no está disponible.")]
+    [InlineData("La rete non è disponibile.")]
+    public void IsTransientIoErrorLocalizedNetworkMessagesReturnTrue(string message)
+    {
+        Assert.True(FileExtractorService.IsTransientIoError(new IOException(message)));
+    }
+
+    [Fact]
+    public void IsTransientIoErrorSemaphoreTimeoutReturnsTrue()
+    {
+        var ex = new IOException("The semaphore timeout period has expired.");
+        Assert.True(FileExtractorService.IsTransientIoError(ex));
+    }
+
+    [Fact]
+    public void IsTransientIoErrorWrappedNetworkErrorReturnsTrue()
+    {
+        var ex = new IOException("outer", new IOException("The network name is no longer available."));
+        Assert.True(FileExtractorService.IsTransientIoError(ex));
+    }
+
+    #endregion
+
+    #region ExtractArchiveAsync - Content and Structure Tests
+
+    [Fact]
+    public async Task ExtractArchiveAsyncMultipleFilesExtractsAllWithContent()
+    {
+        var zipPath = CreateTestZip("multi.zip", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "one.txt", "first" },
+            { "two.txt", "second" },
+            { "three.txt", "third" }
+        });
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "multi_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal("first", await File.ReadAllTextAsync(Path.Combine(outDir, "one.txt")));
+        Assert.Equal("second", await File.ReadAllTextAsync(Path.Combine(outDir, "two.txt")));
+        Assert.Equal("third", await File.ReadAllTextAsync(Path.Combine(outDir, "three.txt")));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncNestedDirectoriesCreatesFolderStructure()
+    {
+        var zipPath = CreateTestZip("nested-extract.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "sub/deep/file.txt", "deep content" }
+            });
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "nested_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.True(Directory.Exists(Path.Combine(outDir, "sub", "deep")));
+        Assert.Equal("deep content", await File.ReadAllTextAsync(Path.Combine(outDir, "sub", "deep", "file.txt")));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncDeeplyNestedPathIsCreated()
+    {
+        var zipPath = CreateTestZipOrdered("deep-nested.zip", ("a/b/c/d/e/f.txt", "deep"));
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "deep_nested_out");
+
+        await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.Equal("deep", await File.ReadAllTextAsync(Path.Combine(outDir, "a", "b", "c", "d", "e", "f.txt")));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncEmptyZipSucceedsWithNoSkippedEntries()
+    {
+        var zipPath = Path.Combine(_tempDir, "empty-extract.zip");
+        await using (await ZipFile.OpenAsync(zipPath, ZipArchiveMode.Create))
+        {
+            // empty archive
+        }
+
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "empty_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Empty(result.SkippedEntries);
+        Assert.False(Directory.Exists(outDir));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncCreatesDestinationDirectoryAutomatically()
+    {
+        var zipPath = CreateTestZip("mkdir.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "f.txt", "d" } });
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "auto_created", "nested");
+        Assert.False(Directory.Exists(outDir));
+
+        await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(Directory.Exists(outDir));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncOverwritesExistingDestinationFile()
+    {
+        var zipPath = CreateTestZip("overwrite.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "f.txt", "new content" } });
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "overwrite_out");
+        Directory.CreateDirectory(outDir);
+        await File.WriteAllTextAsync(Path.Combine(outDir, "f.txt"), "old content");
+
+        await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.Equal("new content", await File.ReadAllTextAsync(Path.Combine(outDir, "f.txt")));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncPreservesEmptyFiles()
+    {
+        var zipPath = CreateTestZip("empty-files.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "empty.txt", string.Empty } });
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "empty_files_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.True(File.Exists(Path.Combine(outDir, "empty.txt")));
+        Assert.Empty(await File.ReadAllBytesAsync(Path.Combine(outDir, "empty.txt")));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncExtractsUnicodeFileNames()
+    {
+        var zipPath = CreateTestZip("unicode.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "日本語.txt", "unicode content" } });
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "unicode_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal("unicode content", await File.ReadAllTextAsync(Path.Combine(outDir, "日本語.txt")));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncExtractsNamesWithSpaces()
+    {
+        var zipPath = CreateTestZip("spaces.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "my file name.txt", "spaced" } });
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "spaces_out");
+
+        await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.Equal("spaced", await File.ReadAllTextAsync(Path.Combine(outDir, "my file name.txt")));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncTarExtractsFiles()
+    {
+        var tarPath = CreateTestTar("extract.tar", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "sub/hello.txt", "hello tar" }
+        });
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "tar_out");
+
+        var result = await service.ExtractArchiveAsync(tarPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal("hello tar", await File.ReadAllTextAsync(Path.Combine(outDir, "sub", "hello.txt")));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncDuplicateEntryNameKeepsLastContent()
+    {
+        var zipPath = Path.Combine(_tempDir, "duplicate.zip");
+        await using (var archive = await ZipFile.OpenAsync(zipPath, ZipArchiveMode.Create))
+        {
+            foreach (var content in new[] { "first version", "second version" })
+            {
+                var entry = archive.CreateEntry("dup.txt");
+                await using var writer = new StreamWriter(await entry.OpenAsync());
+                await writer.WriteAsync(content);
+            }
+        }
+
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "duplicate_out");
+
+        await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.Equal("second version", await File.ReadAllTextAsync(Path.Combine(outDir, "dup.txt")));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncDestinationIsExistingFileThrowsAndLogsError()
+    {
+        var zipPath = CreateTestZip("dest-file.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "f.txt", "d" } });
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "dest_is_file");
+        await File.WriteAllTextAsync(outDir, "i am a file");
+
+        await Assert.ThrowsAnyAsync<IOException>(() =>
+            service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None));
+
+        Assert.True(_logger.HasMessage(LogEventLevel.Error, "Error extracting"));
+    }
+
+    #endregion
+
+    #region ExtractArchiveAsync - ISO Selection Tests
+
+    [Fact]
+    public async Task ExtractArchiveAsyncExtractsFirstIsoAndSkipsAdditionalIsos()
+    {
+        var zipPath = CreateTestZipOrdered("multi-iso.zip",
+            ("disc1.iso", "first iso"),
+            ("disc2.iso", "second iso"),
+            ("readme.txt", "notes"));
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "multi_iso_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.True(File.Exists(Path.Combine(outDir, "disc1.iso")));
+        Assert.False(File.Exists(Path.Combine(outDir, "disc2.iso")));
+        Assert.True(File.Exists(Path.Combine(outDir, "readme.txt")));
+        Assert.Contains("disc2.iso", result.SkippedEntries, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("GAME.ISO", "EXTRA.Iso")]
+    [InlineData("game.iso", "extra.ISO")]
+    public async Task ExtractArchiveAsyncIsoExtensionMatchIsCaseInsensitive(string firstName, string secondName)
+    {
+        var zipPath = CreateTestZipOrdered($"case-{firstName}.zip",
+            (firstName, "first iso"),
+            (secondName, "second iso"));
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, $"case_iso_{firstName}");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.True(File.Exists(Path.Combine(outDir, firstName)));
+        Assert.False(File.Exists(Path.Combine(outDir, secondName)));
+        Assert.Contains(secondName, result.SkippedEntries, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncNonIsoFilesAreExtractedAlongsideIso()
+    {
+        var zipPath = CreateTestZipOrdered("with-iso.zip",
+            ("game.iso", "iso content"),
+            ("notes.txt", "readme"));
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "with_iso_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.True(File.Exists(Path.Combine(outDir, "game.iso")));
+        Assert.True(File.Exists(Path.Combine(outDir, "notes.txt")));
+        Assert.Empty(result.SkippedEntries);
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncFileEndingInIsoTxtIsNotTreatedAsIso()
+    {
+        var zipPath = CreateTestZipOrdered("iso-txt.zip",
+            ("game.iso.txt", "text"),
+            ("game.iso", "iso"));
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "iso_txt_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.True(File.Exists(Path.Combine(outDir, "game.iso.txt")));
+        Assert.True(File.Exists(Path.Combine(outDir, "game.iso")));
+        Assert.Empty(result.SkippedEntries);
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncIsoInSubdirectoryIsSelected()
+    {
+        var zipPath = CreateTestZipOrdered("sub-iso.zip",
+            ("discs/disc1.iso", "first iso"),
+            ("discs/disc2.iso", "second iso"));
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "sub_iso_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.True(File.Exists(Path.Combine(outDir, "discs", "disc1.iso")));
+        Assert.False(File.Exists(Path.Combine(outDir, "discs", "disc2.iso")));
+        Assert.Contains("discs/disc2.iso", result.SkippedEntries, StringComparer.OrdinalIgnoreCase);
+    }
+
+    #endregion
+
+    #region ExtractArchiveAsync - Additional Zip Slip Tests
+
+    [Fact]
+    public async Task ExtractArchiveAsyncSkipsTraversalSegmentInMiddle()
+    {
+        var zipPath = CreateTestZipOrdered("traversal-mid.zip", ("sub/../evil.txt", "malicious"));
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "traversal_mid_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.False(File.Exists(Path.Combine(outDir, "evil.txt")));
+        Assert.False(File.Exists(Path.Combine(_tempDir, "evil.txt")));
+        Assert.Contains("sub/../evil.txt", result.SkippedEntries, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncSkipsAbsolutePathEntry()
+    {
+        var zipPath = CreateTestZipOrdered("absolute.zip", ("/tmp/evil.txt", "malicious"));
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "absolute_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.False(File.Exists(Path.Combine(outDir, "tmp", "evil.txt")));
+        Assert.Contains("/tmp/evil.txt", result.SkippedEntries, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncDoesNotWriteOutsideExtractionDirectory()
+    {
+        var zipPath = CreateTestZipOrdered("outside.zip", ("../../outside.txt", "malicious"));
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "outside_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.False(File.Exists(Path.Combine(_tempDir, "outside.txt")));
+        Assert.False(File.Exists(Path.Combine(Path.GetTempPath(), "outside.txt")));
+        Assert.Single(result.SkippedEntries);
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncSkipsEntryNamedExactlyDotDot()
+    {
+        var zipPath = CreateTestZipOrdered("dotdot.zip", ("..", "malicious"));
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "dotdot_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Contains("..", result.SkippedEntries, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncReportsUnsafeEntriesAlongsideIsoSkips()
+    {
+        var zipPath = CreateTestZipOrdered("mixed-skips.zip",
+            ("first.iso", "iso"),
+            ("second.iso", "iso2"),
+            ("../evil.txt", "bad"));
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "mixed_skips_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.Equal(2, result.SkippedEntries.Count);
+        Assert.Contains("second.iso", result.SkippedEntries, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("../evil.txt", result.SkippedEntries, StringComparer.OrdinalIgnoreCase);
+    }
+
+    #endregion
+
+    #region ExtractArchiveAsync - Additional Logging and Failure Tests
+
+    [Fact]
+    public async Task ExtractArchiveAsyncLogsArchiveFormatAndFileCount()
+    {
+        var zipPath = CreateTestZip("format-log.zip", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "a.txt", "1" },
+            { "b.txt", "2" }
+        });
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "format_log_out");
+
+        await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(_logger.HasMessage("Archive format:"));
+        Assert.True(_logger.HasMessage("Files to extract: 2"));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncLogsExtractionTargetPath()
+    {
+        var zipPath = CreateTestZip("target-log.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "f.txt", "d" } });
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "target_log_out");
+
+        await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(_logger.HasMessage("Extraction target:"));
+        Assert.True(_logger.HasMessage(outDir));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncCorruptZipThrowsIoExceptionWithUnsupportedMessage()
+    {
+        var corruptPath = CreateCorruptZip("corrupt-strong.zip");
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "corrupt_strong_out");
+
+        var exception = await Assert.ThrowsAnyAsync<IOException>(() =>
+            service.ExtractArchiveAsync(corruptPath, outDir, CancellationToken.None));
+
+        Assert.Contains("invalid, corrupted, or in an unsupported format", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncPlainTextZipThrowsIoExceptionAndLogsInformation()
+    {
+        var path = Path.Combine(_tempDir, "plain-archive.zip");
+        await File.WriteAllTextAsync(path, "definitely not a zip");
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "plain_archive_out");
+
+        await Assert.ThrowsAnyAsync<IOException>(() =>
+            service.ExtractArchiveAsync(path, outDir, CancellationToken.None));
+
+        Assert.True(_logger.HasMessage("invalid, corrupted, or in an unsupported format"));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncCancellationThrowsOperationCanceled()
+    {
+        var zipPath = CreateTestZip("cancel-type.zip",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "f.txt", "d" } });
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "cancel_type_out");
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.ExtractArchiveAsync(zipPath, outDir, cts.Token));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncMissingFileThrowsAndLogsError()
+    {
+        var service = CreateService();
+        var missing = Path.Combine(_tempDir, "missing-archive.zip");
+        var outDir = Path.Combine(_tempDir, "missing_archive_out");
+
+        await Assert.ThrowsAnyAsync<IOException>(() =>
+            service.ExtractArchiveAsync(missing, outDir, CancellationToken.None));
+
+        Assert.True(_logger.HasMessage(LogEventLevel.Error, "Error extracting"));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncPasswordProtectedLogsPasswordProtectedMessage()
+    {
+        var zipPath = Path.Combine(_tempDir, "protected-msg.zip");
+        CreateEncryptedZip(zipPath, "secret.txt", "data", "pw");
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "protected_msg_out");
+        Directory.CreateDirectory(outDir);
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.True(_logger.HasMessage("password-protected"));
+    }
+
+    [Fact]
+    public async Task ExtractArchiveAsyncEmptyZipLogsSuccess()
+    {
+        var zipPath = Path.Combine(_tempDir, "empty-success.zip");
+        await using (await ZipFile.OpenAsync(zipPath, ZipArchiveMode.Create))
+        {
+            // empty archive
+        }
+
+        var service = CreateService();
+        var outDir = Path.Combine(_tempDir, "empty_success_out");
+
+        var result = await service.ExtractArchiveAsync(zipPath, outDir, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.True(_logger.HasMessage("Successfully extracted"));
+    }
+
+    #endregion
+
     #region Helper Methods
+
+    private string CreateTestZipOrdered(string zipName, params (string Name, string Content)[] entries)
+    {
+        var zipPath = Path.Combine(_tempDir, zipName);
+        using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create);
+        foreach (var (name, content) in entries)
+        {
+            var entry = archive.CreateEntry(name);
+            using var writer = new StreamWriter(entry.Open());
+            writer.Write(content);
+        }
+
+        return zipPath;
+    }
+
+    private string CreateTestTar(string tarName, Dictionary<string, string> entries)
+    {
+        var tarPath = Path.Combine(_tempDir, tarName);
+        using var fs = File.Create(tarPath);
+        using var writer = new TarWriter(fs, TarEntryFormat.Pax);
+        foreach (var (name, content) in entries)
+        {
+            var entry = new PaxTarEntry(TarEntryType.RegularFile, name)
+            {
+                DataStream = new MemoryStream(Encoding.UTF8.GetBytes(content))
+            };
+            writer.WriteEntry(entry);
+        }
+
+        return tarPath;
+    }
 
     private static void CreateEncryptedZip(string zipPath, string entryName, string content, string _)
     {
@@ -378,7 +1091,7 @@ public class FileExtractorServiceTests : IDisposable
         bw.Write((ushort)entryName.Length);
         bw.Write((ushort)0); // extra field length
 
-        var nameBytes = System.Text.Encoding.UTF8.GetBytes(entryName);
+        var nameBytes = Encoding.UTF8.GetBytes(entryName);
         bw.Write(nameBytes);
 
         // Encryption header (12 bytes)
@@ -387,7 +1100,7 @@ public class FileExtractorServiceTests : IDisposable
         bw.Write(encHeader);
 
         // Content (encrypted - just raw bytes for testing)
-        var contentBytes = System.Text.Encoding.UTF8.GetBytes(content);
+        var contentBytes = Encoding.UTF8.GetBytes(content);
         bw.Write(contentBytes);
 
         // Central directory
@@ -422,6 +1135,28 @@ public class FileExtractorServiceTests : IDisposable
         bw.Write(cdSize); // central directory size
         bw.Write(cdOffset); // central directory offset
         bw.Write((ushort)0); // comment length
+    }
+
+    #endregion
+
+    #region Cloud File Hydration Tests
+
+    [Fact]
+    public async Task EnsureCloudFileHydratedAsyncCanceledTokenPropagatesCancellation()
+    {
+        var file = Path.Combine(_tempDir, "cloud.bin");
+        await File.WriteAllTextAsync(file, "data");
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var service = CreateService();
+        var method = typeof(FileExtractorService).GetMethod("EnsureCloudFileHydratedAsync",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        var task = (Task<bool>)method.Invoke(service, [file, cts.Token])!;
+
+        // Cancellation must not be misreported as a hydration failure (which would surface
+        // as a bogus "cloud file provider is not running" error).
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
     }
 
     #endregion

@@ -1,3 +1,4 @@
+using System.Globalization;
 using XISOStudio.Interfaces;
 using XISOStudio.Models;
 using XISOStudio.Services;
@@ -202,20 +203,6 @@ public sealed class XisoSharpServiceTests : IDisposable
         Assert.Equal(FileProcessingStatus.Failed, status);
     }
 
-    private string CreateXisoWithSystemUpdate(string name)
-    {
-        var sourceDir = Path.Combine(_tempRoot, "source-su");
-        Directory.CreateDirectory(sourceDir);
-        File.WriteAllText(Path.Combine(sourceDir, "default.xbe"), "fake xbe content");
-        var updateDir = Path.Combine(sourceDir, "$SystemUpdate");
-        Directory.CreateDirectory(updateDir);
-        File.WriteAllText(Path.Combine(updateDir, "su.bin"), "system update payload");
-
-        var isoPath = Path.Combine(_tempRoot, name);
-        Assert.Equal(0, XisoWriter.PackFromDirectory(sourceDir, isoPath));
-        return isoPath;
-    }
-
     [Fact]
     public async Task ZarOutputPacksAlreadyOptimizedImage()
     {
@@ -418,5 +405,400 @@ public sealed class XisoSharpServiceTests : IDisposable
             OutputFormat.Zar, false, false, new Progress<BatchOperationProgress>(), CancellationToken.None);
 
         Assert.Equal(FileProcessingStatus.InvalidInput, status);
+    }
+
+    private static void RemoveOptimizedTag(string isoPath)
+    {
+        using var stream = new FileStream(isoPath, FileMode.Open, FileAccess.Write, FileShare.None);
+        stream.Seek(Constants.OptimizedTagOffset, SeekOrigin.Begin);
+        stream.Write(new byte[Constants.OptimizedTagLength]);
+    }
+
+    private static void CorruptRootDirectoryPointer(string isoPath)
+    {
+        using var fs = new FileStream(isoPath, FileMode.Open, FileAccess.Write, FileShare.None);
+        fs.Seek(Constants.HeaderOffset + 20, SeekOrigin.Begin);
+        fs.Write(BitConverter.GetBytes(0xFFFFFFF0u));
+    }
+
+    private string CreateXisoWithSystemUpdate(string name, bool optimized = true)
+    {
+        var sourceDir = Path.Combine(_tempRoot, "source-su");
+        Directory.CreateDirectory(sourceDir);
+        File.WriteAllText(Path.Combine(sourceDir, "default.xbe"), "fake xbe content");
+        var updateDir = Path.Combine(sourceDir, "$SystemUpdate");
+        Directory.CreateDirectory(updateDir);
+        File.WriteAllText(Path.Combine(updateDir, "su.bin"), "system update payload");
+
+        var isoPath = Path.Combine(_tempRoot, name);
+        Assert.Equal(0, XisoWriter.PackFromDirectory(sourceDir, isoPath));
+        if (!optimized) RemoveOptimizedTag(isoPath);
+        return isoPath;
+    }
+
+    private static List<int> ParsePercents(IReadOnlyList<BatchOperationProgress> reports, string prefix)
+    {
+        var percents = new List<int>();
+        foreach (var report in reports)
+        {
+            if (report.StatusText?.StartsWith(prefix, StringComparison.Ordinal) != true)
+                continue;
+
+            var token = report.StatusText[prefix.Length..].Trim().TrimEnd('%');
+            if (int.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out var percent))
+                percents.Add(percent);
+        }
+
+        return percents;
+    }
+
+    private static bool WaitForStatus(CollectingProgress progress, Func<string?, bool> predicate,
+        int timeoutMs = 10000)
+    {
+        return SpinWait.SpinUntil(() => progress.Reports.Any(report => predicate(report.StatusText)), timeoutMs);
+    }
+
+    [Fact]
+    public async Task MissingInputZarReturnsFailed()
+    {
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(Path.Combine(_tempRoot, "missing.iso"),
+            Path.Combine(_tempRoot, "out"), "missing.zar", OutputFormat.Zar, false, false,
+            new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Failed, status);
+        Assert.True(_logger.HasMessage("Input file not found"));
+    }
+
+    [Fact]
+    public async Task MissingInputCsoReturnsFailed()
+    {
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(Path.Combine(_tempRoot, "missing.iso"),
+            Path.Combine(_tempRoot, "out"), "missing.cso", OutputFormat.Cso, false, false,
+            new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Failed, status);
+    }
+
+    [Fact]
+    public async Task NullOutputFolderReturnsFailed()
+    {
+        var isoPath = CreateOptimizedXiso();
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(isoPath, null!, "game.iso", OutputFormat.Xiso, false, false,
+            new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Failed, status);
+    }
+
+    [Fact]
+    public async Task EmptyOutputFolderReturnsFailed()
+    {
+        var isoPath = CreateOptimizedXiso();
+        RemoveOptimizedTag(isoPath);
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(isoPath, "", "game.iso", OutputFormat.Xiso, false, false,
+            new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Failed, status);
+    }
+
+    [Fact]
+    public async Task NullOutputNameReturnsFailed()
+    {
+        var isoPath = CreateOptimizedXiso();
+        RemoveOptimizedTag(isoPath);
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), null!,
+            OutputFormat.Xiso, false, false, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Failed, status);
+    }
+
+    [Fact]
+    public async Task OutputNameWithDirectorySegmentsIsSanitized()
+    {
+        var isoPath = CreateOptimizedXiso();
+        RemoveOptimizedTag(isoPath);
+        var service = CreateService();
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "nested/game.iso", OutputFormat.Xiso,
+            false, false, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        Assert.True(File.Exists(Path.Combine(outputFolder, "game.iso")));
+        Assert.False(Directory.Exists(Path.Combine(outputFolder, "nested")));
+    }
+
+    [Fact]
+    public async Task UnsupportedExtensionWithGarbageReturnsInvalidInput()
+    {
+        var badFile = Path.Combine(_tempRoot, "not-an-image.zip");
+        File.WriteAllText(badFile, "this is not an xiso image");
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(badFile, Path.Combine(_tempRoot, "out"), "bad.iso",
+            OutputFormat.Xiso, false, false, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.InvalidInput, status);
+    }
+
+    [Theory]
+    [InlineData(OutputFormat.Zar)]
+    [InlineData(OutputFormat.Cso)]
+    public async Task OutputOverwritingSourceReturnsFailedForCompressedFormats(OutputFormat format)
+    {
+        var isoPath = CreateOptimizedXiso();
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(isoPath, _tempRoot, "game.iso", format, false, false,
+            new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Failed, status);
+        Assert.True(File.Exists(isoPath));
+    }
+
+    [Theory]
+    [InlineData(OutputFormat.Xiso)]
+    [InlineData(OutputFormat.Zar)]
+    [InlineData(OutputFormat.Cso)]
+    public async Task CancellationBeforeStartThrowsForAllFormats(OutputFormat format)
+    {
+        var isoPath = CreateOptimizedXiso();
+        RemoveOptimizedTag(isoPath);
+        var service = CreateService();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.ConvertIsoAsync(isoPath,
+            Path.Combine(_tempRoot, "out"), "game.iso", format, false, false, new CollectingProgress(),
+            new CancellationToken(true)));
+    }
+
+    [Fact]
+    public async Task CancellationDoesNotOverrideAlreadyOptimizedResult()
+    {
+        var isoPath = CreateOptimizedXiso();
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), "game.iso",
+            OutputFormat.Xiso, false, false, new CollectingProgress(), new CancellationToken(true));
+
+        Assert.Equal(FileProcessingStatus.AlreadyOptimized, status);
+    }
+
+    [Fact]
+    public async Task InsufficientSpaceForZarReturnsFailed()
+    {
+        var isoPath = CreateOptimizedXiso();
+        var diskMonitor = new Mock<IDiskMonitorService>();
+        diskMonitor.Setup(static d => d.GetAvailableFreeSpace(It.IsAny<string>())).Returns(1);
+        var service = new XisoSharpService(_logger.Logger, diskMonitor.Object);
+
+        var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), "space.zar",
+            OutputFormat.Zar, false, false, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Failed, status);
+        Assert.True(_logger.HasMessage("Not enough disk space"));
+    }
+
+    [Fact]
+    public async Task InsufficientSpaceForCsoReturnsFailed()
+    {
+        var isoPath = CreateOptimizedXiso();
+        var diskMonitor = new Mock<IDiskMonitorService>();
+        diskMonitor.Setup(static d => d.GetAvailableFreeSpace(It.IsAny<string>())).Returns(1);
+        var service = new XisoSharpService(_logger.Logger, diskMonitor.Object);
+
+        var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), "space.cso",
+            OutputFormat.Cso, false, false, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Failed, status);
+        Assert.True(_logger.HasMessage("Not enough disk space"));
+    }
+
+    [Fact]
+    public async Task ZeroAvailableSpaceIsTreatedAsUnknownAndConversionProceeds()
+    {
+        var isoPath = CreateOptimizedXiso();
+        RemoveOptimizedTag(isoPath);
+        var diskMonitor = new Mock<IDiskMonitorService>();
+        diskMonitor.Setup(static d => d.GetAvailableFreeSpace(It.IsAny<string>())).Returns(0);
+        var service = new XisoSharpService(_logger.Logger, diskMonitor.Object);
+
+        var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), "game.iso",
+            OutputFormat.Xiso, false, false, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+    }
+
+    [Fact]
+    public async Task CsoProgressReportsAreThrottledToFivePercentSteps()
+    {
+        var isoPath = CreateOptimizedXiso();
+        var progress = new CollectingProgress();
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), "game.cso",
+            OutputFormat.Cso, false, false, progress, CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        Assert.True(WaitForStatus(progress,
+            static text => string.Equals(text, "Finalizing output...", StringComparison.Ordinal)));
+        Assert.Contains(progress.Reports,
+            static p => p.StatusText?.StartsWith("Compressing ", StringComparison.Ordinal) == true &&
+                        p.StatusText.EndsWith("sectors...", StringComparison.Ordinal));
+
+        var percents = ParsePercents(progress.Reports, "Compressing: ");
+        Assert.NotEmpty(percents);
+        Assert.Equal(percents.Order().ToList(), percents);
+        Assert.True(percents[^1] >= 90, $"Expected near-complete progress, got {percents[^1]}%");
+        Assert.True(percents.Count <= 25, $"Expected throttled progress, got {percents.Count} reports");
+    }
+
+    [Fact]
+    public async Task XisoRewriteProgressReportsFileCountAndFinalization()
+    {
+        var isoPath = CreateOptimizedXiso();
+        RemoveOptimizedTag(isoPath);
+        var progress = new CollectingProgress();
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), "game.iso",
+            OutputFormat.Xiso, false, false, progress, CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        Assert.True(WaitForStatus(progress,
+            static text => string.Equals(text, "Finalizing output...", StringComparison.Ordinal)));
+        Assert.Contains(progress.Reports,
+            static p => p.StatusText?.StartsWith("Packing", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
+    public async Task InvalidImageCsoOutputReturnsInvalidInput()
+    {
+        var badIso = Path.Combine(_tempRoot, "bad-cso.iso");
+        File.WriteAllText(badIso, "this is not an xiso image");
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(badIso, Path.Combine(_tempRoot, "out"), "bad-cso.cso",
+            OutputFormat.Cso, false, false, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.InvalidInput, status);
+    }
+
+    [Theory]
+    [InlineData(OutputFormat.Zar)]
+    [InlineData(OutputFormat.Cso)]
+    public async Task CorruptSourceWithIntegrityCheckReturnsFailedForCompressedFormats(OutputFormat format)
+    {
+        var isoPath = CreateOptimizedXiso();
+        CorruptRootDirectoryPointer(isoPath);
+        var service = CreateService();
+        var extension = format == OutputFormat.Zar ? "zar" : "cso";
+
+        var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), $"corrupt.{extension}",
+            format, false, true, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Failed, status);
+        Assert.True(_logger.HasMessage("Source image failed structural validation"));
+    }
+
+    [Fact]
+    public async Task AuditSourceImageLogsRawImageNotice()
+    {
+        var isoPath = CreateOptimizedXiso();
+        RemoveOptimizedTag(isoPath);
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), "game.zar",
+            OutputFormat.Zar, false, true, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        Assert.True(_logger.HasMessage("not optimized (raw ISO)"));
+    }
+
+    [Fact]
+    public async Task XisoOutputWithSkipSystemUpdateOnNonOptimizedImageStripsUpdateFolder()
+    {
+        var isoPath = CreateXisoWithSystemUpdate("raw-su.iso", optimized: false);
+        var service = CreateService();
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "raw-su.iso", OutputFormat.Xiso, true,
+            false, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        using var explorer = ImageExplorerFactory.Open(Path.Combine(outputFolder, "raw-su.iso"));
+        var names = explorer.ListChildren("/").Select(static e => e.Name).ToList();
+        Assert.Contains(names, static n => n.Equals("default.xbe", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(names, static n => n.Equals("$SystemUpdate", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CsoOutputWithSkipSystemUpdateOnNonOptimizedImageStripsUpdateFolder()
+    {
+        var isoPath = CreateXisoWithSystemUpdate("raw-su-cso.iso", optimized: false);
+        var service = CreateService();
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "raw-su.cso", OutputFormat.Cso, true,
+            false, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        using var explorer = ImageExplorerFactory.Open(Path.Combine(outputFolder, "raw-su.cso"));
+        var names = explorer.ListChildren("/").Select(static e => e.Name).ToList();
+        Assert.Contains(names, static n => n.Equals("default.xbe", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(names, static n => n.Equals("$SystemUpdate", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ZarOutputWithSkipSystemUpdateOnNonOptimizedImageStripsUpdateFolder()
+    {
+        var isoPath = CreateXisoWithSystemUpdate("raw-su-zar.iso", optimized: false);
+        var service = CreateService();
+        var outputFolder = Path.Combine(_tempRoot, "out");
+
+        var status = await service.ConvertIsoAsync(isoPath, outputFolder, "raw-su.zar", OutputFormat.Zar, true,
+            false, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        var extractDir = Path.Combine(_tempRoot, "raw-su-zar-out");
+        ZArchiveTool.Extract(Path.Combine(outputFolder, "raw-su.zar"), extractDir);
+        Assert.True(File.Exists(Path.Combine(extractDir, "default.xbe")));
+        Assert.False(Directory.Exists(Path.Combine(extractDir, "$SystemUpdate")));
+    }
+
+    [Fact]
+    public async Task XisoSkipSystemUpdateWithIntegrityCheckAuditsOutput()
+    {
+        var isoPath = CreateXisoWithSystemUpdate("su-opt.iso");
+        var service = CreateService();
+
+        var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), "su-opt.iso",
+            OutputFormat.Xiso, true, true, new CollectingProgress(), CancellationToken.None);
+
+        Assert.Equal(FileProcessingStatus.Converted, status);
+        Assert.True(_logger.HasMessage("Output XISO passed validation"));
+    }
+
+    [Fact]
+    public async Task LockedInputReturnsFailedInsteadOfInvalidInput()
+    {
+        var isoPath = CreateOptimizedXiso();
+        var service = CreateService();
+
+        await using (new FileStream(isoPath, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            var status = await service.ConvertIsoAsync(isoPath, Path.Combine(_tempRoot, "out"), "game.iso",
+                OutputFormat.Xiso, false, false, new CollectingProgress(), CancellationToken.None);
+
+            Assert.Equal(FileProcessingStatus.Failed, status);
+        }
     }
 }

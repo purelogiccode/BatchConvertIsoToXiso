@@ -52,12 +52,15 @@ public class StatsService : IStatsService
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
             request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            using var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+            // A stats ping must never hold up startup when the network hangs; the timeout is
+            // applied per request so the injected client is not mutated.
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            using var response = await _httpClient.SendAsync(request, timeoutCts.Token).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
 
             // The stats API reports authorization failures as HTTP 200 with an error body,
             // so the body is inspected instead of trusting the status code alone.
-            var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var responseBody = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
             if (responseBody.Contains("\"error\"", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.Information("Application statistics were not recorded: {Response}", responseBody);
@@ -69,8 +72,9 @@ public class StatsService : IStatsService
         }
         catch (Exception ex)
         {
-            // Stats failures are best-effort and must not be forwarded as bug reports
-            _logger.Debug(ex, "Failed to send startup statistics.");
+            // Stats failures are best-effort; environmental failures log at Information per
+            // the logging policy so they are not forwarded as bug reports.
+            _logger.Information(ex, "Failed to send startup statistics.");
         }
     }
 }

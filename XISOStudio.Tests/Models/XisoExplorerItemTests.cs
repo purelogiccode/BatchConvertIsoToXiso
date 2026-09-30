@@ -48,4 +48,87 @@ public class XisoExplorerItemTests
         Assert.False(item.IsDirectory);
         Assert.Same(entry, item.Entry);
     }
+
+    [Fact]
+    public void EntryDefaultsToNull()
+    {
+        var item = new XisoExplorerItem();
+
+        Assert.Null(item.Entry);
+    }
+
+    [Fact]
+    public void NameCanBeInitializedFromImageEntry()
+    {
+        var entry = new ImageEntry("media", "/media", true, 0);
+
+        var item = new XisoExplorerItem
+        {
+            Name = entry.Name,
+            IsDirectory = entry.IsDirectory,
+            Entry = entry
+        };
+
+        Assert.Equal(entry.Name, item.Name);
+        Assert.True(item.IsDirectory);
+        Assert.Equal("Folder", item.Type);
+        Assert.Same(entry, item.Entry);
+    }
+
+    [Fact]
+    public void TypeDependsOnIsDirectoryNotEntry()
+    {
+        var directoryEntry = new ImageEntry("file.bin", "/file.bin", true, 0);
+
+        var item = new XisoExplorerItem
+        {
+            Name = "file.bin",
+            IsDirectory = false,
+            Entry = directoryEntry
+        };
+
+        Assert.True(item.Entry.IsDirectory);
+        Assert.Equal("File", item.Type);
+    }
+
+    [Fact]
+    public void SizeFormattedCanBeChanged()
+    {
+        var item = new XisoExplorerItem { SizeFormatted = "2.5 GB" };
+
+        Assert.Equal("2.5 GB", item.SizeFormatted);
+
+        item.SizeFormatted = "1 KB";
+
+        Assert.Equal("1 KB", item.SizeFormatted);
+    }
+
+    [Fact]
+    public void DistinctInstancesWithSameValuesAreNotEqual()
+    {
+        var entry = new ImageEntry("a.bin", "/a.bin", false, 1);
+        var first = new XisoExplorerItem { Name = "a.bin", SizeFormatted = "1 B", Entry = entry };
+        var second = new XisoExplorerItem { Name = "a.bin", SizeFormatted = "1 B", Entry = entry };
+
+        Assert.NotEqual(first, second);
+        Assert.Same(first, first);
+    }
+
+    [Fact]
+    public void EqualImageEntriesDoNotMakeItemsEqual()
+    {
+        var first = new XisoExplorerItem
+        {
+            Name = "a.bin",
+            Entry = new ImageEntry("a.bin", "/a.bin", false, 1)
+        };
+        var second = new XisoExplorerItem
+        {
+            Name = "a.bin",
+            Entry = new ImageEntry("a.bin", "/a.bin", false, 1)
+        };
+
+        Assert.Equal(first.Entry, second.Entry);
+        Assert.NotEqual(first, second);
+    }
 }

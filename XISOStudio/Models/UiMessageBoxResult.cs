@@ -11,9 +11,9 @@ public enum UiMessageBoxResult
     /// <summary>The user clicked Yes.</summary>
     Yes,
 
-    /// <summary>The user clicked No.</summary>
+    /// <summary>The user clicked No, or closed a dialog that offered only Yes and No.</summary>
     No,
 
-    /// <summary>The user clicked Cancel or closed the dialog.</summary>
+    /// <summary>The user clicked Cancel, or closed a dialog that offered Cancel.</summary>
     Cancel
 }

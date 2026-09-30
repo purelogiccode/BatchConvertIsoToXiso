@@ -1,3 +1,5 @@
+using System.Globalization;
+using Serilog.Events;
 using XISOStudio.Services;
 using Xunit;
 
@@ -71,5 +73,171 @@ public class DisplayInstructionsTests
 
         Assert.True(logger.HasMessage("XISOSharp"));
         Assert.True(logger.HasMessage("CHDSharp"));
+    }
+
+    [Fact]
+    public void DisplayInitialInstructionsLogsExactlyFourteenInformationEvents()
+    {
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
+
+        DisplayInstructions.DisplayInitialInstructions();
+
+        Assert.Equal(14, logger.Events.Count);
+    }
+
+    [Fact]
+    public void DisplayInitialInstructionsLogsOnlyInformationLevel()
+    {
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
+
+        DisplayInstructions.DisplayInitialInstructions();
+
+        Assert.All(logger.Events, static logEvent => Assert.Equal(LogEventLevel.Information, logEvent.Level));
+    }
+
+    [Fact]
+    public void DisplayInitialInstructionsLogsFourBlankSeparatorLines()
+    {
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
+
+        DisplayInstructions.DisplayInitialInstructions();
+
+        var blankCount = logger.Events.Count(static logEvent =>
+            string.IsNullOrEmpty(logEvent.RenderMessage(CultureInfo.InvariantCulture)));
+        Assert.Equal(4, blankCount);
+    }
+
+    [Fact]
+    public void DisplayInitialInstructionsLogsConvertTabInstructions()
+    {
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
+
+        DisplayInstructions.DisplayInitialInstructions();
+
+        Assert.True(
+            logger.HasMessage(
+                "1. Convert: Converts standard Xbox ISO files to optimized XISO, ZAR, CSO, or CHD format."));
+        Assert.True(logger.HasMessage("Supports archives (.zip, .7z, .rar)."));
+    }
+
+    [Fact]
+    public void DisplayInitialInstructionsLogsTestIntegrityInstructions()
+    {
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
+
+        DisplayInstructions.DisplayInitialInstructions();
+
+        Assert.True(logger.HasMessage(
+            "2. Test Integrity: Verifies ISO/CSO (XDVDFS), ZAR, and Xbox CHD structure and readability."));
+        Assert.True(logger.HasMessage("does NOT perform data checksum (MD5/SHA) verification."));
+    }
+
+    [Fact]
+    public void DisplayInitialInstructionsLogsExplorerInstructions()
+    {
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
+
+        DisplayInstructions.DisplayInitialInstructions();
+
+        Assert.True(logger.HasMessage("3. Explorer: Explore the content of .iso, .cso, .zar, and .chd files."));
+    }
+
+    [Fact]
+    public void DisplayInitialInstructionsLogsTabsPhrase()
+    {
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
+
+        DisplayInstructions.DisplayInitialInstructions();
+
+        Assert.True(logger.HasMessage("available in the tabs above"));
+    }
+
+    [Fact]
+    public void DisplayInitialInstructionsLogsXbox360SupportLine()
+    {
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
+
+        DisplayInstructions.DisplayInitialInstructions();
+
+        Assert.True(logger.HasMessage("This tool ONLY works with Xbox and Xbox 360 ISO files."));
+    }
+
+    [Fact]
+    public void DisplayInitialInstructionsLogsPlayStationLimitationLine()
+    {
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
+
+        DisplayInstructions.DisplayInitialInstructions();
+
+        Assert.True(
+            logger.HasMessage("It cannot convert or test ISOs from PlayStation, PlayStation 2, or other consoles."));
+    }
+
+    [Fact]
+    public void DisplayInitialInstructionsLogsEngineEnabledInfo()
+    {
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
+
+        DisplayInstructions.DisplayInitialInstructions();
+
+        Assert.True(logger.HasMessage(
+            "XISOSharp and CHDSharp conversion engines loaded. XISO/ZAR/CSO and CHD conversion are enabled."));
+    }
+
+    [Fact]
+    public void DisplayInitialInstructionsLogsWelcomeBeforeReady()
+    {
+        var logger = new TestLogger();
+        DisplayInstructions.Initialize(logger.Logger);
+
+        DisplayInstructions.DisplayInitialInstructions();
+
+        var messages = logger.Events.Select(static logEvent =>
+            logEvent.RenderMessage(CultureInfo.InvariantCulture)).ToList();
+        var welcomeIndex = messages.FindIndex(static message =>
+            message.Contains("Welcome to 'XISO Studio'.", StringComparison.Ordinal));
+        var readyIndex = messages.FindIndex(static message =>
+            message.Contains("--- Ready ---", StringComparison.Ordinal));
+
+        Assert.True(welcomeIndex >= 0);
+        Assert.True(readyIndex > welcomeIndex);
+    }
+
+    [Fact]
+    public void InitializeReplacesPreviousLogger()
+    {
+        var firstLogger = new TestLogger();
+        var secondLogger = new TestLogger();
+
+        DisplayInstructions.Initialize(firstLogger.Logger);
+        DisplayInstructions.DisplayInitialInstructions();
+        var firstCount = firstLogger.Events.Count;
+
+        DisplayInstructions.Initialize(secondLogger.Logger);
+        DisplayInstructions.DisplayInitialInstructions();
+
+        Assert.True(firstCount > 0);
+        Assert.Equal(firstCount, firstLogger.Events.Count);
+        Assert.Equal(firstCount, secondLogger.Events.Count);
+    }
+
+    [Fact]
+    public void DisplayInitialInstructionsAfterInitializeWithNullDoesNotThrow()
+    {
+        DisplayInstructions.Initialize(null!);
+
+        var exception = Record.Exception(DisplayInstructions.DisplayInitialInstructions);
+
+        Assert.Null(exception);
     }
 }

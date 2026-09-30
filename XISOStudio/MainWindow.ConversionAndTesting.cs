@@ -105,11 +105,29 @@ public partial class MainWindow
 
             var operationStarted = false;
             var operationCanceled = false;
+            // Capture the TCS for this operation: a stale operation must never complete
+            // the wait of a batch that was started after it.
+            var operationCompletedTcs = new TaskCompletionSource();
 
             try
             {
                 _isOperationRunning = true;
-                _operationCompletedTcs = new TaskCompletionSource();
+                _operationCompletedTcs = operationCompletedTcs;
+
+                // Create the batch token before the cleanup scan starts: Cancel or Exit during
+                // the scan must cancel this operation, not the previous (already finished) one.
+                var cts = new CancellationTokenSource();
+                var oldCts = Interlocked.Exchange(ref _cts, cts);
+                try
+                {
+                    oldCts.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    /* Already disposed by CleanupResources */
+                    _logger.Debug(ex, "Cancellation token source was already disposed");
+                }
+
                 SetControlsState(false);
                 LogViewer.Text = string.Empty;
                 ResetSummaryStats();
@@ -126,7 +144,8 @@ public partial class MainWindow
 
                 if (string.IsNullOrEmpty(inputFolder) || string.IsNullOrEmpty(outputFolder))
                 {
-                    await _messageBoxService.ShowErrorAsync("Please select both input and output folders for conversion.");
+                    await _messageBoxService.ShowErrorAsync(
+                        "Please select both input and output folders for conversion.");
                     FinalizeUiState();
                     return;
                 }
@@ -158,17 +177,6 @@ public partial class MainWindow
                         "No files selected for conversion. Select a source folder and tick at least one file in the list.");
                     FinalizeUiState();
                     return;
-                }
-
-                var oldCts = Interlocked.Exchange(ref _cts, new CancellationTokenSource());
-                try
-                {
-                    oldCts.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    /* Already disposed by CleanupResources */
-                    _logger.Debug(ex, "Cancellation token source was already disposed");
                 }
 
                 var progress = new Progress<BatchOperationProgress>(p =>
@@ -251,7 +259,7 @@ public partial class MainWindow
                     SkipSystemUpdateCheckBox.IsChecked ?? false,
                     CheckOutputIntegrityCheckBox.IsChecked ?? false,
                     outputFormat,
-                    progress, HandleCloudRetryRequestAsync, _cts.Token);
+                    progress, HandleCloudRetryRequestAsync, cts.Token);
             }
             catch (OperationCanceledException ex)
             {
@@ -270,12 +278,14 @@ public partial class MainWindow
                 }
                 else
                 {
-                    _logger.Error(ex, "Critical error during batch conversion");
+                    // The orchestrator already logged and reported this defect at Error; log
+                    // here at Information so the same defect is not reported twice.
+                    _logger.Information(ex, "Batch conversion failed; the error was reported by the orchestrator");
                 }
             }
             finally
             {
-                await FinishOperationAsync("Conversion", operationStarted, operationCanceled);
+                await FinishOperationAsync("Conversion", operationStarted, operationCanceled, operationCompletedTcs);
                 await RefreshConversionFileListAsync();
             }
         }
@@ -298,11 +308,29 @@ public partial class MainWindow
 
             var operationStarted = false;
             var operationCanceled = false;
+            // Capture the TCS for this operation: a stale operation must never complete
+            // the wait of a batch that was started after it.
+            var operationCompletedTcs = new TaskCompletionSource();
 
             try
             {
                 _isOperationRunning = true;
-                _operationCompletedTcs = new TaskCompletionSource();
+                _operationCompletedTcs = operationCompletedTcs;
+
+                // Create the batch token before the cleanup scan starts: Cancel or Exit during
+                // the scan must cancel this operation, not the previous (already finished) one.
+                var cts = new CancellationTokenSource();
+                var oldCts = Interlocked.Exchange(ref _cts, cts);
+                try
+                {
+                    oldCts.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    /* Already disposed by CleanupResources */
+                    _logger.Debug(ex, "Cancellation token source was already disposed");
+                }
+
                 SetControlsState(false);
                 LogViewer.Text = string.Empty;
                 ResetSummaryStats();
@@ -336,17 +364,6 @@ public partial class MainWindow
                         "No files selected for testing. Select an image folder and tick at least one file in the list.");
                     FinalizeUiState();
                     return;
-                }
-
-                var oldCts = Interlocked.Exchange(ref _cts, new CancellationTokenSource());
-                try
-                {
-                    oldCts.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    /* Already disposed by CleanupResources */
-                    _logger.Debug(ex, "Cancellation token source was already disposed");
                 }
 
                 var progress = new Progress<BatchOperationProgress>(p =>
@@ -387,6 +404,13 @@ public partial class MainWindow
                             _invalidIsoErrorCount += p.InvalidIsoCount.Value;
                         }
 
+                        if (p.SkippedCount.HasValue)
+                        {
+                            _uiSkippedCount += p.SkippedCount.Value;
+                            _totalProcessedFiles += p.SkippedCount.Value;
+                            UpdateSummaryStatsUi();
+                        }
+
                         if (p.CurrentDrive != null) SetCurrentOperationDrive(p.CurrentDrive);
                         if (p.FailedPathToAdd != null) _failedFilePaths.Add(p.FailedPathToAdd);
 
@@ -413,7 +437,7 @@ public partial class MainWindow
                     MoveSuccessFilesCheckBox.IsChecked == true,
                     MoveFailedFilesCheckBox.IsChecked == true,
                     PerformDeepScanCheckBox.IsChecked ?? false,
-                    progress, HandleCloudRetryRequestAsync, _cts.Token);
+                    progress, HandleCloudRetryRequestAsync, cts.Token);
             }
             catch (OperationCanceledException ex)
             {
@@ -432,12 +456,14 @@ public partial class MainWindow
                 }
                 else
                 {
-                    _logger.Error(ex, "Critical error during batch test");
+                    // The orchestrator already logged and reported this defect at Error; log
+                    // here at Information so the same defect is not reported twice.
+                    _logger.Information(ex, "Batch test failed; the error was reported by the orchestrator");
                 }
             }
             finally
             {
-                await FinishOperationAsync("Test", operationStarted, operationCanceled);
+                await FinishOperationAsync("Test", operationStarted, operationCanceled, operationCompletedTcs);
                 await RefreshTestFileListAsync();
             }
         }

@@ -77,4 +77,144 @@ public class SupportedFilesTests
     {
         Assert.False(SupportedFiles.IsTestable(path));
     }
+
+    [Theory]
+    [InlineData("game.ISO")]
+    [InlineData("game.Iso")]
+    [InlineData("game.ZIP")]
+    [InlineData("game.Zip")]
+    [InlineData("game.7Z")]
+    [InlineData("game.RAR")]
+    [InlineData("game.Rar")]
+    [InlineData("/tmp/game.7z")]
+    public void IsConvertibleAllExtensionsAreCaseInsensitive(string path)
+    {
+        Assert.True(SupportedFiles.IsConvertible(path));
+    }
+
+    [Theory]
+    [InlineData("game.cso")]
+    [InlineData("GAME.CSO")]
+    [InlineData("game.zar")]
+    [InlineData("GAME.ZAR")]
+    [InlineData("game.chd")]
+    [InlineData("GAME.CHD")]
+    [InlineData("game.xbe")]
+    [InlineData("game.1.cso")]
+    public void IsConvertibleImageOnlyExtensionsReturnFalse(string path)
+    {
+        Assert.False(SupportedFiles.IsConvertible(path));
+    }
+
+    [Theory]
+    [InlineData("/tmp/GAME.Iso")]
+    [InlineData(@"C:\folder\Game.iSO")]
+    [InlineData("game.ISO")]
+    public void IsIsoIsCaseInsensitiveAcrossDirectories(string path)
+    {
+        Assert.True(SupportedFiles.IsIso(path));
+    }
+
+    [Theory]
+    [InlineData("game.ISO")]
+    [InlineData("game.Iso")]
+    [InlineData("game.ZAR")]
+    [InlineData("game.Zar")]
+    [InlineData("game.zAr")]
+    [InlineData("game.CHD")]
+    [InlineData("game.Chd")]
+    [InlineData("game.CSO")]
+    [InlineData("game.Cso")]
+    [InlineData(@"C:\Folder\GAME.ZAR")]
+    public void IsTestableAllExtensionsAreCaseInsensitive(string path)
+    {
+        Assert.True(SupportedFiles.IsTestable(path));
+    }
+
+    [Theory]
+    [InlineData("game.2.cso")]
+    [InlineData("game.3.CSO")]
+    [InlineData("game.10.cso")]
+    [InlineData("game.99.cso")]
+    [InlineData("my.game.2.cso")]
+    [InlineData(@"C:\folder\my.game.12.cso")]
+    [InlineData("game.1000000.cso")]
+    public void IsTestableSplitContinuationPartsReturnFalse(string path)
+    {
+        Assert.False(SupportedFiles.IsTestable(path));
+    }
+
+    [Theory]
+    [InlineData("game.1.cso")]
+    [InlineData("GAME.1.CSO")]
+    [InlineData("game.0.cso")]
+    [InlineData("game.01.cso")]
+    [InlineData("game.-1.cso")]
+    [InlineData("game.abc.cso")]
+    [InlineData("game..cso")]
+    [InlineData("my.game.1.cso")]
+    [InlineData(@"C:\folder\game.1.cso")]
+    public void IsTestableFirstOrNonNumericSplitPartsReturnTrue(string path)
+    {
+        Assert.True(SupportedFiles.IsTestable(path));
+    }
+
+    [Fact]
+    public void IsTestableSplitPartNumberBeyondIntRangeIsTreatedAsFirstPart()
+    {
+        Assert.True(SupportedFiles.IsTestable("game.2147483648.cso"));
+        Assert.True(SupportedFiles.IsTestable("game.99999999999.cso"));
+    }
+
+    [Fact]
+    public void IsTestableSplitPartNumberWithinIntRangeIsTreatedAsContinuationPart()
+    {
+        Assert.False(SupportedFiles.IsTestable("game.2147483647.cso"));
+        Assert.False(SupportedFiles.IsTestable("game.1000.cso"));
+    }
+
+    [Theory]
+    [InlineData("game.bin")]
+    [InlineData("game.txt")]
+    [InlineData("game.xiso")]
+    [InlineData("game.zip")]
+    [InlineData("game.7z")]
+    [InlineData("game.rar")]
+    [InlineData("game.cso.bak")]
+    [InlineData("game.iso.tmp")]
+    [InlineData("game.2")]
+    [InlineData("folder.iso/file")]
+    public void IsTestableUnsupportedExtensionsAndPathsReturnFalse(string path)
+    {
+        Assert.False(SupportedFiles.IsTestable(path));
+    }
+
+    [Fact]
+    public void IsConvertibleNullThrowsNullReferenceException()
+    {
+        Assert.Throws<NullReferenceException>(static () => SupportedFiles.IsConvertible(null!));
+    }
+
+    [Fact]
+    public void IsIsoNullThrowsNullReferenceException()
+    {
+        Assert.Throws<NullReferenceException>(static () => SupportedFiles.IsIso(null!));
+    }
+
+    [Fact]
+    public void IsTestableNullThrowsNullReferenceException()
+    {
+        Assert.Throws<NullReferenceException>(static () => SupportedFiles.IsTestable(null!));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public void SupportedFileChecksEmptyOrWhitespaceReturnFalse(string path)
+    {
+        Assert.False(SupportedFiles.IsConvertible(path));
+        Assert.False(SupportedFiles.IsIso(path));
+        Assert.False(SupportedFiles.IsTestable(path));
+    }
 }

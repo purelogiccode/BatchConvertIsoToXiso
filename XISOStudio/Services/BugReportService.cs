@@ -47,11 +47,12 @@ public class BugReportService : IBugReportService
     /// </summary>
     /// <param name="message">Message describing the problem.</param>
     /// <returns><c>true</c> when the API accepted the report; otherwise <c>false</c>.</returns>
-    public Task<bool> SendBugReportAsync(string message)
+    /// <remarks>Argument failures surface as a faulted task, never as a synchronous throw.</remarks>
+    public async Task<bool> SendBugReportAsync(string message)
     {
         var fullMessage = BuildFullMessage(message);
         var version = GetApplicationVersion.GetProgramVersion();
-        return SendToApiAsync(fullMessage, version, null);
+        return await SendToApiAsync(fullMessage, version, null).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -61,14 +62,15 @@ public class BugReportService : IBugReportService
     /// <param name="errorMessage">Message describing the problem.</param>
     /// <param name="exception">Exception whose details are appended to the report.</param>
     /// <returns><c>true</c> when the API accepted the report; otherwise <c>false</c>.</returns>
-    public Task<bool> SendBugReportAsync(string errorMessage, Exception exception)
+    /// <remarks>Argument failures surface as a faulted task, never as a synchronous throw.</remarks>
+    public async Task<bool> SendBugReportAsync(string errorMessage, Exception exception)
     {
         var sb = new StringBuilder(BuildFullMessage(errorMessage));
         sb.AppendLine();
         sb.AppendLine("=== Exception Details ===");
         ExceptionFormatter.AppendExceptionDetails(sb, exception);
         var version = GetApplicationVersion.GetProgramVersion();
-        return SendToApiAsync(sb.ToString(), version, exception);
+        return await SendToApiAsync(sb.ToString(), version, exception).ConfigureAwait(false);
     }
 
     /// <summary>

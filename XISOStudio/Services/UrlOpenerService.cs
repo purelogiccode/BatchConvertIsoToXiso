@@ -10,14 +10,27 @@ namespace XISOStudio.Services;
 public class UrlOpenerService : IUrlOpener
 {
     private readonly ILogger _logger;
+    private readonly Func<ProcessStartInfo, Process?> _startProcess;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="UrlOpenerService"/> class.
     /// </summary>
     /// <param name="logger">Logger used for diagnostics.</param>
     public UrlOpenerService(ILogger logger)
+        : this(logger, static startInfo => Process.Start(startInfo))
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="UrlOpenerService"/> class with a custom
+    /// process starter so unit tests can exercise failure handling without invoking the OS shell.
+    /// </summary>
+    /// <param name="logger">Logger used for diagnostics.</param>
+    /// <param name="startProcess">Delegate used to launch the URL with the operating system.</param>
+    internal UrlOpenerService(ILogger logger, Func<ProcessStartInfo, Process?> startProcess)
     {
         _logger = logger.ForContext<UrlOpenerService>();
+        _startProcess = startProcess;
     }
 
     /// <summary>
@@ -28,7 +41,7 @@ public class UrlOpenerService : IUrlOpener
     {
         try
         {
-            var process = Process.Start(new ProcessStartInfo
+            var process = _startProcess(new ProcessStartInfo
             {
                 FileName = url,
                 UseShellExecute = true

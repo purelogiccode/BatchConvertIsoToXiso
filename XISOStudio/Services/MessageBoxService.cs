@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 using XISOStudio.Dialogs;
 using XISOStudio.Interfaces;
 using XISOStudio.Models;
@@ -37,16 +38,22 @@ public class MessageBoxService : IMessageBoxService
     {
         try
         {
-            var owner = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-            var dialog = new MessageBoxWindow(message, title, buttons, icon);
-
-            if (owner is { IsVisible: true })
+            // Window creation must happen on the UI thread; marshal so background callers
+            // (batch progress handlers, cloud-retry callbacks) can call this safely.
+            return await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                return await dialog.ShowDialog<UiMessageBoxResult>(owner);
-            }
+                var owner =
+                    (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+                var dialog = new MessageBoxWindow(message, title, buttons, icon);
 
-            dialog.Show();
-            return await dialog.Result;
+                if (owner is { IsVisible: true })
+                {
+                    return await dialog.ShowDialog<UiMessageBoxResult>(owner);
+                }
+
+                dialog.Show();
+                return await dialog.Result;
+            });
         }
         catch (Exception ex)
         {

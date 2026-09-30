@@ -15,16 +15,22 @@ public class OrchestratorService : IOrchestratorService
 {
     /// <summary>Extracts archive contents to a temporary folder.</summary>
     private readonly IFileExtractor _fileExtractor;
+
     /// <summary>Moves tested images into the success or failed folder.</summary>
     private readonly IFileMover _fileMover;
+
     /// <summary>Logger used for diagnostics.</summary>
     private readonly ILogger _logger;
+
     /// <summary>Validates image structure and readability.</summary>
     private readonly IXisoIntegrityService _integrityService;
+
     /// <summary>Converts images to XISO, ZAR or CSO.</summary>
     private readonly IXisoSharpService _xisoSharpService;
+
     /// <summary>Converts images to CHD.</summary>
     private readonly IChdService _chdService;
+
     /// <summary>Resolves temporary directories based on free disk space.</summary>
     private readonly IDiskMonitorService _diskMonitorService;
 
@@ -415,8 +421,8 @@ public class OrchestratorService : IOrchestratorService
         }
         catch (Exception ex)
         {
-            // The caller (MainWindow) is responsible for reporting unexpected failures;
-            // log here with context but avoid duplicate bug reports.
+            // The caller (MainWindow) logs the rethrown failure; unexpected defects must be
+            // visible to the bug-report sink, so they are logged at Error here.
             if (PathHelper.IsDiskSpaceError(ex) || PathHelper.IsNetworkError(ex) || IsFatalEnvironmentalError(ex) ||
                 ex is IOException)
             {
@@ -425,7 +431,7 @@ public class OrchestratorService : IOrchestratorService
             }
             else
             {
-                _logger.Information(ex, "OrchestratorService.{OperationName} failed", operationName);
+                _logger.Error(ex, "OrchestratorService.{OperationName} failed", operationName);
             }
 
             throw;
@@ -582,9 +588,25 @@ public class OrchestratorService : IOrchestratorService
         }
         catch (Exception ex)
         {
-            // Mark as failed, but don't stop the batch processing
-            // Error has already been logged by the FileExtractor
-            _logger.Debug(ex, "Archive processing failed for {ArchivePath}; continuing batch", archivePath);
+            // Mark as failed, but don't stop the batch processing. Environmental and archive
+            // errors (locked/corrupt archive, permissions) are expected input conditions;
+            // anything else is unexpected and must stay visible as an application error.
+            var isEnvironmentalError = PathHelper.IsNetworkError(ex) || IsFatalEnvironmentalError(ex) ||
+                                       ex is UnauthorizedAccessException or IOException or InvalidDataException;
+            var isArchiveError = ex.Message.Contains("Data error", StringComparison.OrdinalIgnoreCase) ||
+                                 ex.Message.Contains("Invalid archive", StringComparison.OrdinalIgnoreCase) ||
+                                 ex.Message.Contains("Unsupported archive", StringComparison.OrdinalIgnoreCase) ||
+                                 ex.Message.Contains("End of stream reached", StringComparison.OrdinalIgnoreCase);
+
+            if (isEnvironmentalError || isArchiveError)
+            {
+                _logger.Information(ex, "Archive processing failed for {ArchivePath}; continuing batch", archivePath);
+            }
+            else
+            {
+                _logger.Error(ex, "Archive processing failed for {ArchivePath}; continuing batch", archivePath);
+            }
+
             internalFail = true;
             extracted = false;
         }
@@ -617,13 +639,25 @@ public class OrchestratorService : IOrchestratorService
             }
             catch (Exception ex)
             {
-                /* ignore */
-                _logger.Debug(ex, "Could not delete original archive {ArchivePath}", archivePath);
+                // The user must know the original is still there; environmental, not a defect.
+                progress.Report(new BatchOperationProgress
+                {
+                    LogMessage =
+                        $"Warning: Could not delete original archive {Path.GetFileName(archivePath)}: {ex.Message}"
+                });
+                _logger.Information(ex, "Could not delete original archive {ArchivePath}", archivePath);
             }
         }
         else if (deleteOriginal && extracted && !internalFail)
         {
             ReportKeptArchive(progress, skippedEntries, unprocessedImages, skippedCount);
+        }
+        else if (deleteOriginal)
+        {
+            progress.Report(new BatchOperationProgress
+            {
+                LogMessage = "Keeping the original archive because processing was not fully successful."
+            });
         }
     }
 
@@ -976,7 +1010,7 @@ public class OrchestratorService : IOrchestratorService
             var fileName = Path.GetFileName(imagePath);
             progress.Report(new BatchOperationProgress
             {
-                StatusText = $"Testing: {fileName}", CurrentDrive = PathHelper.GetDriveLetter(Path.GetTempPath())
+                StatusText = $"Testing: {fileName}", CurrentDrive = PathHelper.GetDriveLetter(imagePath)
             });
 
             try
@@ -987,10 +1021,13 @@ public class OrchestratorService : IOrchestratorService
 
                 if (result == IsoTestResultStatus.Passed)
                 {
-                    progress.Report(new BatchOperationProgress
-                        { SuccessCount = 1, LogMessage = $"  SUCCESS: '{fileName}' passed test." });
+                    // Move first: a file whose move fails must not be reported as a success
+                    // while it is still sitting in the input folder.
                     if (moveSuccessful)
                         await MoveTestedImageAsync(imagePath, successFolder, "successfully tested", token);
+
+                    progress.Report(new BatchOperationProgress
+                        { SuccessCount = 1, LogMessage = $"  SUCCESS: '{fileName}' passed test." });
                 }
                 else
                 {

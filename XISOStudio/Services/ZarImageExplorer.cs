@@ -47,6 +47,15 @@ internal sealed class ZarImageExplorer : IImageExplorer
             {
                 if (!_reader.TryGetDirEntry(node, i, out _, out var entry)) continue;
 
+                // Never expose names that cannot be used as a single destination path
+                // component (separators, "..", device names): the UI turns listed names
+                // into paths, and copy-out skips them anyway.
+                if (!IsSafeEntryName(entry.Name))
+                {
+                    _logger?.Information("Skipping unsafe archive entry name: '{EntryName}'", entry.Name);
+                    continue;
+                }
+
                 var fullPath = ImagePaths.Combine(path, entry.Name);
                 entries.Add(new ImageEntry(entry.Name, fullPath, entry.IsDirectory,
                     entry.IsDirectory ? 0 : (long)Math.Min(entry.Size, long.MaxValue)));
@@ -95,12 +104,27 @@ internal sealed class ZarImageExplorer : IImageExplorer
     }
 
     /// <summary>
+    /// Recursion depth cap for directory copy-out, mirroring
+    /// <c>ZArchiveSharp.Pipeline.ZarPackEngine.MaxExtractDepth</c> and
+    /// <c>XisoIntegrityService</c>, so a crafted archive fails catchably instead of
+    /// overflowing the stack.
+    /// </summary>
+    private const int MaxCopyDepth = 1024;
+
+    /// <summary>
     /// Copies a file or directory tree out of the archive to the destination path.
     /// </summary>
     /// <param name="node">Node handle of the entry to copy.</param>
     /// <param name="destPath">Destination path on disk.</param>
-    private void CopyNodeOut(uint node, string destPath)
+    /// <param name="depth">Current recursion depth, used to enforce the nesting cap.</param>
+    private void CopyNodeOut(uint node, string destPath, int depth = 0)
     {
+        if (depth > MaxCopyDepth)
+        {
+            throw new InvalidDataException(
+                $"ZAR archive directory nesting exceeds the supported depth ({MaxCopyDepth}).");
+        }
+
         if (_reader.IsFile(node))
         {
             var directory = Path.GetDirectoryName(destPath);
@@ -116,39 +140,38 @@ internal sealed class ZarImageExplorer : IImageExplorer
         var count = _reader.GetDirEntryCount(node);
         for (uint i = 0; i < count; i++)
         {
+            // Skip undecodable entries instead of failing the whole directory: the listing
+            // hides them as well, so navigation and copy-out stay consistent.
             if (!_reader.TryGetDirEntry(node, i, out var child, out var entry))
             {
-                throw new InvalidDataException("Archive directory contains an invalid entry.");
+                _logger?.Information("Skipping undecodable archive entry in '{DestPath}'", destPath);
+                continue;
             }
 
-            // Entry names come from the archive; reject names that would escape the
+            // Entry names come from the archive; skip names that would escape the
             // destination root (zip-slip), mirroring ZArchiveSharp's extractor.
             if (!IsSafeEntryName(entry.Name))
             {
-                throw new InvalidDataException($"Archive entry name is not safe to extract: '{entry.Name}'.");
+                _logger?.Information("Skipping unsafe archive entry name: '{EntryName}'", entry.Name);
+                continue;
             }
 
-            CopyNodeOut(child, Path.Combine(destPath, entry.Name));
+            CopyNodeOut(child, Path.Combine(destPath, entry.Name), depth + 1);
         }
     }
 
     /// <summary>
     /// True when an archive entry name is a single, plain filesystem component:
-    /// no separators, not relative (".", ".."), not rooted or drive-qualified, and
-    /// not a reserved Windows device name.
+    /// no separators or alternate-data-stream colon, not relative (".", ".."), not
+    /// rooted, and not a reserved Windows device name.
     /// </summary>
     /// <param name="name">Archive entry name to validate.</param>
     /// <returns><c>true</c> when the name is safe to use as a single destination path component; otherwise <c>false</c>.</returns>
     private static bool IsSafeEntryName(string name)
     {
         if (name.Length == 0 || name is "." or ".."
-                             || name.Contains('/') || name.Contains('\\')
+                             || name.Contains('/') || name.Contains('\\') || name.Contains(':')
                              || Path.IsPathRooted(name))
-        {
-            return false;
-        }
-
-        if (name.Length >= 2 && name[1] == ':' && char.IsAsciiLetter(name[0]))
         {
             return false;
         }
@@ -163,8 +186,11 @@ internal sealed class ZarImageExplorer : IImageExplorer
     /// <returns><c>true</c> when the name is a reserved device name; otherwise <c>false</c>.</returns>
     private static bool IsReservedDeviceName(string name)
     {
-        var dot = name.IndexOf('.');
-        var stem = dot < 0 ? name : name[..dot];
+        // Win32 strips trailing dots and spaces before resolving a name, so "CON " and
+        // "NUL." still open the device.
+        var trimmed = name.TrimEnd('.', ' ');
+        var dot = trimmed.IndexOf('.');
+        var stem = dot < 0 ? trimmed : trimmed[..dot];
         if (stem.Equals("CON", StringComparison.OrdinalIgnoreCase)
             || stem.Equals("PRN", StringComparison.OrdinalIgnoreCase)
             || stem.Equals("AUX", StringComparison.OrdinalIgnoreCase)

@@ -4,8 +4,9 @@ namespace XISOStudio.Interfaces;
 
 /// <summary>
 /// Validates Xbox image structure and readability: XDVDFS structure for plain ISO and
-/// CISO (<c>.cso</c>) images via the XISOSharp library, ZAR archive structure and
-/// blocks for <c>.zar</c> via ZArchiveSharp.
+/// CISO (<c>.cso</c>) images via the XISOSharp library, Xbox DVD images inside CHD
+/// (<c>.chd</c>) containers via CHDSharp, and ZAR archive structure and blocks for
+/// <c>.zar</c> via ZArchiveSharp.
 /// </summary>
 public interface IXisoIntegrityService
 {
