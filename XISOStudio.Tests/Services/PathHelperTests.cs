@@ -10,11 +10,21 @@ public class PathHelperTests
     [InlineData(null, null)]
     [InlineData("", null)]
     [InlineData(@"\\server\share", null)]
+    public void GetDriveLetterReturnsExpectedResult(string? path, string? expected)
+    {
+        var result = PathHelper.GetDriveLetter(path);
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
     [InlineData(@"C:\test\file.iso", "C:")]
     [InlineData("C:/test/file.iso", "C:")]
     [InlineData(@"D:\", "D:")]
-    public void GetDriveLetterReturnsExpectedResult(string? path, string? expected)
+    public void GetDriveLetterWindowsPathsReturnsExpectedResult(string? path, string? expected)
     {
+        // Drive letters only exist on Windows; on Unix these paths resolve under the root.
+        if (!OperatingSystem.IsWindows()) return;
+
         var result = PathHelper.GetDriveLetter(path);
         Assert.Equal(expected, result);
     }

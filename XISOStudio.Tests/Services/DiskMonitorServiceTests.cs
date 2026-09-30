@@ -252,6 +252,10 @@ public class DiskMonitorServiceTests
     [Fact]
     public void GetAvailableFreeSpaceNonExistentChildPathReturnsPositive()
     {
+        // On Unix, DriveInfo resolves a path's containing filesystem only when the path
+        // exists; a non-existent child legitimately reports 0 there.
+        if (!OperatingSystem.IsWindows()) return;
+
         var path = Path.Combine(Path.GetTempPath(), $"does_not_exist_{Guid.NewGuid():N}");
         using var service = CreateService();
 
@@ -304,7 +308,10 @@ public class DiskMonitorServiceTests
 
         if (result != null)
         {
-            Assert.DoesNotContain(excludedDrive, result, StringComparison.OrdinalIgnoreCase);
+            // Exact root comparison: on Unix the excluded root can be "/" (trimmed to ""),
+            // which is a substring of every mount point, so a substring check is invalid.
+            var trimmedResult = result.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            Assert.False(string.Equals(trimmedResult, excludedDrive, StringComparison.OrdinalIgnoreCase));
         }
     }
 

@@ -112,6 +112,10 @@ public class TempFolderCleanupHelperTests : IDisposable
     [Fact]
     public async Task TryDeleteDirectoryWithRetryAsyncLockedDirectoryDoesNotThrowAndLogsWarning()
     {
+        // On Unix an open file does not prevent directory deletion, so the locked-folder
+        // retry path (Windows file-locking semantics) cannot be exercised there.
+        if (!OperatingSystem.IsWindows()) return;
+
         var tempDir = Path.Combine(Path.GetTempPath(), $"XISOStudio_Test_{Guid.NewGuid()}");
         Directory.CreateDirectory(tempDir);
         var lockedFile = Path.Combine(tempDir, "locked.txt");
@@ -421,6 +425,9 @@ public class TempFolderCleanupHelperTests : IDisposable
     [Fact]
     public async Task TryDeleteDirectoryWithRetryAsyncSingleRetryLockedDirectoryLogsAttemptCount()
     {
+        // Locked-folder retry behavior is Windows-specific (see above).
+        if (!OperatingSystem.IsWindows()) return;
+
         var root = CreateTempRoot();
         var lockedFile = Path.Combine(root, "locked.txt");
         await File.WriteAllTextAsync(lockedFile, "locked");
@@ -438,6 +445,9 @@ public class TempFolderCleanupHelperTests : IDisposable
     [Fact]
     public async Task TryDeleteDirectoryWithRetryAsyncLockedDirectoryLogsRetryWarning()
     {
+        // Locked-folder retry behavior is Windows-specific (see above).
+        if (!OperatingSystem.IsWindows()) return;
+
         var root = CreateTempRoot();
         var lockedFile = Path.Combine(root, "locked.txt");
         await File.WriteAllTextAsync(lockedFile, "locked");
@@ -455,6 +465,9 @@ public class TempFolderCleanupHelperTests : IDisposable
     [Fact]
     public async Task TryDeleteDirectoryWithRetryAsyncLockedDirectoryPreservesFileAfterFailure()
     {
+        // Locked-folder retry behavior is Windows-specific (see above).
+        if (!OperatingSystem.IsWindows()) return;
+
         var root = CreateTempRoot();
         var lockedFile = Path.Combine(root, "locked.txt");
         await File.WriteAllTextAsync(lockedFile, "locked");
@@ -488,6 +501,9 @@ public class TempFolderCleanupHelperTests : IDisposable
     [Fact]
     public async Task TryDeleteDirectoryWithRetryAsyncCanceledDuringRetryDelayLogsCancellation()
     {
+        // The cancellation path only runs while retrying a locked folder (Windows-specific).
+        if (!OperatingSystem.IsWindows()) return;
+
         var root = CreateTempRoot();
         var lockedFile = Path.Combine(root, "locked.txt");
         await File.WriteAllTextAsync(lockedFile, "locked");

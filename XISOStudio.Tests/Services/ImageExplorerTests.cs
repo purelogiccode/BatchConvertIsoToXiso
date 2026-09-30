@@ -555,7 +555,11 @@ public sealed class ImageExplorerTests : IDisposable
         using var explorer = ImageExplorerFactory.Open(zarPath);
 
         // A crafted deep tree must fail catchably instead of overflowing the stack.
-        Assert.Throws<InvalidDataException>(() => explorer.CopyOut("/d", Path.Combine(_tempRoot, "deep-out")));
+        // macOS limits paths to ~1024 bytes, so the walk can hit a path-too-long I/O
+        // error before reaching the nesting cap; both are acceptable catchable failures.
+        var exception = Record.Exception(() => explorer.CopyOut("/d", Path.Combine(_tempRoot, "deep-out")));
+        Assert.True(exception is InvalidDataException or IOException,
+            $"Expected a catchable extraction failure, got {exception?.GetType().Name ?? "no exception"}: {exception?.Message}");
     }
 
     [Fact]
