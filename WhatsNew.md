@@ -13,7 +13,7 @@ Version 3.0.0 is the **CHD, cross-platform & logging release**: the application 
 #### Cross-platform: Windows, Linux, and macOS
 - The UI was ported from WPF to **[Avalonia](https://avaloniaui.net/)** with the same dark theme, colors, fonts, layout, and controls — one codebase now produces binaries for **Windows, Linux, and macOS** on **x64 and ARM64** (six release archives).
 - All imaging libraries (XISOSharp, ZArchiveSharp, CHDSharp, SharpCompress) are pure managed code with no native dependencies, so every feature — conversion, testing, and exploration — works identically on all three platforms.
-- Windows-specific integrations degrade gracefully: the disk read/write speed monitor uses Windows performance counters and shows **N/A** on Linux/macOS, the archive fallback uses the system `7z` from `PATH` instead of the bundled Windows executable, and links/pickers use the native OS dialogs.
+- Windows-specific integrations degrade gracefully: the disk read/write speed monitor uses Windows performance counters and shows **N/A** on Linux/macOS, links/pickers use the native OS dialogs, and the 7-Zip CLI fallback is bundled for every platform (`7za.exe`/`7za_arm64.exe` on Windows, `7zz_linux_x64`/`7zz_linux_arm64` on Linux, `7zz_osx` on macOS) with a system `7z` on `PATH` as a further fallback.
 - CI now builds and tests on **Windows, Linux, and macOS** and publishes all six platform archives.
 
 #### CHD output format

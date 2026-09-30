@@ -40,8 +40,10 @@
   `win-x64`/`win-arm64`, `linux-x64`/`linux-arm64`, and `osx-x64`/`osx-arm64`. All imaging
   libraries are pure managed code, so conversion, integrity testing, and exploration work
   identically everywhere. Windows-only integrations degrade gracefully: the read/write speed
-  monitor shows `N/A` (Windows performance counters), the 7-Zip CLI fallback uses the system `7z`
-  from `PATH`, and file/folder pickers and links use the OS-native dialogs.
+  monitor shows `N/A` (Windows performance counters), file/folder pickers and links use the OS-native
+  dialogs, and the 7-Zip CLI fallback is bundled for every platform — `7za.exe`/`7za_arm64.exe` on
+  Windows, `7zz_linux_x64`/`7zz_linux_arm64` on Linux, and the universal `7zz_osx` on macOS — with a
+  system `7z` on `PATH` as a further fallback.
 - **CHD output format** — the Convert tab's Output Format selector gains **CHD** (`.chd`,
   Compressed Hunks of Data). The optimized game partition is encoded by `ChdEncoder.EncodeRaw`
   (CHDSharp) with the chdman `createdvd` preset — 4096-byte hunks, 2048-byte units, the
@@ -109,6 +111,11 @@
   theme; click its header to collapse or expand it and give the file list more room.
 - **Theme-consistent list styling** — new `FileListDataGridStyle` and related styles match the dark
   terminal theme.
+- **Bundled 7-Zip fallback on every platform** — the 7-Zip CLI fallback is no longer Windows-only:
+  release archives now ship the official 7-Zip console binary for the matching platform
+  (`7za.exe`/`7za_arm64.exe`, `7zz_linux_x64`/`7zz_linux_arm64`, or the universal `7zz_osx`), with
+  `7-Zip-License.txt`, so complex/unsupported archives extract out of the box on Linux and macOS
+  too; a system `7z` on `PATH` remains as a further fallback.
 
 ### Breaking Changes
 
@@ -304,8 +311,10 @@ A full review of the `XISOStudio` and `XISOStudio.Tests` projects found and fixe
   framework-neutral result/button/icon enums; file and folder pickers use Avalonia's
   `StorageProvider`; drag-out of explorer entries uses the Avalonia `DataTransfer` API.
 - Platform guards: `DiskMonitorService` returns `N/A` on non-Windows (the `System.Diagnostics.PerformanceCounter`
-  package is referenced but only used under `OperatingSystem.IsWindows()`), bundled `7za.exe` files
-  are copied to Windows outputs only, and the Unix fallback searches `7z`/`7za`/`7zz` on `PATH`.
+  package is referenced but only used under `OperatingSystem.IsWindows()`), and the bundled 7-Zip CLI
+  fallback is copied per platform (`7za.exe`/`7za_arm64.exe` on Windows,
+  `7zz_linux_x64`/`7zz_linux_arm64` on Linux, `7zz_osx` on macOS), with a system `7z`/`7za`/`7zz`
+  on `PATH` as a further fallback.
 - Retargeted both projects from `net10.0-windows` to `net10.0`; CI now builds/tests on
   `windows-latest`, `ubuntu-latest`, and `macos-latest` and publishes all six RIDs.
 - Added the **CHDSharp** 1.4.3 package (pure managed code, no native dependencies).

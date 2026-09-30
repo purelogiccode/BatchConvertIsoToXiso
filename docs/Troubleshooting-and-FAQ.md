@@ -133,7 +133,7 @@ Xbox and Xbox 360 images are supported; conversion repacks the game partition of
 In the system temp folder, in dedicated subfolders. They are cleaned automatically after each file and at startup (orphaned leftovers from crashes are removed too). If the temp drive lacks space, other local drives are used as fallback. Startup cleanup only removes app-created work folders (GUID-named children of `XISOStudio_*` folders) that are older than six hours, so unrelated folders and another instance's active work folders are never deleted.
 
 **Does the application run on Linux and macOS?**
-Yes. The UI is built with Avalonia, and all image libraries are pure managed code, so builds are provided for Windows, Linux, and macOS (x64 and ARM64). The disk read/write speed monitor uses Windows performance counters and shows `N/A` on other platforms; the archive extraction fallback uses the system `7z` there instead of the bundled Windows executable.
+Yes. The UI is built with Avalonia, and all image libraries are pure managed code, so builds are provided for Windows, Linux, and macOS (x64 and ARM64). The disk read/write speed monitor uses Windows performance counters and shows `N/A` on other platforms; the 7-Zip CLI fallback used for complex archives is bundled in every release archive (`7za*.exe`, `7zz_linux_*`, or `7zz_osx`), with a system `7z` on `PATH` as a further fallback.
 
 **Where is the log file?**
 The app writes a rolling log under the per-user application-data folder — `%LocalAppData%\XISOStudio\logs\log-*.txt` on Windows, `~/.local/share/XISOStudio/logs` or `~/Library/Application Support/XISOStudio/logs` elsewhere (10 MB per file, 14 files retained). It contains the same messages shown in the log pane, with levels and full exception details.

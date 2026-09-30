@@ -69,7 +69,7 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 
 ### v3.0.0 — cross-platform Avalonia port, CHD support & structured logging
 
-- **Cross-platform UI** — the application was ported from WPF to **[Avalonia](https://avaloniaui.net/)** and now runs on **Windows, Linux, and macOS** (x64 and ARM64) with the same dark theme and layout. All image libraries (XISOSharp, ZArchiveSharp, CHDSharp, SharpCompress) are pure managed code with no native dependencies.
+- **Cross-platform UI** — the application was ported from WPF to **[Avalonia](https://avaloniaui.net/)** and now runs on **Windows, Linux, and macOS** (x64 and ARM64) with the same dark theme and layout. All image libraries (XISOSharp, ZArchiveSharp, CHDSharp, SharpCompress) are pure managed code with no native dependencies, and the optional 7-Zip CLI fallback is bundled for every platform (`7za.exe`/`7za_arm64.exe`, `7zz_linux_x64`/`7zz_linux_arm64`, or the universal `7zz_osx`).
 - **CHD output format** — convert Xbox and Xbox 360 ISOs to **CHD** (`.chd`, CHD v5 with the chdman `createdvd` preset) alongside XISO/ZAR/CSO.
 - **CHD integrity testing** — test Xbox DVD CHD files, including an optional deep scan that verifies every hunk and checksum plus the Xbox filesystem structure.
 - **CHD explorer** — browse and extract files from CHD images directly, with hunk decompression on demand.
@@ -279,6 +279,7 @@ For a deep dive into the XDVDFS format, binary file structures, and the conversi
 - **[CHDSharp](https://github.com/purelogiccode/CHDSharp)** - CHD (Compressed Hunks of Data) reading, verification, and creation, used for CHD output and Xbox CHD testing/exploration
 - **[Serilog](https://serilog.net/)** - Structured logging pipeline (log viewer, rolling file log, and bug report sinks)
 - **[SharpCompress](https://github.com/adamhathcock/sharpcompress)** - High-performance archive extraction
+- **[7-Zip](https://7-zip.org/)** - Bundled console fallback used when SharpCompress cannot extract an archive
 
 ---
 

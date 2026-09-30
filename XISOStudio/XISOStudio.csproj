@@ -21,13 +21,48 @@
 
     <ItemGroup>
         <Content Include="icon\icon.ico" />
-        <!-- The bundled 7-Zip CLI fallback is Windows-only; system 7z is used on Linux/macOS. -->
-        <None Update="7za.exe" Condition="'$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('win'))">
+        <!-- Bundled 7-Zip CLI fallback, per platform/architecture. These are Content items
+             (None items are not part of the publish pipeline) and are excluded from the
+             single-file bundle so they stay as separate files next to the executable, where
+             the extractor expects to find them. On Windows the app also auto-detects a
+             system installation; on Linux/macOS it falls back to 7z on the PATH. -->
+        <None Remove="7za.exe" />
+        <None Remove="7za_arm64.exe" />
+        <None Remove="7zz_linux_x64" />
+        <None Remove="7zz_linux_arm64" />
+        <None Remove="7zz_osx" />
+        <None Remove="7-Zip-License.txt" />
+        <Content Include="7za.exe" Condition="'$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('win'))">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
-        <None Update="7za_arm64.exe" Condition="'$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('win'))">
+            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+            <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        </Content>
+        <Content Include="7za_arm64.exe" Condition="'$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('win'))">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
+            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+            <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        </Content>
+        <Content Include="7zz_linux_x64" Condition="'$(RuntimeIdentifier)' == 'linux-x64'">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+            <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        </Content>
+        <Content Include="7zz_linux_arm64" Condition="'$(RuntimeIdentifier)' == 'linux-arm64'">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+            <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        </Content>
+        <Content Include="7zz_osx" Condition="'$(RuntimeIdentifier)' == 'osx-x64' Or '$(RuntimeIdentifier)' == 'osx-arm64'">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+            <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        </Content>
+        <!-- 7-Zip is LGPL-licensed; its license must accompany the bundled binaries. -->
+        <Content Include="7-Zip-License.txt">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+            <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        </Content>
     </ItemGroup>
 
     <ItemGroup>

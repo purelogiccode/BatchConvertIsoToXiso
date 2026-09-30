@@ -45,11 +45,13 @@ dotnet run --project XISOStudio
 
 ### Bundled Helper Tools
 
-XISO conversion is performed by the `XISOSharp` NuGet package and CHD encoding by the `CHDSharp` NuGet package — no conversion binaries are bundled. The application project bundles Windows helper executables that are copied to the output directory on Windows builds only:
+XISO conversion is performed by the `XISOSharp` NuGet package and CHD encoding by the `CHDSharp` NuGet package — no conversion binaries are bundled. The application project bundles the official 7-Zip console binaries, copied to the output directory for the matching platform/architecture:
 
-- `7za.exe`, `7za_arm64.exe` — optional 7-Zip CLI fallback for archive extraction
+- `7za.exe`, `7za_arm64.exe` — 7-Zip CLI fallback for Windows (x64/ARM64)
+- `7zz_linux_x64`, `7zz_linux_arm64` — 7-Zip CLI fallback for Linux (static build)
+- `7zz_osx` — 7-Zip CLI fallback for macOS (universal arm64/x86-64)
 
-These are committed to the repository, so no extra download steps are needed. On Linux and macOS the fallback uses the system `7z` command from `PATH` (install it with your package manager, e.g. `sudo apt install 7zip` or `brew install sevenzip`); SharpCompress handles `.zip`/`.rar`/most `.7z` archives without it.
+These are committed to the repository, so no extra download steps are needed. A system `7z` on `PATH` (for example `sudo apt install 7zip` or `brew install sevenzip`) is used as a further fallback; SharpCompress handles `.zip`/`.rar`/most `.7z` archives without any of them. The bundled binaries are distributed under the 7-Zip license (`7-Zip-License.txt`).
 
 ## Running the Tests
 
@@ -96,4 +98,4 @@ All RIDs can be cross-published from any OS (the native Avalonia/Skia assets com
 - **Nullable + implicit usings** are enabled.
 - The `References/` folder (vendored sources such as the xdvdfs Rust workspace, if present) is excluded from compilation.
 - Version numbers are maintained in `XISOStudio.csproj` (`AssemblyVersion` / `FileVersion`); the update checker compares against GitHub release tags.
-- Windows-only features degrade gracefully on Linux/macOS: the disk read/write speed monitor shows `N/A`, and the 7-Zip fallback uses the system `7z`.
+- Windows-only features degrade gracefully on Linux/macOS: the disk read/write speed monitor shows `N/A`, and the 7-Zip CLI fallback ships bundled for every platform (with a system `7z` as a further fallback).

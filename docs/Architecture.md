@@ -50,7 +50,7 @@ CSharp_XISOStudio.sln
 └── XISOStudio.Tests/         xUnit + Moq test suite
 ```
 
-Bundled helper executables (`7za.exe`, `7za_arm64.exe`) are copied to Windows output directories and invoked as isolated child processes; on Linux/macOS the fallback uses the system `7z` from `PATH`. All XISO and CHD encoding/decoding is performed in-process by the `XISOSharp` and `CHDSharp` NuGet packages, and all image libraries are pure managed code with no native dependencies.
+The bundled 7-Zip CLI fallback (`7za.exe`/`7za_arm64.exe` on Windows, `7zz_linux_x64`/`7zz_linux_arm64` on Linux, `7zz_osx` on macOS) is copied next to the executable and invoked as an isolated child process when SharpCompress cannot extract an archive; a system `7z` on `PATH` is used as a further fallback. All XISO and CHD encoding/decoding is performed in-process by the `XISOSharp` and `CHDSharp` NuGet packages, and all image libraries are pure managed code with no native dependencies.
 
 ## Dependency Injection
 

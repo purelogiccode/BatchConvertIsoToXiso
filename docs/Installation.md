@@ -47,10 +47,13 @@ After extraction, the application folder contains:
 | File | Purpose |
 |:---|:---|
 | `XISOStudio` / `XISOStudio.exe` | The main application — a single framework-dependent executable with all conversion engines and the Avalonia/Skia rendering libraries bundled (the native libraries are extracted to a temporary folder on first run) |
-| `7za.exe` / `7za_arm64.exe` | Windows builds only: 7-Zip CLI fallback used for complex or password-protected `.7z` archives (on Linux/macOS the system `7z` from `PATH` is used instead) |
+| `7za.exe` / `7za_arm64.exe` | Windows builds only: bundled 7-Zip CLI fallback used when SharpCompress cannot extract an archive (complex/unsupported `.7z` or `.zip` compression methods). A system 7-Zip installation is auto-detected as well |
+| `7zz_linux_x64` / `7zz_linux_arm64` | Linux builds only: bundled 7-Zip CLI fallback (static build, official 7-Zip release). A system `7z` on `PATH` is used as a further fallback |
+| `7zz_osx` | macOS builds only: bundled 7-Zip CLI fallback (official universal arm64/x86-64 build). A system `7z` from Homebrew on `PATH` is used as a further fallback |
+| `7-Zip-License.txt` | License of the bundled 7-Zip binaries (LGPL + unRAR restriction) |
 | `ReadMe.md`, `WhatsNew.md`, `LICENSE.txt` | Documentation and license, included in every release archive |
 
-Do not delete or rename the bundled helper files — the corresponding features will fail if they are missing.
+Do not delete or rename the bundled helper files — the corresponding features will fail if they are missing. On Linux/macOS the bundled 7-Zip helper must be executable (`chmod +x 7zz_*` if your unzip tool did not restore the permission). On macOS, Gatekeeper may quarantine the unsigned helper; if archive extraction reports that 7-Zip is missing or cannot run, clear the quarantine flag with `xattr -d com.apple.quarantine 7zz_osx`.
 
 ---
 

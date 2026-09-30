@@ -60,7 +60,24 @@ public class FileExtractorService : IFileExtractor
             return null;
         }
 
-        // Linux/macOS: look for a system 7-Zip on the PATH.
+        // Linux/macOS: prefer the architecture-specific 7-Zip binary shipped next to the
+        // application (release bundles include one), then fall back to a system 7-Zip on PATH.
+        var bundledExeName = OperatingSystem.IsMacOS()
+            ? "7zz_osx"
+            : RuntimeInformation.ProcessArchitecture switch
+            {
+                Architecture.X64 => "7zz_linux_x64",
+                Architecture.Arm64 => "7zz_linux_arm64",
+                _ => null
+            };
+
+        if (bundledExeName != null)
+        {
+            var bundledExe = Path.Combine(appDir, bundledExeName);
+            if (File.Exists(bundledExe)) return bundledExe;
+        }
+
+        // Look for a system 7-Zip on the PATH.
         var pathVariable = Environment.GetEnvironmentVariable("PATH");
         if (string.IsNullOrEmpty(pathVariable)) return null;
 
@@ -90,7 +107,9 @@ public class FileExtractorService : IFileExtractor
         OperatingSystem.IsWindows()
             ? "1. Install 7-Zip from https://7-zip.org/ — the app auto-detects it in Program Files.\n" +
               "2. Alternatively, place '7za.exe' (for x64) or '7za_arm64.exe' (for ARM64) in the application directory."
-            : "Install 7-Zip with your package manager (e.g. 'sudo apt install 7zip' or 'brew install sevenzip') so that '7z' is on the PATH.";
+            : "1. Release bundles include 7-Zip next to the application ('7zz_linux_x64', '7zz_linux_arm64', or '7zz_osx'). " +
+              "If it is missing, re-download the bundle or make the file executable with 'chmod +x'.\n" +
+              "2. Alternatively install 7-Zip with your package manager (e.g. 'sudo apt install 7zip' or 'brew install sevenzip') so that '7z' is on the PATH.";
 
     // Cloud file attribute constants
     private const int FileAttributeRecallOnOpen = 0x00040000;
