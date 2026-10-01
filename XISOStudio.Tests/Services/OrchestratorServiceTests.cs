@@ -1020,6 +1020,7 @@ public class OrchestratorServiceTests : IDisposable
             .Returns((string _, string _, string _, OutputFormat _, bool _, bool _,
                 IProgress<BatchOperationProgress> _, CancellationToken _) =>
             {
+                // ReSharper disable once AccessToDisposedClosure
                 cts.Cancel();
                 return Task.FromResult(FileProcessingStatus.Converted);
             });
@@ -1063,6 +1064,7 @@ public class OrchestratorServiceTests : IDisposable
             .Returns((string path, bool _, IProgress<BatchOperationProgress> _, CancellationToken _) =>
             {
                 testedPaths.Add(path);
+                // ReSharper disable once AccessToDisposedClosure
                 cts.Cancel();
                 return Task.FromResult(true);
             });

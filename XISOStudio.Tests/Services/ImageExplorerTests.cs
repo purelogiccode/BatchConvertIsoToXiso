@@ -558,6 +558,7 @@ public sealed class ImageExplorerTests : IDisposable
         // depth cap throws InvalidDataException; macOS limits paths to ~1024 bytes, so the
         // walk can hit a path-too-long error first, which is also an acceptable catchable
         // failure. Unrelated I/O errors (permissions, disk full) must still fail the test.
+        // ReSharper disable once AccessToDisposedClosure
         var exception = Record.Exception(() => explorer.CopyOut("/d", Path.Combine(_tempRoot, "deep-out")));
         var isNestingCap = exception is InvalidDataException dataEx &&
                            dataEx.Message.Contains("nesting", StringComparison.OrdinalIgnoreCase);
