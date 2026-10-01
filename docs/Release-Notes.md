@@ -12,12 +12,54 @@
 
 | Version | Date | Summary |
 |:---|:---|:---|
+| [3.0.1](#301) | October 2026 | Reliability patch: locked files and inaccessible Linux/macOS temp roots no longer generate bug reports; synchronous CSO/ZAR/CHD progress reporting fixes out-of-order percentages; platform-dependent tests and CI restored |
 | [3.0.0](#300) | September 2026 | Cross-platform Avalonia port (Windows/Linux/macOS); CHD output, Xbox CHD integrity testing, and CHD exploration; Serilog logging with automatic bug reporting; per-file selection lists; XISO/ZAR/CSO output formats; extensive reliability and bug-fix pass (38 fixes) plus two pre-release reviews |
 | [2.8.0](#280) | September 2026 | XISOSharp migration: in-process conversion, integrity testing, and exploration; external engines removed |
 | [2.7.1](https://github.com/purelogiccode/XISOStudio/releases/tag/release_2.7.1) | July 2026 | Resource cleanup, cancellation, better error filtering |
 | [2.7.0](https://github.com/purelogiccode/XISOStudio/releases/tag/release_2.7.0) | June 2026 | Improved ISO compatibility, disk-space detection, cancellation and performance |
 | [2.6.1](https://github.com/purelogiccode/XISOStudio/releases/tag/release_2.6.1) | June 2026 | XGD1/XGD2/XGD3 partition offsets, dark-theme tooltip fix |
 | [2.6.0](https://github.com/purelogiccode/XISOStudio/releases/tag/release_2.6.0) | June 2026 | 7-Zip CLI fallback, multilingual network errors, disk-space handling |
+
+---
+
+## 3.0.1
+
+*October 2026*
+
+> **The reliability patch for 3.0.0.** Environmental failures — files held open by antivirus,
+> download managers, or cloud sync, and unreadable system mounts on Linux/macOS — no longer
+> auto-upload bug reports, and CSO/ZAR/CHD progress is reported synchronously so percentages are
+> monotonic and in order.
+
+### Bug Fixes
+
+- **Locked files no longer generate bug reports.** A tested image whose move to `_success`/`_failed`
+  fails with a sharing violation is still reported as failed and the batch continues, but the event
+  is logged at Information level instead of Error, so the bug-report sink (which forwards Warning and
+  above) no longer uploads it as an application defect. The same classification now applies when the
+  source cannot be opened for testing and the cloud-copy fallback also fails with a sharing violation
+  (`OrchestratorService.TestEntriesCoreAsync`, `OrchestratorService.CopyFileWithCloudRetryAsync`).
+- **Inaccessible temp roots are skipped without a warning on Linux/macOS.** `DriveInfo.GetDrives()`
+  returns system mounts (`/root`, `/.snapshots`, `/sys/kernel/tracing`, …) that the current user cannot
+  read; the startup cleanup scan logged each `UnauthorizedAccessException` at Warning, so every launch
+  auto-uploaded several bogus reports. `TempFolderCleanupHelper.FindOrphanedWorkDirectories` now logs
+  them at Debug and skips the remaining patterns for that root.
+- **Progress reports are delivered in order.** The CSO, ZAR, and CHD progress adapters used
+  `Progress<T>`, which posts callbacks to the thread pool when no UI synchronization context is
+  present. Concurrent callbacks raced on the "last reported percentage" and could emit values out of
+  order (for example `54%` before `49%`). All adapters now use the new synchronous
+  `SynchronousProgress<T>` (`XisoSharpService`, `ChdService`, `XisoIntegrityService`), so percentages
+  are monotonic and every step is delivered in order on the reporting thread.
+- **Platform-dependent tests fixed.** Windows-only cases (drive letters, file-locking retry behavior)
+  are skipped on Unix, the disk-monitor exclusion test compares roots exactly (the Unix `/` root trims
+  to an empty string), and the deep-ZAR test accepts a macOS path-too-long failure; CI is green on
+  Windows, Linux, and macOS again.
+
+### Upgrading
+
+Download the archive for your platform and replace the previous files. There are no configuration,
+format, or workflow changes — 3.0.1 is a drop-in replacement for 3.0.0. The application reports
+version **3.0.1** (`AssemblyVersion`/`FileVersion`).
 
 ---
 

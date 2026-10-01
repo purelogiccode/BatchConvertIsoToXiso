@@ -24,7 +24,7 @@
 [![Powered by ZArchiveSharp](https://img.shields.io/badge/Powered%20by-ZArchiveSharp-8A2BE2.svg)](https://github.com/purelogiccode/ZArchiveSharp)
 [![Powered by SharpCompress](https://img.shields.io/badge/Powered%20by-SharpCompress-8A2BE2.svg)](https://github.com/adamhathcock/sharpcompress)
 [![Formats](https://img.shields.io/badge/formats-ISO%20%7C%20XISO%20%7C%20ZAR%20%7C%20CSO%20%7C%20CHD-orange.svg)](#supported-formats)
-[![Tests](https://img.shields.io/badge/tests-1432%20passing-brightgreen.svg)](https://github.com/purelogiccode/XISOStudio/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-1437%20passing-brightgreen.svg)](https://github.com/purelogiccode/XISOStudio/actions/workflows/ci.yml)
 [![Code analyzers](https://img.shields.io/badge/analyzers-Meziantou%20%7C%20Roslynator-blueviolet)](docs/Architecture.md)
 [![Made with C#](https://img.shields.io/badge/Made%20with-C%23-239120.svg?logo=csharp&logoColor=white)](https://dotnet.microsoft.com/languages/csharp)
 [![Nullable](https://img.shields.io/badge/nullable-enabled-blue.svg)](https://learn.microsoft.com/dotnet/csharp/nullable-references)
@@ -66,6 +66,12 @@ Whether you're managing a large collection of Xbox game backups or verifying the
 ---
 
 ## What's New
+
+### v3.0.1 — reliability patch
+
+- **Fewer false bug reports** — a tested file whose move to `_success`/`_failed` fails because another process holds it (antivirus, download manager, cloud sync) is still reported as failed and the batch continues, but it is logged at Information instead of Error, so it is no longer auto-uploaded as an application bug. The same applies when the source cannot be opened and the cloud-copy fallback hits a sharing violation. Unreadable Linux/macOS system mounts (`/root`, `/.snapshots`, `/sys/kernel/tracing`) are skipped at Debug during the startup temp scan instead of warning once per mount point.
+- **In-order progress reporting** — the CSO, ZAR, and CHD progress adapters now report synchronously (`SynchronousProgress<T>`) instead of posting callbacks to the thread pool, so percentages can no longer race and appear out of order or move backwards.
+- **Green CI on all platforms** — platform-dependent tests skip correctly on Linux/macOS, and the full suite passes on Windows, Linux, and macOS.
 
 ### v3.0.0 — cross-platform Avalonia port, CHD support & structured logging
 

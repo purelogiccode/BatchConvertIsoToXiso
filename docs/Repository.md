@@ -51,7 +51,7 @@ This page describes the repository itself: where things live, how releases are m
 │   │   ├── XisoIntegrityService.cs        Integrity validation via XISOSharp / ZArchiveSharp / CHDSharp
 │   │   ├── ImageExplorerFactory.cs        Explorer over ISO/CSO (XisoExplorer), ZAR (ZArchiveReader) or CHD (ChdImageExplorer)
 │   │   └── ChdImageExplorer.cs            Explorer over CHD via CHDSharp + XISOSharp
-│   ├── 7za.exe, 7za_arm64.exe             Bundled helper tools (Windows builds only)
+│   ├── 7za*.exe, 7zz_linux_*, 7zz_osx    Bundled 7-Zip CLI fallback (one binary per platform/architecture)
 │   └── XISOStudio.csproj
 ├── XISOStudio.Tests/           xUnit + Moq test project
 ├── CSharp_XISOStudio.sln       Solution file
@@ -66,7 +66,7 @@ This page describes the repository itself: where things live, how releases are m
 
 - The primary branch is **`master`**.
 - **Releases** are tagged on GitHub and published on the [Releases](https://github.com/purelogiccode/XISOStudio/releases) page with ready-to-run archives for Windows, Linux, and macOS (x64 and ARM64).
-- **Versioning:** `MAJOR.MINOR.PATCH` (currently 3.0.0, September 2026). Releases are tagged `release_MAJOR.MINOR.PATCH` (for example `release_3.0.0`), and release archives follow the `release_MAJOR.MINOR.PATCH_<rid>.zip` naming used by previous releases. The application's update checker extracts the numeric version from the latest release tag, so keep the `MAJOR.MINOR.PATCH` part intact.
+- **Versioning:** `MAJOR.MINOR.PATCH` (currently 3.0.1, October 2026). Releases are tagged `release_MAJOR.MINOR.PATCH` (for example `release_3.0.0`), and release archives follow the `release_MAJOR.MINOR.PATCH_<rid>.zip` naming used by previous releases. The application's update checker extracts the numeric version from the latest release tag, so keep the `MAJOR.MINOR.PATCH` part intact.
 
 ## Contributing
 

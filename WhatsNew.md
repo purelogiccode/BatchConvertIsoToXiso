@@ -2,6 +2,29 @@
 
 <!-- Keep this file focused on the newest release. Full history lives in docs/Release-Notes.md. -->
 
+## Version 3.0.1
+
+**Release date:** October 2026
+
+Version 3.0.1 is a **reliability patch for 3.0.0**. It stops environmental problems — files locked by antivirus or a download manager, and inaccessible system folders on Linux/macOS — from being uploaded as bug reports, and fixes a progress-reporting race that could show percentages out of order during CSO, ZAR, and CHD encoding.
+
+### Fixes
+
+#### Fewer false bug reports
+- **Locked files no longer generate bug reports.** When a tested image cannot be moved to `_success`/`_failed` because another process still holds it, the file is still reported as failed and the batch continues, but the event is now logged at Information level instead of Error, so it is no longer auto-uploaded as an application bug. The same applies when the source cannot be opened for testing and the cloud-copy fallback also fails with a sharing violation.
+- **Inaccessible temp roots are skipped silently on Linux and macOS.** `DriveInfo.GetDrives()` returns system mounts (`/root`, `/.snapshots`, `/sys/kernel/tracing`, …) that the current user cannot read. The startup cleanup scan now logs each one at Debug level and skips it instead of emitting a Warning per mount point, which previously auto-uploaded several bogus reports on every launch.
+
+#### Correct progress reporting
+- **Progress is now reported in order.** The CSO, ZAR, and CHD progress adapters used `Progress<T>`, which posts callbacks to the thread pool when no UI synchronization context is present. Concurrent callbacks could race on the "last reported percentage" and deliver values out of order (for example `54%` before `49%`), making the progress bar appear to move backwards. The adapters now run synchronously on the reporting thread, so percentages are monotonic and every step is delivered in order.
+
+#### Tests and CI
+- Platform-dependent tests now skip correctly on Linux and macOS instead of failing (drive-letter cases, Windows file-locking retry tests, and macOS path-length limits), and the CI matrix is green on Windows, Linux, and macOS again.
+
+### Upgrading
+Download the archive for your platform and replace the previous files. There are no configuration, format, or workflow changes — 3.0.1 is a drop-in replacement for 3.0.0.
+
+---
+
 ## Version 3.0.0
 
 **Release date:** September 2026

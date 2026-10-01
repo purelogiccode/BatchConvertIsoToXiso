@@ -44,6 +44,7 @@ Another program (most commonly antivirus real-time scanning, a cloud-sync client
 - The application **waits and retries automatically** with exponential backoff (up to six attempts) before giving up.
 - If the message persists, add your working folders to your antivirus exclusion list or close the program that holds the file.
 - Files created moments ago are especially prone to this while the antivirus scans them; the retry logic exists precisely for this case.
+- A file that stays locked after the retries is reported as failed (or left in place) but is **not sent as an automatic bug report** — since 3.0.1 the application treats persistent locks as environmental and logs them at Information level.
 
 ### Network errors (UNC paths and mapped drives)
 

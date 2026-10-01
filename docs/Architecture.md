@@ -44,6 +44,7 @@ CSharp_XISOStudio.sln
 │       ├── BugReportService.cs          Automatic bug reporting client
 │       ├── BugReportSink.cs             Serilog sink: forwards Warning+ events to the bug report API
 │       ├── UiLogSink.cs                 Serilog sink: on-screen log pane
+│       ├── SynchronousProgress.cs       In-order IProgress adapter for library progress callbacks
 │       ├── StatsService.cs              Anonymous usage statistics client
 │       ├── UpdateChecker.cs             GitHub release update checks
 │       └── ...                          Formatting, path helpers, etc.
@@ -164,7 +165,7 @@ Three layers of defense:
 ## Testing
 
 The `XISOStudio.Tests` project (xUnit, Moq) covers models, services, and helper utilities with
-**1,432 tests**:
+**1,437 tests**:
 
 ```bash
 dotnet test CSharp_XISOStudio.sln

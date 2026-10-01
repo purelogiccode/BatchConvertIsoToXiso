@@ -142,7 +142,7 @@ Every operation is written to the in-application log pane. The log includes:
 - Retry attempts for transient failures (file locks, network errors)
 - A final batch summary
 
-When an unexpected error occurs, the application can send an automatic bug report (exception message and stack trace) to the developer. **Environmental errors — such as full disks or network failures — are not reported as bugs**; they are shown to you with actionable messages instead.
+When an unexpected error occurs, the application can send an automatic bug report (exception message and stack trace) to the developer. **Environmental errors — such as full disks, network failures, or files held open by another process — are not reported as bugs**; they are shown to you with actionable messages instead.
 
 ---
 
