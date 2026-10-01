@@ -320,6 +320,42 @@ public class TempFolderCleanupHelperTests : IDisposable
     }
 
     [Fact]
+    public void FindOrphanedWorkDirectoriesInaccessibleRootIsSkippedWithoutWarning()
+    {
+        // Dropping read permission portably is Unix-only, and the reported failures came
+        // from Linux mounts (/root, /.snapshots, /sys/kernel/tracing) the user cannot read.
+        if (OperatingSystem.IsWindows()) return;
+
+        var root = CreateTempRoot();
+        var logger = new TestLogger();
+
+        File.SetUnixFileMode(root, UnixFileMode.None);
+        try
+        {
+            // Root bypasses permission checks, so skip when the OS does not enforce them.
+            try
+            {
+                _ = Directory.EnumerateDirectories(root, "XISOStudio_*", SearchOption.TopDirectoryOnly).Any();
+                return;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Expected: the root is inaccessible now.
+            }
+
+            var found = TempFolderCleanupHelper.FindOrphanedWorkDirectories([root], DateTime.UtcNow, logger.Logger);
+
+            Assert.Empty(found);
+            Assert.True(logger.HasMessage(LogEventLevel.Debug, "Skipping inaccessible temp root"));
+            Assert.DoesNotContain(logger.Events, e => e.Level >= LogEventLevel.Warning);
+        }
+        finally
+        {
+            File.SetUnixFileMode(root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    [Fact]
     public void FindOrphanedWorkDirectoriesMultipleRootsReturnsAllStaleDirectories()
     {
         var root1 = CreateTempRoot();

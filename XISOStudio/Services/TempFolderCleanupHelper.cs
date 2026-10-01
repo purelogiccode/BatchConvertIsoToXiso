@@ -124,6 +124,16 @@ public static class TempFolderCleanupHelper
                         }
                     }
                 }
+                catch (UnauthorizedAccessException ex)
+                {
+                    // Multi-user systems and Unix mounts expose roots the current user
+                    // cannot read (/root, /.snapshots, /sys/kernel/tracing, ...). Skipping
+                    // them is expected and must stay below Warning: the BugReportSink
+                    // auto-reports warnings and an unreadable root is not a defect. Every
+                    // pattern fails identically for such a root, so move on after the first.
+                    logger?.Debug(ex, "Skipping inaccessible temp root {Root}", root);
+                    break;
+                }
                 catch (Exception ex)
                 {
                     logger?.Warning(ex, "Error enumerating temp folders on {Root}", root);
