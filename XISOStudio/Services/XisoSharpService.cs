@@ -697,7 +697,7 @@ public class XisoSharpService : IXisoSharpService
     /// <returns>An adapter that reports rewrite progress to the batch.</returns>
     private static IProgress<ProgressInfo> CreateRewriteProgressAdapter(IProgress<BatchOperationProgress> progress)
     {
-        return new Progress<ProgressInfo>(info =>
+        return new SynchronousProgress<ProgressInfo>(info =>
         {
             switch (info.Type)
             {
@@ -728,7 +728,7 @@ public class XisoSharpService : IXisoSharpService
         var totalBlocks = 0L;
         var lastPercent = -1;
 
-        return new Progress<ProgressInfo>(info =>
+        return new SynchronousProgress<ProgressInfo>(info =>
         {
             switch (info.Type)
             {
@@ -760,7 +760,7 @@ public class XisoSharpService : IXisoSharpService
     {
         var lastPercent = -1;
 
-        return new Progress<ZarProgress>(zarProgress =>
+        return new SynchronousProgress<ZarProgress>(zarProgress =>
         {
             if (zarProgress.BytesTotal <= 0) return;
 

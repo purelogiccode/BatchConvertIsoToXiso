@@ -326,7 +326,7 @@ public class ChdService : IChdService
     private IProgress<ChdProgress> CreateVerifyProgressAdapter(IProgress<BatchOperationProgress> progress)
     {
         var lastPercent = -1;
-        return new Progress<ChdProgress>(chdProgress =>
+        return new SynchronousProgress<ChdProgress>(chdProgress =>
         {
             var percent = (int)chdProgress.Percent;
             if (percent < lastPercent + 5 && percent < 100) return;

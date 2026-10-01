@@ -341,7 +341,7 @@ public class XisoIntegrityService : IXisoIntegrityService
     private static IProgress<ChdProgress> CreateChdVerifyProgressAdapter(IProgress<BatchOperationProgress> progress)
     {
         var lastPercent = -1;
-        return new Progress<ChdProgress>(chdProgress =>
+        return new SynchronousProgress<ChdProgress>(chdProgress =>
         {
             var percent = (int)chdProgress.Percent;
             if (percent < lastPercent + 5 && percent < 100) return;
