@@ -1392,7 +1392,14 @@ public class OrchestratorService : IOrchestratorService
             catch (Exception ex)
             {
                 progress.Report(new BatchOperationProgress { LogMessage = $"Copy failed: {ex.Message}" });
-                if (PathHelper.IsDiskSpaceError(ex) || PathHelper.IsNetworkError(ex) || IsFatalEnvironmentalError(ex))
+                // A source locked by another process (antivirus, download manager) or held
+                // without share access is environmental; Warning-or-higher events are
+                // auto-uploaded as bug reports, so those must stay at Information.
+                var isEnvironmentalError =
+                    PathHelper.IsDiskSpaceError(ex) || PathHelper.IsNetworkError(ex) ||
+                    IsFatalEnvironmentalError(ex) || ex is UnauthorizedAccessException ||
+                    (ex is IOException ioEx && FileExtractorService.IsTransientIoError(ioEx));
+                if (isEnvironmentalError)
                 {
                     _logger.Information(ex, "Copy failed for {Source} due to an environmental error", source);
                 }

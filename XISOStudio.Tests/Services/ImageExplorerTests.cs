@@ -554,12 +554,18 @@ public sealed class ImageExplorerTests : IDisposable
 
         using var explorer = ImageExplorerFactory.Open(zarPath);
 
-        // A crafted deep tree must fail catchably instead of overflowing the stack.
-        // macOS limits paths to ~1024 bytes, so the walk can hit a path-too-long I/O
-        // error before reaching the nesting cap; both are acceptable catchable failures.
+        // A crafted deep tree must fail catchably instead of overflowing the stack. The
+        // depth cap throws InvalidDataException; macOS limits paths to ~1024 bytes, so the
+        // walk can hit a path-too-long error first, which is also an acceptable catchable
+        // failure. Unrelated I/O errors (permissions, disk full) must still fail the test.
         var exception = Record.Exception(() => explorer.CopyOut("/d", Path.Combine(_tempRoot, "deep-out")));
-        Assert.True(exception is InvalidDataException or IOException,
-            $"Expected a catchable extraction failure, got {exception?.GetType().Name ?? "no exception"}: {exception?.Message}");
+        var isNestingCap = exception is InvalidDataException dataEx &&
+                           dataEx.Message.Contains("nesting", StringComparison.OrdinalIgnoreCase);
+        var isPathTooLong = exception is PathTooLongException ||
+                            (exception is IOException ioEx &&
+                             ioEx.Message.Contains("too long", StringComparison.OrdinalIgnoreCase));
+        Assert.True(isNestingCap || isPathTooLong,
+            $"Expected the nesting cap or a path-too-long failure, got {exception?.GetType().Name ?? "no exception"}: {exception?.Message}");
     }
 
     [Fact]

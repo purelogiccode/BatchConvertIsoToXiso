@@ -1642,10 +1642,33 @@ public class OrchestratorServiceTests : IDisposable
             CloudRetrySkip, CancellationToken.None);
 
         // A locked file is environmental: it is reported to the user and counted as failed,
-        // but it must never be logged at Error, which would auto-upload it as a bug report.
+        // but it must never be logged at Warning or higher, which would auto-upload it as a
+        // bug report (the bug-report sink forwards Warning and above).
         Assert.True(logger.HasMessage(LogEventLevel.Information, "Handled test error"));
-        Assert.DoesNotContain(logger.Events, e => e.Level >= LogEventLevel.Error);
+        Assert.DoesNotContain(logger.Events, e => e.Level >= LogEventLevel.Warning);
         Assert.Equal(2, progress.Reports.Count(p => p.FailedCount == 1));
+    }
+
+    [Fact]
+    public async Task TestFilesAsyncLockedSourceCopyFallbackIsLoggedAsEnvironmental()
+    {
+        // Windows enforces FileShare; on Unix an open file does not block reading.
+        if (!OperatingSystem.IsWindows()) return;
+
+        var locked = CreateTempFile("locked.iso", "iso data");
+        await using var holder = new FileStream(locked, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        var logger = new TestLogger();
+        var progress = new CollectingProgress();
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), FileProcessingStatus.Converted,
+            integrityResult: true, logger: logger);
+
+        await orchestrator.TestFilesAsync(_tempDir, [locked], true, false, false, progress,
+            CloudRetrySkip, CancellationToken.None);
+
+        // The unreadable source takes the copy fallback, which fails with a sharing
+        // violation; that failure is environmental and must not become a bug report.
+        Assert.True(logger.HasMessage(LogEventLevel.Information, "environmental error"));
+        Assert.DoesNotContain(logger.Events, e => e.Level >= LogEventLevel.Warning);
     }
 
     [Fact]
