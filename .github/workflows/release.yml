@@ -68,7 +68,8 @@ jobs:
             [osx-x64]="XISOStudio 7zz_osx"
             [osx-arm64]="XISOStudio 7zz_osx"
           )
-          mkdir -p bundles
+          zip_dir="$PWD/bundles"
+          mkdir -p "$zip_dir"
           for rid in "${!BINARIES[@]}"; do
             out="publish/$rid"
             dotnet publish XISOStudio -c Release -r "$rid" --self-contained false \
@@ -80,9 +81,9 @@ jobs:
               cp "$out/$file" "$stage/$file"
             done
             chmod +x "$stage/XISOStudio" "$stage"/7zz_* 2>/dev/null || true
-            (cd "$stage" && zip -X -9 "../bundles/release_${VERSION}_${rid}.zip" *)
+            (cd "$stage" && zip -X -9 "$zip_dir/release_${VERSION}_${rid}.zip" *)
           done
-          ls -l bundles
+          ls -l "$zip_dir"
 
       - name: Create release notes
         env:
