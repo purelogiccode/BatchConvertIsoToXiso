@@ -1087,8 +1087,11 @@ public class OrchestratorService : IOrchestratorService
                     FailedPathToAdd = imagePath
                 });
 
+                // A file locked by another process (antivirus, download manager), an
+                // inaccessible path, or a network glitch is environmental, not an
+                // application defect, and must not be auto-uploaded as a bug report.
                 if (IsFatalEnvironmentalError(ex) || PathHelper.IsNetworkError(ex) ||
-                    ex is UnauthorizedAccessException)
+                    ex is UnauthorizedAccessException or IOException)
                 {
                     _logger.Information(ex, "Handled test error on {FileName}", fileName);
                 }

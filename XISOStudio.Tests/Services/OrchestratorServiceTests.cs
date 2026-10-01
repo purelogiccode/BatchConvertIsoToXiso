@@ -1623,6 +1623,32 @@ public class OrchestratorServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task TestFilesAsyncLockedFileMoveFailureIsLoggedAsEnvironmental()
+    {
+        var first = CreateTempFile("first.iso", "iso data");
+        var second = CreateTempFile("second.iso", "iso data");
+        var fileMover = new Mock<IFileMover>();
+        fileMover.Setup(static m => m.MoveTestedFileAsync(It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new IOException(
+                "The process cannot access the file because it is being used by another process.",
+                unchecked((int)0x80070020))); // ERROR_SHARING_VIOLATION
+        var logger = new TestLogger();
+        var progress = new CollectingProgress();
+        var orchestrator = CreateOrchestrator(new Mock<IFileExtractor>(), FileProcessingStatus.Converted,
+            integrityResult: true, fileMover: fileMover, logger: logger);
+
+        await orchestrator.TestFilesAsync(_tempDir, [first, second], true, false, false, progress,
+            CloudRetrySkip, CancellationToken.None);
+
+        // A locked file is environmental: it is reported to the user and counted as failed,
+        // but it must never be logged at Error, which would auto-upload it as a bug report.
+        Assert.True(logger.HasMessage(LogEventLevel.Information, "Handled test error"));
+        Assert.DoesNotContain(logger.Events, e => e.Level >= LogEventLevel.Error);
+        Assert.Equal(2, progress.Reports.Count(p => p.FailedCount == 1));
+    }
+
+    [Fact]
     public async Task TestFilesAsyncFailedTestWithFailingMoveCountsFileOnce()
     {
         var isoPath = CreateTempFile("game.iso", "iso data");
