@@ -1,0 +1,119 @@
+name: Release
+
+# Builds the six platform bundles and publishes the GitHub release when a
+# release_MAJOR.MINOR.PATCH tag is pushed (or when dispatched with an existing
+# tag). Each zip contains, at the root: the framework-dependent single-file
+# executable, the bundled 7-Zip CLI fallback for that platform, 7-Zip-License.txt,
+# ReadMe.md, WhatsNew.md, and LICENSE.txt. Linux/macOS executables keep the Unix
+# execute bit inside the zip.
+#
+# The same bundles are archived locally under XISOStudio/bin/Release/ (see
+# AGENTS.md); never delete or overwrite files there.
+
+on:
+  push:
+    tags:
+      - 'release_*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build and publish (for example release_3.0.1)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build bundles and publish release
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test
+        run: dotnet test CSharp_XISOStudio.sln -c Release --logger "console;verbosity=minimal"
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "$TAG" != release_* ]]; then
+            echo "::error::Tag '$TAG' does not match release_MAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          echo "version=${TAG#release_}" >> "$GITHUB_OUTPUT"
+
+      - name: Build bundles
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          declare -A BINARIES=(
+            [win-x64]="XISOStudio.exe 7za.exe 7za_arm64.exe"
+            [win-arm64]="XISOStudio.exe 7za.exe 7za_arm64.exe"
+            [linux-x64]="XISOStudio 7zz_linux_x64"
+            [linux-arm64]="XISOStudio 7zz_linux_arm64"
+            [osx-x64]="XISOStudio 7zz_osx"
+            [osx-arm64]="XISOStudio 7zz_osx"
+          )
+          mkdir -p bundles
+          for rid in "${!BINARIES[@]}"; do
+            out="publish/$rid"
+            dotnet publish XISOStudio -c Release -r "$rid" --self-contained false \
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$out"
+            cp ReadMe.md WhatsNew.md LICENSE.txt "$out/"
+            stage="stage/$rid"
+            mkdir -p "$stage"
+            for file in ${BINARIES[$rid]} 7-Zip-License.txt ReadMe.md WhatsNew.md LICENSE.txt; do
+              cp "$out/$file" "$stage/$file"
+            done
+            chmod +x "$stage/XISOStudio" "$stage"/7zz_* 2>/dev/null || true
+            (cd "$stage" && zip -X -9 "../bundles/release_${VERSION}_${rid}.zip" *)
+          done
+          ls -l bundles
+
+      - name: Create release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          awk -v ver="$VERSION" '
+            $0 ~ "^## " ver "$" { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' docs/Release-Notes.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::warning::No section for $VERSION in docs/Release-Notes.md; falling back to WhatsNew.md."
+            cp WhatsNew.md release-notes.md
+          fi
+          previous="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
+          if [[ -n "$previous" ]]; then
+            printf '\n**Full Changelog**: https://github.com/%s/compare/%s...%s\n' \
+              "$GITHUB_REPOSITORY" "$previous" "$TAG" >> release-notes.md
+          fi
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "XISO Studio ${{ steps.version.outputs.version }}" --notes-file release-notes.md
+            gh release upload "$TAG" bundles/release_*.zip --clobber
+          else
+            gh release create "$TAG" bundles/release_*.zip \
+              --title "XISO Studio ${{ steps.version.outputs.version }}" \
+              --notes-file release-notes.md
+          fi
